@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_channel">백그라운드 동작</string>
+    <string name="notification_here">%1$s · 채널 %2$d</string>
+    <string name="go_to_channel">채널 %d로</string>
+
+    <string name="tab_home">홈</string>
+    <string name="tab_buttons">버튼</string>
+    <string name="tab_devices">장치</string>
+    <string name="tab_general">일반</string>
+
+    <string name="status_running">동작 중</string>
+    <string name="status_paused">꺼짐</string>
+    <string name="status_searching">장치를 찾는 중…</string>
+    <string name="status_no_receiver">Logitech 수신기를 연결하세요</string>
+    <string name="enabled">마우스 버튼으로 전환</string>
+    <string name="this_device_channel">이 기기는 채널 %d</string>
+    <string name="channel_unknown">마스터 마우스가 이 기기에 연결되면 채널이 표시됩니다.</string>
+    <string name="last_switch">최근 전환: %s</string>
+    <string name="switch_now">지금 전환</string>
+    <string name="switch_now_hint">마스터 마우스와 함께 이동할 장치를 그 채널로 보냅니다. 빠른 설정의 flockswitch 타일도 같은 일을 합니다.</string>
+
+    <string name="master">마스터 마우스</string>
+    <string name="master_auto">자동 선택</string>
+    <string name="current">현재 %s</string>
+    <string name="no_master">휠 모드 버튼이 있는 마우스를 아직 찾지 못했습니다.</string>
+    <string name="away">다른 PC</string>
+    <string name="follow">함께 이동할 장치</string>
+    <string name="follow_hint">마스터 마우스와 함께 같은 채널로 넘어갑니다.</string>
+    <string name="no_devices">다른 장치를 아직 찾지 못했습니다.</string>
+    <string name="forget_devices">연결되지 않은 장치 기록 지우기</string>
+    <string name="kind_mouse">마우스</string>
+    <string name="kind_keyboard">키보드</string>
+    <string name="kind_other">기타</string>
+
+    <string name="button_wheel_mode">휠 모드 전환 버튼</string>
+    <string name="button_gesture">제스처 버튼</string>
+    <string name="button_middle">휠 클릭 (휠을 눌러 클릭)</string>
+    <string name="not_on_mouse">이 마우스에는 없는 버튼</string>
+    <string name="channels">이동할 채널</string>
+    <string name="here_channel">채널 %d은 이 기기의 채널이라 고를 수 없습니다.</string>
+    <string name="gesture_press">누르기</string>
+    <string name="gesture_up">위</string>
+    <string name="gesture_down">아래</string>
+    <string name="gesture_left">왼쪽</string>
+    <string name="gesture_right">오른쪽</string>
+    <string name="gesture_on">이 방향으로 전환</string>
+    <string name="gesture_hint">누른 채 마우스를 움직였다 떼면 그 방향 설정대로 전환합니다. 방향을 하나라도 켜면 버튼을 누르는 동안 포인터가 멈춥니다.</string>
+    <string name="buttons_hint">설정은 기기마다 따로라서, 각 기기에서 버튼이 보낼 채널을 고르세요. 채널 번호는 모든 장치에서 같은 컴퓨터여야 합니다 (예: 1 = 윈도우 PC, 2 = 맥, 3 = 이 태블릿).</string>
+    <string name="need_one_button">버튼을 하나 이상 켜 두세요. 전환을 멈추려면 \'마우스 버튼으로 전환\'을 끄세요.</string>
+
+    <string name="usb_permission_title">아직 수신기를 쓸 수 없습니다</string>
+    <string name="usb_permission_text">flockswitch가 Logitech 수신기에 접근하도록 허용하세요. 입력과 포인터는 그대로 동작하고, flockswitch는 수신기의 설정용 통로만 씁니다.</string>
+    <string name="usb_permission_button">접근 허용</string>
+    <string name="receiver_busy">안드로이드의 Logitech 드라이버가 이 수신기를 쓰고 있어서, 마우스와 키보드가 끊기지 않도록 flockswitch가 손대지 않았습니다. 수신기를 뺐다 다시 꽂으면 다시 시도합니다.</string>
+    <string name="no_receiver_hint">이 기기에 Logitech Bolt 또는 Unifying 수신기를 꽂고 (USB-C·OTG 어댑터가 필요할 수 있음), 마우스와 키보드를 그 수신기의 채널에 페어링하세요.</string>
+    <string name="service_blocked">백그라운드에서 계속 동작하려면 안드로이드가 \'근처 기기\' 권한을 요구합니다.</string>
+    <string name="grant">허용</string>
+    <string name="notifications_off">알림이 꺼져 있어 채널 버튼이 있는 백그라운드 알림을 표시할 수 없습니다.</string>
+
+    <string name="start_at_boot">기기가 켜지면 자동 시작</string>
+    <string name="bluetooth_title">블루투스 장치 (실험)</string>
+    <string name="bluetooth_hint">수신기 없이 블루투스로 이 기기에 연결된 Logitech 장치도 찾습니다. 아직 실기기에서 시험하지 않았습니다.</string>
+    <string name="bluetooth_permission">블루투스 장치를 쓰려면 \'근처 기기\' 권한을 허용하세요.</string>
+
+    <string name="section_update">업데이트</string>
+    <string name="version">버전 %s</string>
+    <string name="update_auto">새 버전 확인</string>
+    <string name="update_check">지금 확인</string>
+    <string name="update_checking">확인 중…</string>
+    <string name="update_up_to_date">최신 버전입니다</string>
+    <string name="update_available">새 버전 %s</string>
+    <string name="update_failed">확인하지 못했습니다</string>
+    <string name="update_page">릴리스 페이지</string>
+
+    <string name="section_report">개발자에게</string>
+    <string name="report_desc">버그·오류·기능 제안 등 무엇이든 보내 주세요. 메일 앱이 열리면서 앱 버전, 기기 정보, 최근 기록이 본문에 미리 채워집니다.</string>
+    <string name="report_mail">메일 앱 열기</string>
+    <string name="report_issue">GitHub에 신고</string>
+    <string name="report_subject">flockswitch 안드로이드 리포트</string>
+</resources>

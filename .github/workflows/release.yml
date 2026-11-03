@@ -1,0 +1,76 @@
+# Builds the signed APK when a version tag (v*) is pushed and publishes it as a GitHub
+# release. The signing key comes from repository secrets; without them nothing is
+# published (an unsigned APK cannot be installed).
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+# Read-only by default; only the release step gets write access.
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag must match the version in app/build.gradle.kts
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          have=$(grep -m1 'versionName = ' app/build.gradle.kts | cut -d'"' -f2)
+          if [ "$want" != "$have" ]; then echo "tag $GITHUB_REF_NAME but versionName is $have"; exit 1; fi
+          # The release notes come from these sections.
+          for f in CHANGELOG.ko.md CHANGELOG.md; do
+            if ! grep -q "^## $want " "$f"; then echo "$f has no '## $want' section"; exit 1; fi
+          done
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Android platform 37
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" > /dev/null
+      - name: Signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.FLOCKSWITCH_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then echo "the FLOCKSWITCH_KEYSTORE_BASE64 secret is missing"; exit 1; fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+      - name: Build
+        env:
+          FLOCKSWITCH_KEYSTORE: ${{ runner.temp }}/release.jks
+          FLOCKSWITCH_KEYSTORE_PASSWORD: ${{ secrets.FLOCKSWITCH_KEYSTORE_PASSWORD }}
+          FLOCKSWITCH_KEY_ALIAS: ${{ secrets.FLOCKSWITCH_KEY_ALIAS }}
+          FLOCKSWITCH_KEY_PASSWORD: ${{ secrets.FLOCKSWITCH_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon testReleaseUnitTest assembleRelease
+      - name: Check the signature
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          cp app/build/outputs/apk/release/app-release.apk "flockswitch-android-$version.apk"
+          "$apksigner" verify --print-certs "flockswitch-android-$version.apk"
+          rm -f "$RUNNER_TEMP/release.jks"
+      - name: Release notes from CHANGELOG.ko.md and CHANGELOG.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # The lines under "## <version> — <date>", up to the next "## ".
+          section() {
+            awk -v v="$version" '
+              /^## / { if (found) exit; if (index($0, "## " v " ") == 1) { found = 1; next } }
+              found
+            ' "$1" | sed '/./,$!d'
+          }
+          { printf '## 변경 사항\n\n'; section CHANGELOG.ko.md; printf '\n## Changes\n\n'; section CHANGELOG.md; } > notes.md
+          cat notes.md
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha256sum flockswitch-android-*.apk > SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" flockswitch-android-*.apk SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --title "flockswitch $GITHUB_REF_NAME" \
+            --notes-file notes.md --generate-notes

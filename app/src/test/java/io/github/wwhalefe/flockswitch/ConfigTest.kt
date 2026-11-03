@@ -1,0 +1,114 @@
+package io.github.wwhalefe.flockswitch
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class ConfigTest {
+    private fun button(vararg channels: Int) = ButtonSetting(on = true, channels = channels.toList())
+
+    private fun press(b: ButtonSetting, current0: Int, count: Int) = b.channelAfter(Gesture.Press, current0, count)
+
+    @Test
+    fun cycleWrapsLikeTheHardwareButton() {
+        val b = button(1, 2, 3)
+        assertEquals(2, press(b, 0, 3))
+        assertEquals(3, press(b, 1, 3))
+        assertEquals(1, press(b, 2, 3))
+    }
+
+    @Test
+    fun cycleSkipsChannelsTheDeviceLacks() = assertEquals(1, press(button(1, 2, 3), 1, 2))
+
+    @Test
+    fun cycleFromUnlistedChannelGoesToFirst() = assertEquals(1, press(button(1, 2), 2, 3))
+
+    @Test
+    fun oneChannelAlwaysGoesThere() {
+        val b = button(2)
+        assertNull(press(b, 1, 3))
+        assertEquals(2, press(b, 0, 3))
+        assertEquals(2, press(b, 2, 3))
+        assertNull(press(button(3), 0, 2)) // the device has no channel 3
+    }
+
+    @Test
+    fun gestures() {
+        assertEquals(Gesture.Press, Gesture.fromMovement(10, -20))
+        assertEquals(Gesture.Right, Gesture.fromMovement(300, 40))
+        assertEquals(Gesture.Left, Gesture.fromMovement(-300, 100))
+        assertEquals(Gesture.Up, Gesture.fromMovement(20, -200))
+        assertEquals(Gesture.Down, Gesture.fromMovement(-30, 200))
+        val b = button(1, 2).copy(
+            moves = Moves(
+                left = MoveSetting(true, listOf(1)),
+                right = MoveSetting(true, listOf(3)),
+                up = MoveSetting(true, listOf(1, 3)),
+                down = MoveSetting(false, listOf(2)), // set but off
+            ),
+        )
+        assertEquals(2, b.channelAfter(Gesture.Press, 0, 3))
+        assertEquals(3, b.channelAfter(Gesture.Right, 0, 3))
+        assertNull(b.channelAfter(Gesture.Left, 0, 3)) // already on 1
+        assertEquals(3, b.channelAfter(Gesture.Up, 0, 3))
+        assertEquals(1, b.channelAfter(Gesture.Up, 2, 3))
+        assertNull(b.channelAfter(Gesture.Down, 0, 3)) // off
+        assertTrue(b.usesMoves())
+        assertFalse(button(1).usesMoves())
+    }
+
+    @Test
+    fun jsonRoundTrip() {
+        val c = Config(follow = listOf("B366"), bluetooth = true)
+            .withButton(BUTTON_GESTURE, button(3).copy(moves = Moves(left = MoveSetting(true, listOf(2)))))
+        assertEquals(c, Config.fromJson(c.toJson()))
+    }
+
+    @Test
+    fun unreadableOrUnusableSettingsGiveTheDefaults() {
+        assertEquals(Config(), Config.fromJson("not json"))
+        val noButton = Config().withButton(BUTTON_WHEEL_MODE, ButtonSetting(on = false))
+        assertEquals(Config(), Config.fromJson(noButton.toJson()))
+        // Unknown keys (from a newer version) are ignored.
+        assertEquals(Config(enabled = false), Config.fromJson("""{"enabled": false, "future": 1}"""))
+    }
+
+    @Test
+    fun problems() {
+        assertTrue(Config().problems().isEmpty())
+        assertFalse(Config().withButton(BUTTON_WHEEL_MODE, button(4)).problems().isEmpty())
+        assertFalse(Config().withButton(BUTTON_WHEEL_MODE, button()).problems().isEmpty())
+        assertFalse(Config().withButton(BUTTON_WHEEL_MODE, ButtonSetting(on = false)).problems().isEmpty())
+    }
+
+    @Test
+    fun untickOneDeviceFromAll() {
+        val c = Config().toggleFollow(listOf("B366", "B377"), "B366")
+        assertEquals(listOf("B377"), c.follow)
+    }
+
+    @Test
+    fun tickingTheLastOneCollapsesToAll() {
+        val c = Config(follow = listOf("B377")).toggleFollow(listOf("B366", "B377"), "B366")
+        assertEquals(listOf("all"), c.follow)
+    }
+
+    @Test
+    fun followMatching() {
+        assertTrue(Config().follows(0xB366, "MX Mechanical"))
+        assertTrue(Config(follow = listOf("b366")).follows(0xB366, "x"))
+        assertFalse(Config(follow = listOf("b366")).follows(0xB042, "MX Master 4"))
+        assertTrue(Config(follow = listOf("keys")).follows(null, "MX Keys S"))
+        assertFalse(Config(follow = emptyList()).follows(0xB366, "MX Mechanical"))
+    }
+
+    @Test
+    fun versions() {
+        assertTrue(isNewer("0.1.1", "0.1.0"))
+        assertTrue(isNewer("0.10.0", "0.9.1"))
+        assertFalse(isNewer("0.1.0", "0.1.0"))
+        assertFalse(isNewer("0.1", "0.1.0"))
+    }
+}

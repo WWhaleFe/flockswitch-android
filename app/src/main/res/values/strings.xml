@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">flockswitch</string>
+    <string name="notification_channel">Running in the background</string>
+    <string name="notification_here">%1$s · channel %2$d</string>
+    <string name="go_to_channel">→ Channel %d</string>
+
+    <string name="tab_home">Home</string>
+    <string name="tab_buttons">Buttons</string>
+    <string name="tab_devices">Devices</string>
+    <string name="tab_general">General</string>
+
+    <string name="status_running">Running</string>
+    <string name="status_paused">Paused</string>
+    <string name="status_searching">Looking for devices…</string>
+    <string name="status_no_receiver">Plug in a Logitech receiver</string>
+    <string name="enabled">Switch with mouse buttons</string>
+    <string name="this_device_channel">This device is channel %d</string>
+    <string name="channel_unknown">This device\'s channel shows once the master mouse is here.</string>
+    <string name="last_switch">Last switch: %s</string>
+    <string name="switch_now">Switch now</string>
+    <string name="switch_now_hint">Sends the master mouse and the devices that move along to that channel. The flockswitch tile in Quick Settings does the same.</string>
+
+    <string name="master">Master mouse</string>
+    <string name="master_auto">Automatic</string>
+    <string name="current">now %s</string>
+    <string name="no_master">No mouse with the wheel mode button found yet.</string>
+    <string name="away">on another computer</string>
+    <string name="follow">Devices that move along</string>
+    <string name="follow_hint">They move to the same channel as the master mouse.</string>
+    <string name="no_devices">No other devices found yet.</string>
+    <string name="forget_devices">Forget devices that are away</string>
+    <string name="kind_mouse">mouse</string>
+    <string name="kind_keyboard">keyboard</string>
+    <string name="kind_other">other</string>
+
+    <string name="button_wheel_mode">Wheel mode-shift button</string>
+    <string name="button_gesture">Gesture button</string>
+    <string name="button_middle">Wheel click (press the wheel)</string>
+    <string name="not_on_mouse">This mouse does not have this button</string>
+    <string name="channels">Go to channel</string>
+    <string name="here_channel">Channel %d is this device\'s, so it cannot be chosen.</string>
+    <string name="gesture_press">Press</string>
+    <string name="gesture_up">Up</string>
+    <string name="gesture_down">Down</string>
+    <string name="gesture_left">Left</string>
+    <string name="gesture_right">Right</string>
+    <string name="gesture_on">Switch with this move</string>
+    <string name="gesture_hint">Hold the button, move the mouse and let go to switch as set for that direction. While any direction is on, the pointer stays still as long as the button is held.</string>
+    <string name="buttons_hint">Settings are kept per computer: choose on each one where its button sends everything. The channel numbers must mean the same computer on every device (e.g. 1 = Windows PC, 2 = Mac, 3 = this tablet).</string>
+    <string name="need_one_button">Keep at least one button on. To stop switching, turn off “Switch with mouse buttons”.</string>
+
+    <string name="usb_permission_title">flockswitch may not use the receiver yet</string>
+    <string name="usb_permission_text">Allow flockswitch to access the Logitech receiver. Typing and pointing keep working; flockswitch only uses the receiver\'s own settings channel.</string>
+    <string name="usb_permission_button">Allow access</string>
+    <string name="receiver_busy">Android\'s own Logitech driver is using this receiver, so flockswitch left it alone to keep the mouse and keyboard working. Unplug the receiver and plug it in again to retry.</string>
+    <string name="no_receiver_hint">Plug a Logitech Bolt or Unifying receiver into this device (a USB-C or OTG adapter may be needed), and pair the mouse and keyboard with it on a channel of their own.</string>
+    <string name="service_blocked">Android needs the “Nearby devices” permission before flockswitch can keep running in the background.</string>
+    <string name="grant">Allow</string>
+    <string name="notifications_off">Notifications are off: the background notification with the channel buttons cannot be shown.</string>
+
+    <string name="start_at_boot">Start when this device starts</string>
+    <string name="bluetooth_title">Bluetooth devices (experimental)</string>
+    <string name="bluetooth_hint">Also looks for Logitech devices connected to this device over Bluetooth, without a receiver. Not tested on real devices yet.</string>
+    <string name="bluetooth_permission">Allow “Nearby devices” to use Bluetooth devices.</string>
+
+    <string name="section_update">Updates</string>
+    <string name="version">Version %s</string>
+    <string name="update_auto">Check for a new version</string>
+    <string name="update_check">Check now</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_up_to_date">This is the latest version</string>
+    <string name="update_available">Version %s is available</string>
+    <string name="update_failed">Could not check</string>
+    <string name="update_page">Release page</string>
+
+    <string name="section_report">To the developer</string>
+    <string name="report_desc">Bugs, errors, ideas — anything. Your mail app opens with the app version, device and recent log filled in.</string>
+    <string name="report_mail">Open mail app</string>
+    <string name="report_issue">Report on GitHub</string>
+    <string name="report_subject">flockswitch for Android report</string>
+</resources>

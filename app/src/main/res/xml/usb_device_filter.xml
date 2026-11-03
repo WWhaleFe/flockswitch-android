@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Logitech receivers (vendor 0x046D): Bolt, Unifying, nano / Lightspeed. -->
+<resources>
+    <usb-device vendor-id="1133" product-id="50504" /> <!-- C548 Bolt -->
+    <usb-device vendor-id="1133" product-id="50475" /> <!-- C52B Unifying -->
+    <usb-device vendor-id="1133" product-id="50482" /> <!-- C532 Unifying -->
+    <usb-device vendor-id="1133" product-id="50479" /> <!-- C52F nano -->
+    <usb-device vendor-id="1133" product-id="50484" /> <!-- C534 nano -->
+    <usb-device vendor-id="1133" product-id="50489" /> <!-- C539 Lightspeed -->
+    <usb-device vendor-id="1133" product-id="50490" /> <!-- C53A Lightspeed -->
+    <usb-device vendor-id="1133" product-id="50495" /> <!-- C53F Lightspeed -->
+    <usb-device vendor-id="1133" product-id="50503" /> <!-- C547 Lightspeed -->
+</resources>
