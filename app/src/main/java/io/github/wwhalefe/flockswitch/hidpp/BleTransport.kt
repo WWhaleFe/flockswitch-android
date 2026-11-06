@@ -68,11 +68,18 @@ class BleTransport private constructor(
         @Volatile
         var lost = false
 
+        /** Whether the last service discovery succeeded. */
+        @Volatile
+        var discoveryOk = false
+
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             if (newState == BluetoothProfile.STATE_CONNECTED) connected.release() else lost = true
         }
 
-        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) = discovered.release()
+        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            discoveryOk = status == BluetoothGatt.GATT_SUCCESS
+            discovered.release()
+        }
 
         override fun onCharacteristicWrite(gatt: BluetoothGatt, c: BluetoothGattCharacteristic, status: Int) {
             written.offer(status == BluetoothGatt.GATT_SUCCESS)
@@ -213,6 +220,9 @@ class BleTransport private constructor(
             }
             if (!cb.connected.tryAcquire(5, TimeUnit.SECONDS)) return fail("did not connect")
             if (!gatt.discoverServices() || !cb.discovered.tryAcquire(10, TimeUnit.SECONDS)) return fail("no services")
+            // A discovery that failed (or lost the link half way) lists nothing, which must
+            // not be taken for "not a Logitech device": that would be kept until restart.
+            if (!cb.discoveryOk || cb.lost || gatt.services.isEmpty()) return fail("service discovery failed")
             val service = gatt.getService(LOGITECH_HIDPP_SERVICE) ?: return fail("no Logitech HID++ service", Opened.NotLogitech)
             val c = service.characteristics.firstOrNull {
                 it.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0 &&

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Bluetooth: a device that is connected but could not be opened, as can happen right after the mouse comes back while Android is still bringing its own link up, is tried again after a pause (5 seconds, growing to a minute). Before, it was only tried again once it disconnected and reconnected
+- Bluetooth: a failed service discovery no longer marks a Logitech device as "not Logitech" until the app restarts; it is tried again instead
+
 ## 0.1.0 — 2026-11-03
 
 - First Android version, with the same switching as flockswitch for macOS 0.4.3: buttons, gestures, devices that move along, and a channel per button (this device's own channel cannot be chosen). Not tried on a real Android device yet

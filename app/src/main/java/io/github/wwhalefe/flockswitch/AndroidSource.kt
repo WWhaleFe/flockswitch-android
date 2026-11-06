@@ -20,7 +20,6 @@ import androidx.core.content.ContextCompat
 import io.github.wwhalefe.flockswitch.hidpp.BleTransport
 import io.github.wwhalefe.flockswitch.hidpp.Transport
 import io.github.wwhalefe.flockswitch.hidpp.UsbTransport
-import java.util.concurrent.ConcurrentHashMap
 
 /** Major classes that are surely not a mouse or keyboard. Bluetooth LE devices often
  *  report no class at all, so those are tried. */
@@ -45,10 +44,8 @@ class AndroidSource(private val context: Context, private val shared: Shared) : 
     /** Bluetooth devices found not to be Logitech HID++ devices, so they are not asked again. */
     private val notLogitech = mutableSetOf<String>()
 
-    /** Bluetooth devices that did not answer (off, out of range, on another computer).
-     *  They are left out of [keys] until Android reports them connected again; that
-     *  changes the keys, so the engine rescans once, instead of on a timer. */
-    private val failed: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    /** Bluetooth devices that did not answer, and when to try them again. */
+    private val retries = BluetoothRetries()
 
     private val connections = object : BroadcastReceiver() {
         override fun onReceive(c: Context, intent: Intent) {
@@ -58,14 +55,20 @@ class AndroidSource(private val context: Context, private val shared: Shared) : 
                 @Suppress("DEPRECATION")
                 intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
             } ?: return
-            failed -= BleTransport.bleKey(device)
+            val key = BleTransport.bleKey(device)
+            when (intent.action) {
+                BluetoothDevice.ACTION_ACL_CONNECTED -> retries.linkUp(key)
+                BluetoothDevice.ACTION_ACL_DISCONNECTED -> retries.linkDown(key)
+            }
         }
     }
 
     init {
-        ContextCompat.registerReceiver(
-            context, connections, IntentFilter(BluetoothDevice.ACTION_ACL_CONNECTED), ContextCompat.RECEIVER_NOT_EXPORTED,
-        )
+        val filter = IntentFilter().apply {
+            addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+            addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+        }
+        ContextCompat.registerReceiver(context, connections, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     override fun close() {
@@ -88,9 +91,10 @@ class AndroidSource(private val context: Context, private val shared: Shared) : 
         val paired = runCatching { adapter.bondedDevices.orEmpty() }.getOrDefault(emptySet()).filter {
             it.type != BluetoothDevice.DEVICE_TYPE_CLASSIC && it.bluetoothClass?.majorDeviceClass !in NOT_INPUT
         }
+        val connectedKeys = connected.map { BleTransport.bleKey(it) }.toSet()
         return (connected + paired).distinctBy { it.address }.filter {
             val key = BleTransport.bleKey(it)
-            key !in notLogitech && key !in failed
+            key !in notLogitech && !retries.leftOut(key, key in connectedKeys)
         }
     }
 
@@ -120,9 +124,12 @@ class AndroidSource(private val context: Context, private val shared: Shared) : 
         for (device in bluetoothDevices()) {
             val key = BleTransport.bleKey(device)
             when (val r = runCatching { BleTransport.open(context, device) }.getOrElse { BleTransport.Opened.Failed }) {
-                is BleTransport.Opened.Ok -> out += r.transport
+                is BleTransport.Opened.Ok -> {
+                    retries.opened(key)
+                    out += r.transport
+                }
                 BleTransport.Opened.NotLogitech -> notLogitech += key
-                BleTransport.Opened.Failed -> failed += key
+                BleTransport.Opened.Failed -> retries.failed(key)
             }
         }
         shared.setStatus {
