@@ -61,7 +61,7 @@
 
     <string name="start_at_boot">Start when this device starts</string>
     <string name="bluetooth_title">Bluetooth devices (experimental)</string>
-    <string name="bluetooth_hint">Also looks for Logitech devices connected to this device over Bluetooth, without a receiver. Not tested on real devices yet.</string>
+    <string name="bluetooth_hint">Also looks for Logitech devices connected to this device over Bluetooth, without a receiver.</string>
     <string name="bluetooth_permission">Allow “Nearby devices” to use Bluetooth devices.</string>
 
     <string name="section_update">Updates</string>
