@@ -46,7 +46,7 @@ jobs:
           FLOCKSWITCH_KEYSTORE_PASSWORD: ${{ secrets.FLOCKSWITCH_KEYSTORE_PASSWORD }}
           FLOCKSWITCH_KEY_ALIAS: ${{ secrets.FLOCKSWITCH_KEY_ALIAS }}
           FLOCKSWITCH_KEY_PASSWORD: ${{ secrets.FLOCKSWITCH_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon testReleaseUnitTest assembleRelease
+        run: ./gradlew --no-daemon testDebugUnitTest assembleRelease
       - name: Check the signature
         run: |
           version="${GITHUB_REF_NAME#v}"

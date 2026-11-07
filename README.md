@@ -8,8 +8,6 @@ flockswitch turns buttons of an MX Master mouse — the wheel mode-shift button,
 
 This repository is the Android version. The others live in [flockswitch-mac](https://github.com/WWhaleFe/flockswitch-mac), [flockswitch-windows](https://github.com/WWhaleFe/flockswitch-windows) and [flockswitch-linux](https://github.com/WWhaleFe/flockswitch-linux); all of them switch the same way and can be mixed.
 
-> **Not tried on a real Android device yet.** The switching logic is the same as in the macOS and Windows versions, which are tested, and it is covered by tests against a simulated receiver, but the USB and Bluetooth parts have not run on real hardware. Reports are very welcome.
-
 > Not affiliated with Logitech. "Logitech", "MX Master", "Easy-Switch", "Bolt" and "Unifying" are trademarks of Logitech.
 
 ## Supported mice
