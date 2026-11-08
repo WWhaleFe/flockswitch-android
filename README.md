@@ -33,6 +33,7 @@ The app has four tabs; every change applies at once:
 
 - **Home**: what is going on, switching on or off, and *Switch now* buttons that send the group and the master mouse to a channel.
 - **Buttons**: per button (wheel mode-shift, gesture, wheel click — several can be on), the channel it goes to. Settings are kept per computer, so choose on each one; this device's own channel is shown but cannot be chosen. The gesture button can also switch by holding it and moving the mouse up, down, left or right, each direction with its own channel.
+- **Edges** (on the Buttons tab): rest the pointer against the left or right edge of the screen for a moment (0.3 to 2 s, your choice) and the group and the master mouse go to the channel set for that side. No network: each device watches its own screen, so set it up on every computer. Needs *Display over other apps*: thin invisible strips along the edges notice the pointer. The top and bottom edges sit under the status bar and the navigation bar, so they rarely work.
 - **Devices**: the master mouse, and the devices that move along (devices on another computer are listed too).
 - **General**: start when the device starts, Bluetooth devices (experimental), updates, report to the developer.
 
@@ -45,6 +46,7 @@ When switching is turned off or a button is turned off, the button is put back e
 - **USB device access** (asked by Android when the receiver is plugged in): to talk to the receiver.
 - **Notifications**: for the background notification with the channel buttons.
 - **Nearby devices**: only for Bluetooth devices, or if Android insists on it before letting flockswitch run in the background.
+- **Display over other apps**: only for switching at the screen edge. The strips along the edges are invisible and take no input.
 - **Internet**: only to ask GitHub whether a newer version exists (can be turned off). Nothing else is sent anywhere.
 
 ## Build

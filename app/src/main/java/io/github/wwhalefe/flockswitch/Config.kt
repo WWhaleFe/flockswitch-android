@@ -106,6 +106,44 @@ data class ButtonSetting(
     fun usesMoves() = moves.anyOn()
 }
 
+/** A side of the screen. */
+enum class Edge {
+    Left, Right, Top, Bottom;
+
+    val vertical get() = this == Left || this == Right
+}
+
+/** Switching at the screen edge: rest the pointer against an edge and the group goes to
+ *  that edge's channel (0 = that edge does nothing). Each device watches its own screen. */
+@Serializable
+data class Edges(
+    /** How long (ms) the pointer must rest against the edge first. */
+    val dwellMs: Long = 500,
+    val left: Int = 0,
+    val right: Int = 0,
+    val top: Int = 0,
+    val bottom: Int = 0,
+    /** Density-independent pixels at each end of an edge that do not count. */
+    val cornerMargin: Int = 80,
+) {
+    fun channel(e: Edge): Int = when (e) {
+        Edge.Left -> left
+        Edge.Right -> right
+        Edge.Top -> top
+        Edge.Bottom -> bottom
+    }
+
+    fun with(e: Edge, channel: Int): Edges = when (e) {
+        Edge.Left -> copy(left = channel)
+        Edge.Right -> copy(right = channel)
+        Edge.Top -> copy(top = channel)
+        Edge.Bottom -> copy(bottom = channel)
+    }
+
+    /** Whether any edge has a channel. */
+    fun any() = Edge.entries.any { channel(it) != 0 }
+}
+
 /** Each button that can switch has its own setting. */
 @Serializable
 data class Buttons(
@@ -134,6 +172,8 @@ data class Config(
     /** Look for a new version on GitHub at start and once a day. */
     val checkUpdates: Boolean = true,
     val buttons: Buttons = Buttons(),
+    /** Switching at the screen edge. */
+    val edges: Edges = Edges(),
 ) {
     /** The setting of a trigger button ([cid] must be one of [BUTTONS]). */
     fun button(cid: Int): ButtonSetting = when (cid) {
@@ -167,6 +207,8 @@ data class Config(
             }
         }
         if (triggers().isEmpty()) out += "turn on at least one button"
+        if (Edge.entries.any { edges.channel(it) !in 0..3 }) out += "edges: the channel must be 1, 2, 3 or 0"
+        if (edges.dwellMs !in 100..5000) out += "edges: the time at the edge must be 100 to 5000 ms"
         return out
     }
 

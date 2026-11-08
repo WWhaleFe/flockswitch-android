@@ -7,6 +7,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConfigTest {
+    @Test
+    fun edges() {
+        val c = Config().copy(edges = Edges(right = 2, dwellMs = 800))
+        assertTrue(c.edges.any())
+        assertEquals(2, c.edges.channel(Edge.Right))
+        assertEquals(0, c.edges.with(Edge.Right, 0).channel(Edge.Right))
+        assertFalse(c.edges.with(Edge.Right, 0).any())
+        assertTrue(c.problems().isEmpty())
+        assertFalse(Config().copy(edges = Edges(left = 4)).problems().isEmpty())
+        assertFalse(Config().copy(edges = Edges(dwellMs = 50)).problems().isEmpty())
+        assertEquals(c.edges, Config.fromJson(c.toJson()).edges)
+        // Settings from before edges existed have every edge off.
+        assertEquals(Edges(), Config.fromJson("{\"enabled\": true}").edges)
+    }
+
     private fun button(vararg channels: Int) = ButtonSetting(on = true, channels = channels.toList())
 
     private fun press(b: ButtonSetting, current0: Int, count: Int) = b.channelAfter(Gesture.Press, current0, count)

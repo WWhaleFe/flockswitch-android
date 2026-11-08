@@ -78,4 +78,16 @@
     <string name="report_mail">메일 앱 열기</string>
     <string name="report_issue">GitHub에 신고</string>
     <string name="report_subject">flockswitch 안드로이드 리포트</string>
+
+    <string name="off">끔</string>
+    <string name="edges_title">화면 모서리에서 전환</string>
+    <string name="edges_hint">마우스 포인터를 화면 가장자리에 대고 잠시 머물면 그 방향에 정한 채널로 그룹 장치와 마스터 마우스를 보냅니다. 네트워크 없이 각 컴퓨터가 자기 화면만 봅니다. 마스터 마우스가 이 기기에 있을 때만 동작합니다. 위·아래 가장자리에는 상태 표시줄과 내비게이션 바가 있어 왼쪽·오른쪽이 가장 잘 동작합니다.</string>
+    <string name="edge_left">왼쪽</string>
+    <string name="edge_right">오른쪽</string>
+    <string name="edge_top">위</string>
+    <string name="edge_bottom">아래</string>
+    <string name="edge_dwell">머무는 시간</string>
+    <string name="seconds">%s초</string>
+    <string name="edges_corner_hint">네 귀퉁이는 제외됩니다.</string>
+    <string name="overlay_permission">화면 가장자리를 지켜보려면 “다른 앱 위에 표시” 권한이 필요합니다. 가장자리를 따라 보이지 않는 얇은 띠가 포인터를 감지할 뿐, 아무것도 그리지 않고 입력도 가로채지 않습니다.</string>
 </resources>

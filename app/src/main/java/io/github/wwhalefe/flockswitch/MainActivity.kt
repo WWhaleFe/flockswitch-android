@@ -7,6 +7,7 @@ import android.hardware.usb.UsbManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -32,6 +33,9 @@ class MainActivity : ComponentActivity() {
             setEnabled = ::setEnabled,
             allowUsb = { allowUsb(again = true) },
             allowNearby = { if (Build.VERSION.SDK_INT >= 31) askNearby.launch(Manifest.permission.BLUETOOTH_CONNECT) },
+            allowOverlay = {
+                runCatching { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }
+            },
             notificationsOn = { NotificationManagerCompat.from(this).areNotificationsEnabled() },
             switchTo = { channel -> shared.requestSwitch(channel) },
             open = { url -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },

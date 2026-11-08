@@ -79,4 +79,16 @@
     <string name="report_mail">Open mail app</string>
     <string name="report_issue">Report on GitHub</string>
     <string name="report_subject">flockswitch for Android report</string>
+
+    <string name="off">Off</string>
+    <string name="edges_title">Switch at the screen edge</string>
+    <string name="edges_hint">Rest the mouse pointer against an edge of the screen for a moment and the group and the master mouse go to the channel set for that side. No network: each computer watches its own screen. Works while the master mouse is on this device. Left and right work best; the status bar and the navigation bar sit on the top and bottom edges.</string>
+    <string name="edge_left">Left</string>
+    <string name="edge_right">Right</string>
+    <string name="edge_top">Top</string>
+    <string name="edge_bottom">Bottom</string>
+    <string name="edge_dwell">Time at the edge</string>
+    <string name="seconds">%s s</string>
+    <string name="edges_corner_hint">The corners do not count.</string>
+    <string name="overlay_permission">To watch the screen edges flockswitch needs “Display over other apps”: thin invisible strips along the edges notice the pointer. Nothing is drawn and no input is taken.</string>
 </resources>

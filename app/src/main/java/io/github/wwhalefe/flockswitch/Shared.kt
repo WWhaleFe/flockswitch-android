@@ -57,6 +57,8 @@ data class Status(
     val bluetoothNeedsPermission: Boolean = false,
     /** Android refused to run the background service (a permission is missing). */
     val serviceBlocked: Boolean = false,
+    /** An edge has a channel but "display over other apps" is not allowed yet. */
+    val overlayNeeded: Boolean = false,
 )
 
 class Shared(private val dir: File) {

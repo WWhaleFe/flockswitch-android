@@ -64,6 +64,7 @@ import io.github.wwhalefe.flockswitch.BUTTONS
 import io.github.wwhalefe.flockswitch.BuildConfig
 import io.github.wwhalefe.flockswitch.Config
 import io.github.wwhalefe.flockswitch.DeviceInfo
+import io.github.wwhalefe.flockswitch.Edge
 import io.github.wwhalefe.flockswitch.Gesture
 import io.github.wwhalefe.flockswitch.MainActivity
 import io.github.wwhalefe.flockswitch.MoveSetting
@@ -83,6 +84,7 @@ class Actions(
     val setEnabled: (Boolean) -> Unit,
     val allowUsb: () -> Unit,
     val allowNearby: () -> Unit,
+    val allowOverlay: () -> Unit,
     val notificationsOn: () -> Boolean,
     val switchTo: (Int) -> Unit,
     val open: (String) -> Unit,
@@ -152,7 +154,7 @@ fun FlockswitchApp(shared: Shared, actions: Actions) = theme {
             ) {
                 when (Tab.entries[tab]) {
                     Tab.Home -> HomeTab(cfg, status, actions)
-                    Tab.Buttons -> ButtonsTab(cfg, status, update)
+                    Tab.Buttons -> ButtonsTab(cfg, status, update, actions)
                     Tab.Devices -> DevicesTab(cfg, status, update, shared)
                     Tab.General -> GeneralTab(cfg, status, update, actions)
                 }
@@ -207,21 +209,48 @@ private fun SwitchRow(title: String, checked: Boolean, subtitle: String? = null,
     }
 }
 
-/** Channel 1–3 to choose from; this device's own channel is shown but cannot be chosen. */
+/** A chosen "Off" segment: neutral gray (Apple's systemGray), not the accent colour, so
+ *  it reads as switched off rather than as a choice made. */
+private val OffGray = Color(0xFF8E8E93)
+
+/** "Off" (0) and channels 1–3 to choose from; this device's own channel is shown but
+ *  cannot be chosen. Off replaces an on/off switch. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChannelPicker(selected: Int?, here: Int?, onPick: (Int) -> Unit) {
-    SingleChoiceSegmentedButtonRow(Modifier.widthIn(max = 360.dp).fillMaxWidth()) {
-        for (c in 1..3) {
+    val chosen = selected ?: 0
+    SingleChoiceSegmentedButtonRow(Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
+        for (c in 0..3) {
+            val off = c == 0
             SegmentedButton(
-                selected = selected == c,
+                selected = chosen == c,
                 onClick = { onPick(c) },
                 enabled = c != here,
-                shape = SegmentedButtonDefaults.itemShape(index = c - 1, count = 3),
-            ) { Text("$c") }
+                shape = SegmentedButtonDefaults.itemShape(index = c, count = 4),
+                colors = if (off) {
+                    SegmentedButtonDefaults.colors(activeContainerColor = OffGray, activeContentColor = Color.White, activeBorderColor = OffGray)
+                } else {
+                    SegmentedButtonDefaults.colors()
+                },
+            ) { Text(if (off) stringResource(R.string.off) else "$c") }
         }
     }
     if (here != null) Hint(stringResource(R.string.here_channel, here))
+}
+
+/** One of a few fixed values, e.g. the time at the edge. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun <T> ValuePicker(options: List<Pair<T, String>>, selected: T, onPick: (T) -> Unit) {
+    SingleChoiceSegmentedButtonRow(Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
+        options.forEachIndexed { i, (value, label) ->
+            SegmentedButton(
+                selected = selected == value,
+                onClick = { onPick(value) },
+                shape = SegmentedButtonDefaults.itemShape(index = i, count = options.size),
+            ) { Text(label) }
+        }
+    }
 }
 
 /** Shown as chosen: where a press goes from here (older settings may list several). */
@@ -295,7 +324,7 @@ private fun HomeTab(cfg: Config, s: Status, actions: Actions) {
 }
 
 @Composable
-private fun ButtonsTab(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit) {
+private fun ButtonsTab(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions) {
     Hint(stringResource(R.string.buttons_hint))
     for (cid in BUTTONS) {
         val b = cfg.button(cid)
@@ -308,13 +337,12 @@ private fun ButtonsTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
         )
         val missing = s.buttons.isNotEmpty() && cid !in s.buttons
         Section {
-            SwitchRow(title, b.on, subtitle = if (missing) stringResource(R.string.not_on_mouse) else null) { on ->
-                update { withButton(cid, b.copy(on = on)) }
-            }
-            if (!b.on) return@Section
+            // The button is turned off with the "Off" segment of its channel row.
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (missing) Hint(stringResource(R.string.not_on_mouse))
             Text(stringResource(R.string.channels), style = MaterialTheme.typography.labelLarge)
-            ChannelPicker(shownTarget(b.channels, s.channel), s.channel) { c ->
-                update { withButton(cid, b.copy(channels = listOf(c))) }
+            ChannelPicker(if (b.on) shownTarget(b.channels, s.channel) else 0, s.channel) { c ->
+                update { withButton(cid, if (c == 0) b.copy(on = false) else b.copy(on = true, channels = listOf(c))) }
             }
             if (cid == BUTTON_GESTURE) {
                 Spacer(Modifier.height(4.dp))
@@ -330,17 +358,45 @@ private fun ButtonsTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
                             else -> R.string.gesture_right
                         },
                     )
-                    SwitchRow(name, m.on, subtitle = stringResource(R.string.gesture_on)) { on ->
-                        update { withButton(cid, b.copy(moves = b.moves.with(g, m.copy(on = on)))) }
-                    }
-                    if (m.on) {
-                        ChannelPicker(shownTarget(m.channels, s.channel), s.channel) { c ->
-                            update { withButton(cid, b.copy(moves = b.moves.with(g, MoveSetting(true, listOf(c))))) }
-                        }
+                    Text(name, style = MaterialTheme.typography.bodyLarge)
+                    ChannelPicker(if (m.on) shownTarget(m.channels, s.channel) else 0, s.channel) { c ->
+                        val next = if (c == 0) m.copy(on = false) else MoveSetting(true, listOf(c))
+                        update { withButton(cid, b.copy(moves = b.moves.with(g, next))) }
                     }
                 }
             }
         }
+    }
+    EdgesSection(cfg, s, update, actions)
+}
+
+/** Switching at the screen edge: the channel of each side and the time at the edge. */
+@Composable
+private fun EdgesSection(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions) {
+    Section(stringResource(R.string.edges_title)) {
+        Hint(stringResource(R.string.edges_hint))
+        if (s.overlayNeeded) {
+            Notice(stringResource(R.string.overlay_permission), stringResource(R.string.grant), actions.allowOverlay)
+        }
+        for (edge in Edge.entries) {
+            HorizontalDivider()
+            val name = stringResource(
+                when (edge) {
+                    Edge.Left -> R.string.edge_left
+                    Edge.Right -> R.string.edge_right
+                    Edge.Top -> R.string.edge_top
+                    Edge.Bottom -> R.string.edge_bottom
+                },
+            )
+            Text(name, style = MaterialTheme.typography.bodyLarge)
+            ChannelPicker(cfg.edges.channel(edge), s.channel) { c -> update { copy(edges = edges.with(edge, c)) } }
+        }
+        HorizontalDivider()
+        Text(stringResource(R.string.edge_dwell), style = MaterialTheme.typography.labelLarge)
+        val options = listOf(300L to "0.3", 500L to "0.5", 1000L to "1", 2000L to "2")
+            .map { (ms, text) -> ms to stringResource(R.string.seconds, text) }
+        ValuePicker(options, cfg.edges.dwellMs) { ms -> update { copy(edges = edges.copy(dwellMs = ms)) } }
+        Hint(stringResource(R.string.edges_corner_hint))
     }
 }
 

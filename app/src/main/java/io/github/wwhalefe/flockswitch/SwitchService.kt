@@ -5,8 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.hardware.usb.UsbManager
 import android.os.Build
@@ -28,6 +30,13 @@ import kotlinx.coroutines.launch
 class SwitchService : Service() {
     private var thread: Thread? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    /** The strips along the screen's edges, while the settings ask for them. */
+    private var edges: EdgeWatcher? = null
+    private val screenChanged = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            edges?.relayout(shared.config.value)
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -65,9 +74,23 @@ class SwitchService : Service() {
                 .distinctUntilChanged()
                 .collect { (s, c) -> nm.notify(NOTIFICATION_ID, notification(s, c)) }
         }
+        val watcher = EdgeWatcher(this, shared)
+        edges = watcher
+        scope.launch { shared.config.collect { syncEdges(watcher, it) } }
+        registerReceiver(screenChanged, IntentFilter(Intent.ACTION_CONFIGURATION_CHANGED))
+    }
+
+    /** Shows or hides the edge strips for these settings and tells the screen whether
+     *  the "display over other apps" permission is still needed. */
+    private fun syncEdges(watcher: EdgeWatcher, cfg: Config) {
+        watcher.sync(cfg)
+        shared.setStatus { it.copy(overlayNeeded = cfg.edges.any() && !watcher.allowed()) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // The screen starts the service again when it comes to the front: the overlay
+        // permission may have been granted meanwhile.
+        edges?.let { syncEdges(it, shared.config.value) }
         when (intent?.action) {
             ACTION_SWITCH -> shared.requestSwitch(intent.getIntExtra(EXTRA_CHANNEL, 0))
             ACTION_STOP -> {
@@ -110,6 +133,9 @@ class SwitchService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
+        if (edges != null) runCatching { unregisterReceiver(screenChanged) }
+        edges?.hide()
+        edges = null
         // The engine hands the buttons back on its way out, on its own thread; the next
         // run waits for it (see loop).
         if (thread != null) shared.setStopped(true)
