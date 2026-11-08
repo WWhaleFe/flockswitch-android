@@ -43,6 +43,8 @@ private const val LINK_DOWN = 0x40
 
 /** Give the device time to settle after it links. */
 private const val SLOT_SETTLE = 1500L
+/** A haptic pulse takes a moment to play; Change Host right after would cut it short. */
+private const val HAPTIC_SETTLE = 150L
 private const val SLOT_RETRIES = 3
 private const val HEALTH_CHECK = 30_000L
 private const val RESCAN_INTERVAL = 5_000L
@@ -83,6 +85,10 @@ class Engine(
 
     /** Which of the trigger buttons the master mouse has. */
     private var triggerButtons = listOf<Int>()
+    /** Haptic waveforms the master mouse offers (bit N = waveform N); null without a motor. */
+    private var triggerHaptics: Int? = null
+    /** The master mouse was switched away from here; a pulse greets it when it is back. */
+    private var awayBySwitch = false
 
     /** Trigger buttons held down right now (a press counts once until released). */
     private var held = setOf<Int>()
@@ -289,11 +295,55 @@ class Engine(
             val has = buttonsOn(d, endpoints[d.endpoint], BUTTONS)
             if (has.any { cfg.button(it).on }) {
                 triggerButtons = has
+                triggerHaptics = readHaptics(d)
                 return d
             }
         }
         triggerButtons = emptyList()
+        triggerHaptics = null
         return null
+    }
+
+    /** The haptic waveforms the mouse offers, logged once; a mouse without a motor (or
+     *  away right now) gives null, which is simply "no vibration". */
+    private fun readHaptics(d: Device): Int? {
+        val ep = endpoints.getOrNull(d.endpoint) ?: return null
+        val mask = try { d.hapticWaveforms(ep) } catch (e: IOException) { null } ?: return null
+        if (triggerHaptics != mask) {
+            Log.i("haptics: ${d.label()} offers waveforms 0x%08x".format(mask))
+            if (runCatching { d.hapticsEnabled(ep) }.getOrNull() == false) {
+                Log.w("haptics are turned off on ${d.label()} (a Logi Options+ setting), so it will not vibrate")
+            }
+        }
+        return mask
+    }
+
+    /** Plays a haptic waveform on the master mouse, if it is here and has that waveform.
+     *  Quiet on a mouse without a motor. */
+    private fun buzz(waveform: Int): Boolean {
+        val d = trigger ?: return false
+        val mask = triggerHaptics ?: return false
+        if (waveform !in 0..31 || (mask and (1 shl waveform)) == 0) {
+            Log.d("haptics: ${d.label()} has no waveform $waveform")
+            return false
+        }
+        if ((d.endpoint to d.index) !in online) return false
+        val ep = endpoints.getOrNull(d.endpoint) ?: return false
+        return try {
+            d.playHaptic(ep, waveform)
+        } catch (e: IOException) {
+            Log.d("haptics: ${e.message}")
+            false
+        }
+    }
+
+    /** The master mouse is back on this device after being switched away from here: a
+     *  pulse says so. */
+    private fun greetTrigger() {
+        val t = trigger ?: return
+        if (!awayBySwitch || (t.endpoint to t.index) !in online) return
+        awayBySwitch = false
+        if (cfg.haptics.onSwitch) buzz(cfg.haptics.arriveWaveform)
     }
 
     /** Makes sure the buttons switched on are diverted to us, and that a button switched
@@ -307,6 +357,7 @@ class Engine(
                 Log.i("trigger: ${it.label()}")
                 readChannel()
             }
+            greetTrigger()
             publish()
         }
         val d = trigger ?: return
@@ -379,6 +430,8 @@ class Engine(
      *  Followers go first so the mouse — the thing the user just pressed — leaves last.
      *  Stale pairing slots answer with an error and are skipped on their own. */
     fun switchTo(channel: Int) {
+        // A pulse on the mouse as it goes, felt before Change Host takes it away.
+        if (cfg.haptics.onSwitch && buzz(cfg.haptics.switchWaveform)) Thread.sleep(HAPTIC_SETTLE)
         val t = trigger
         fun isTrigger(d: Device) = t != null && t.endpoint == d.endpoint && t.index == d.index
         val order = devices.filter { !isTrigger(it) } + listOfNotNull(t)
@@ -404,6 +457,7 @@ class Engine(
                     state != null && channel <= state.count -> {
                         d.setHost(ep, channel - 1)
                         Log.i("${d.label()} -> channel $channel")
+                        if (isTrigger(d)) awayBySwitch = true
                     }
                     state != null -> Log.w("${d.label()} has no channel $channel")
                     isTrigger(d) -> Log.w("${d.label()} did not answer; it stays on this device")
@@ -531,7 +585,10 @@ class Engine(
             publish()
             if (isOnline) {
                 if (trigger == null || isTrigger(endpoint, slot)) ensureDiverted()
-                if (isTrigger(endpoint, slot)) readChannel()
+                if (isTrigger(endpoint, slot)) {
+                    readChannel()
+                    greetTrigger()
+                }
             } else if (left > 1) {
                 pending[endpoint to slot] = (t + SLOT_SETTLE) to (left - 1)
             }
@@ -561,6 +618,7 @@ class Engine(
             while (!stopped()) {
                 guard("applying settings failed") { reloadConfig() }
                 shared.takeSwitchRequest()?.let { channel -> guard("switch failed") { onRequest(channel) } }
+                shared.takeHapticRequest()?.let { waveform -> guard("haptics failed") { buzz(waveform) } }
                 if (shared.takePressRequest()) guard("switch failed") { onPressRequest() }
                 if (shared.takeForgetRequest()) {
                     catalog.retainAll { it.online }

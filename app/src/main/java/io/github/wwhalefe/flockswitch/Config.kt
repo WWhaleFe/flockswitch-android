@@ -144,6 +144,19 @@ data class Edges(
     fun any() = Edge.entries.any { channel(it) != 0 }
 }
 
+/** Vibration on a mouse with a haptic motor (MX Master 4): a pulse when the mouse is
+ *  switched away and when it comes back, and pulses while the pointer waits at a screen
+ *  edge. Waveforms are the IDs of HID++ feature 0x19B0 (0-14 and 27 on the MX Master 4:
+ *  7 = completed, 3 = damp collision, 4 = subtle collision). */
+@Serializable
+data class Haptics(
+    val onSwitch: Boolean = true,
+    val onEdge: Boolean = true,
+    val switchWaveform: Int = 7,
+    val arriveWaveform: Int = 3,
+    val edgeWaveform: Int = 4,
+)
+
 /** Each button that can switch has its own setting. */
 @Serializable
 data class Buttons(
@@ -174,6 +187,8 @@ data class Config(
     val buttons: Buttons = Buttons(),
     /** Switching at the screen edge. */
     val edges: Edges = Edges(),
+    /** Vibration on a mouse with a haptic motor. */
+    val haptics: Haptics = Haptics(),
 ) {
     /** The setting of a trigger button ([cid] must be one of [BUTTONS]). */
     fun button(cid: Int): ButtonSetting = when (cid) {
@@ -209,6 +224,7 @@ data class Config(
         if (triggers().isEmpty()) out += "turn on at least one button"
         if (Edge.entries.any { edges.channel(it) !in 0..3 }) out += "edges: the channel must be 1, 2, 3 or 0"
         if (edges.dwellMs !in 100..5000) out += "edges: the time at the edge must be 100 to 5000 ms"
+        if (listOf(haptics.switchWaveform, haptics.arriveWaveform, haptics.edgeWaveform).any { it !in 0..31 }) out += "haptics: waveforms are numbered 0 to 31"
         return out
     }
 

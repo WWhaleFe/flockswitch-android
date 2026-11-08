@@ -73,6 +73,7 @@ class Shared(private val dir: File) {
     val status: StateFlow<Status> = _status.asStateFlow()
 
     private val switchRequest = AtomicInteger(0)
+    private val hapticRequest = AtomicInteger(-1)
     private val pressRequest = AtomicBoolean(false)
     private val forgetRequest = AtomicBoolean(false)
 
@@ -106,6 +107,11 @@ class Shared(private val dir: File) {
     fun requestSwitch(channel: Int) = switchRequest.set(channel)
 
     fun takeSwitchRequest(): Int? = switchRequest.getAndSet(0).takeIf { it in 1..3 }
+
+    /** Asks the engine to play a haptic waveform on the master mouse (if it has a motor). */
+    fun requestHaptic(waveform: Int) = hapticRequest.set(waveform)
+
+    fun takeHapticRequest(): Int? = hapticRequest.getAndSet(-1).takeIf { it >= 0 }
 
     /** Asks the engine to switch as a press of the wheel mode-shift button would. */
     fun requestPress() = pressRequest.set(true)

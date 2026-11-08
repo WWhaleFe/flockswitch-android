@@ -35,7 +35,7 @@ The app has four tabs; every change applies at once:
 - **Buttons**: per button (wheel mode-shift, gesture, wheel click — several can be on), the channel it goes to. Settings are kept per computer, so choose on each one; this device's own channel is shown but cannot be chosen. The gesture button can also switch by holding it and moving the mouse up, down, left or right, each direction with its own channel.
 - **Edges** (on the Buttons tab): rest the pointer against the left or right edge of the screen for a moment (0.3 to 2 s, your choice) and the group and the master mouse go to the channel set for that side. No network: each device watches its own screen, so set it up on every computer. Needs *Display over other apps*: thin invisible strips along the edges notice the pointer. The top and bottom edges sit under the status bar and the navigation bar, so they rarely work.
 - **Devices**: the master mouse, and the devices that move along (devices on another computer are listed too).
-- **General**: start when the device starts, Bluetooth devices (experimental), updates, report to the developer.
+- **General**: start when the device starts, haptics on an MX Master 4 (a pulse when switching and short pulses while the pointer waits at a screen edge), Bluetooth devices (experimental), updates, report to the developer.
 
 While switching is on, flockswitch runs in the background with a notification that shows the master mouse and this device's channel, with a button for each other channel. Android lets no app take keyboard shortcuts for the whole system, so instead of shortcuts there is a **Quick Settings tile**: add *flockswitch* to Quick Settings and tap it to switch like a press of the wheel mode-shift button would.
 

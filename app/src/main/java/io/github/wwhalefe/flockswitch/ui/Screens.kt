@@ -462,6 +462,13 @@ private fun GeneralTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
         }
     }
 
+    Section(stringResource(R.string.section_haptics)) {
+        SwitchRow(stringResource(R.string.haptics_switch), cfg.haptics.onSwitch) { on -> update { copy(haptics = haptics.copy(onSwitch = on)) } }
+        HorizontalDivider()
+        SwitchRow(stringResource(R.string.haptics_edge), cfg.haptics.onEdge) { on -> update { copy(haptics = haptics.copy(onEdge = on)) } }
+        Hint(stringResource(R.string.haptics_hint))
+    }
+
     var updateState by remember { mutableStateOf<UpdateState>(UpdateState.Unknown) }
     val scope = rememberCoroutineScope()
     val check: () -> Unit = {

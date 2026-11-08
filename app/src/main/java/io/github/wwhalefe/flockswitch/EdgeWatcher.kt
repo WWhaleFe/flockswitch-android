@@ -32,12 +32,16 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
     /** The pointer has left the strips since the last decision, so a new rest counts. */
     private var armed = true
     private var lastSwitch = 0L
+    /** While the pointer waits at an edge that will switch, the mouse pulses (if it has a motor). */
+    private var haptics = Haptics()
+    private var tick: Runnable? = null
 
     /** Whether the strips may be shown: "display over other apps" is allowed. */
     fun allowed(): Boolean = Settings.canDrawOverlays(context)
 
     /** Shows the strips the settings ask for, or hides them. Main thread only. */
     fun sync(cfg: Config) {
+        haptics = cfg.haptics
         val want = if (cfg.enabled && cfg.edges.any() && allowed()) cfg.edges else null
         if (want == shown) return
         hide()
@@ -102,6 +106,7 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
     fun hide() {
         pending?.let(handler::removeCallbacks)
         pending = null
+        stopTicks()
         resting = null
         for (v in views.values) runCatching { wm.removeView(v) }
         views.clear()
@@ -123,12 +128,30 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
         val run = Runnable { fire(edge, edges) }
         pending = run
         handler.postDelayed(run, edges.dwellMs)
+        val channel = edges.channel(edge)
+        val s = shared.status.value
+        if (haptics.onEdge && channel != 0 && s.trigger != null && s.channel != channel) {
+            val t = object : Runnable {
+                override fun run() {
+                    shared.requestHaptic(haptics.edgeWaveform)
+                    handler.postDelayed(this, HAPTIC_TICK_MS)
+                }
+            }
+            tick = t
+            handler.post(t)
+        }
+    }
+
+    private fun stopTicks() {
+        tick?.let(handler::removeCallbacks)
+        tick = null
     }
 
     private fun leave(edge: Edge?) {
         if (edge == null || resting != edge) return
         pending?.let(handler::removeCallbacks)
         pending = null
+        stopTicks()
         resting = null
         armed = true
     }
@@ -136,6 +159,7 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
     /** The dwell time is up: one decision per visit to the edge. */
     private fun fire(edge: Edge, edges: Edges) {
         pending = null
+        stopTicks()
         armed = false
         val channel = edges.channel(edge)
         val s = shared.status.value
@@ -156,5 +180,6 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
     companion object {
         /** After one switch, the next needs the pointer to leave the edge and this long. */
         private const val COOLDOWN_MS = 2000L
+        private const val HAPTIC_TICK_MS = 150L
     }
 }

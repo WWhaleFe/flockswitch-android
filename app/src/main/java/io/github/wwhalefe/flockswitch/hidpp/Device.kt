@@ -9,6 +9,10 @@ const val FEATURE_ROOT = 0x0000
 const val FEATURE_NAME = 0x0005
 const val FEATURE_CHANGE_HOST = 0x1814
 const val FEATURE_REPROG_V4 = 0x1B04
+/** Haptic feedback (the MX Master 4's motor): not in Logitech's public documents;
+ *  reverse-engineered by Solaar, OpenLogi and others. Function 0 lists the waveforms
+ *  the device has (bit N = waveform N; the MX Master 4 offers 0-14 and 27), 4 plays one. */
+const val FEATURE_HAPTIC = 0x19B0
 
 /** Keyboards answer slowly when they wake from sleep; 0.6 s was measured to be too short. */
 const val SLOW_TIMEOUT = 2000L
@@ -79,6 +83,30 @@ data class Device(
             }
         }
         return null
+    }
+
+    /** The haptic waveforms the device offers, as a bit mask (bit N = waveform N), from
+     *  feature 0x19B0 getCapabilities; null when the device has no haptics or is away. */
+    fun hapticWaveforms(ep: Endpoint): Int? {
+        val fi = feature(FEATURE_HAPTIC) ?: return null
+        val r = ep.request(index, fi, 0, byteArrayOf(), SLOW_TIMEOUT) as? Reply.Ok ?: return null
+        if (r.data.size < 8) return null
+        return (r.data.u(4) shl 24) or (r.data.u(5) shl 16) or (r.data.u(6) shl 8) or r.data.u(7)
+    }
+
+    /** Whether haptic playback is enabled on the device (0x19B0 getConfiguration, flag
+     *  bit 0), which Logi Options+ controls; null when unknown. */
+    fun hapticsEnabled(ep: Endpoint): Boolean? {
+        val fi = feature(FEATURE_HAPTIC) ?: return null
+        val r = ep.request(index, fi, 1, byteArrayOf(), SLOW_TIMEOUT) as? Reply.Ok ?: return null
+        return r.data.isNotEmpty() && (r.data.u(0) and 0x01) != 0
+    }
+
+    /** Plays a haptic waveform (0x19B0 play). The device answers at once; the waveform
+     *  itself takes a moment, so a caller about to move the mouse away should wait. */
+    fun playHaptic(ep: Endpoint, waveform: Int): Boolean {
+        val fi = feature(FEATURE_HAPTIC) ?: return false
+        return ep.request(index, fi, 4, byteArrayOf(waveform.toByte(), 0, 0), 300) is Reply.Ok
     }
 
     /** The same device at another endpoint/slot (feature indices do not change). */
@@ -195,7 +223,7 @@ fun probeSlot(ep: Endpoint, endpoint: Int, index: Int, pairing: Pairing?): Devic
         return null
     }
     val features = mutableMapOf<Int, Int>()
-    for (f in listOf(FEATURE_NAME, FEATURE_CHANGE_HOST, FEATURE_REPROG_V4)) {
+    for (f in listOf(FEATURE_NAME, FEATURE_CHANGE_HOST, FEATURE_REPROG_V4, FEATURE_HAPTIC)) {
         featureIndex(ep, index, f, SLOW_TIMEOUT)?.let { features[f] = it }
     }
     val nameFi = features[FEATURE_NAME]

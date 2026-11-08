@@ -91,4 +91,9 @@
     <string name="seconds">%s s</string>
     <string name="edges_corner_hint">The corners do not count.</string>
     <string name="overlay_permission">To watch the screen edges flockswitch needs “Display over other apps”: thin invisible strips along the edges notice the pointer. Nothing is drawn and no input is taken.</string>
+
+    <string name="section_haptics">Haptics (MX Master 4)</string>
+    <string name="haptics_switch">Pulse when switching channels</string>
+    <string name="haptics_edge">Pulse while waiting at a screen edge</string>
+    <string name="haptics_hint">Only a Logitech mouse with a haptic motor (MX Master 4) vibrates. One pulse as the mouse leaves and one when it is back; at a screen edge, short pulses while the pointer waits. The strength follows the haptics setting in Logi Options+.</string>
 </resources>

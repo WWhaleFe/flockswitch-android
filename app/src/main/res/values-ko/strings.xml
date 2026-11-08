@@ -90,4 +90,9 @@
     <string name="seconds">%s초</string>
     <string name="edges_corner_hint">네 귀퉁이는 제외됩니다.</string>
     <string name="overlay_permission">화면 가장자리를 지켜보려면 “다른 앱 위에 표시” 권한이 필요합니다. 가장자리를 따라 보이지 않는 얇은 띠가 포인터를 감지할 뿐, 아무것도 그리지 않고 입력도 가로채지 않습니다.</string>
+
+    <string name="section_haptics">진동 (MX Master 4)</string>
+    <string name="haptics_switch">채널을 전환할 때 진동</string>
+    <string name="haptics_edge">모서리에서 전환을 기다리는 동안 진동</string>
+    <string name="haptics_hint">진동 모터가 있는 Logitech 마우스(MX Master 4)에서만 울립니다. 마우스가 떠날 때와 돌아왔을 때 한 번씩, 모서리에서는 머무는 동안 짧게 반복됩니다. 세기는 Logi Options+의 햅틱 설정을 따릅니다.</string>
 </resources>
