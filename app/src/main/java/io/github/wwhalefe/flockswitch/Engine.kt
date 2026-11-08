@@ -237,12 +237,18 @@ class Engine(
             gesture = null
         }
         val sourceChanged = next.bluetooth != cfg.bluetooth
+        val intensityChanged = next.haptics.intensity != cfg.haptics.intensity
         cfg = next
         Log.i("settings changed (${modeText()})")
         if (sourceChanged) {
             scan()
         }
         if (cfg.enabled) ensureDiverted() else Log.i("paused: the button is back to normal")
+        if (intensityChanged) {
+            applyHapticIntensity()
+            // A pulse at the new strength, so the hand can judge it.
+            if (cfg.haptics.intensity != 0) buzz(cfg.haptics.switchWaveform)
+        }
         publish()
     }
 
@@ -311,11 +317,29 @@ class Engine(
         val mask = try { d.hapticWaveforms(ep) } catch (e: IOException) { null } ?: return null
         if (triggerHaptics != mask) {
             Log.i("haptics: ${d.label()} offers waveforms 0x%08x".format(mask))
-            if (runCatching { d.hapticsEnabled(ep) }.getOrNull() == false) {
+            if (cfg.haptics.intensity == 0 && runCatching { d.hapticConfig(ep) }.getOrNull()?.let { (flags, _) -> flags and 0x01 == 0 } == true) {
                 Log.w("haptics are turned off on ${d.label()} (a Logi Options+ setting), so it will not vibrate")
             }
         }
         return mask
+    }
+
+    /** Puts the strength the settings ask for on the mouse (0x19B0 setConfiguration),
+     *  turning haptics on if they were off; 0 leaves the mouse as Logi Options+ set it.
+     *  The mouse forgets this when it loses power, so it is applied whenever it is here. */
+    private fun applyHapticIntensity() {
+        val wanted = cfg.haptics.intensity
+        val d = trigger ?: return
+        if (triggerHaptics == null || wanted == 0 || (d.endpoint to d.index) !in online) return
+        val ep = endpoints.getOrNull(d.endpoint) ?: return
+        try {
+            val (flags, now) = d.hapticConfig(ep) ?: return
+            if (now == wanted && flags and 0x01 != 0) return
+            if (d.setHapticConfig(ep, flags or 0x01, wanted)) Log.i("haptics: ${d.label()} strength $wanted% (was $now%)")
+            else Log.w("haptics: ${d.label()} did not accept strength $wanted%")
+        } catch (e: IOException) {
+            Log.d("haptics: ${e.message}")
+        }
     }
 
     /** Plays a haptic waveform on the master mouse, if it is here and has that waveform.
@@ -357,6 +381,7 @@ class Engine(
                 Log.i("trigger: ${it.label()}")
                 readChannel()
             }
+            applyHapticIntensity()
             greetTrigger()
             publish()
         }
@@ -587,6 +612,7 @@ class Engine(
                 if (trigger == null || isTrigger(endpoint, slot)) ensureDiverted()
                 if (isTrigger(endpoint, slot)) {
                     readChannel()
+                    applyHapticIntensity()
                     greetTrigger()
                 }
             } else if (left > 1) {

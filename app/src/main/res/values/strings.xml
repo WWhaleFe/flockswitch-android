@@ -95,5 +95,7 @@
     <string name="section_haptics">Haptics (MX Master 4)</string>
     <string name="haptics_switch">Pulse when switching channels</string>
     <string name="haptics_edge">Pulse while waiting at a screen edge</string>
-    <string name="haptics_hint">Only a Logitech mouse with a haptic motor (MX Master 4) vibrates. One pulse as the mouse leaves and one when it is back; at a screen edge, short pulses while the pointer waits. The strength follows the haptics setting in Logi Options+.</string>
+    <string name="haptics_hint">Only a Logitech mouse with a haptic motor (MX Master 4) vibrates. One pulse as the mouse leaves and one when it is back; at a screen edge, short pulses while the pointer waits. A strength you choose goes to the mouse at once, with a pulse to judge it by; the mouse forgets it when it loses power, so it is applied again whenever the mouse is here. “Options+” leaves the Logi Options+ setting alone.</string>
+    <string name="haptics_intensity">Strength</string>
+    <string name="haptics_follow">Options+</string>
 </resources>

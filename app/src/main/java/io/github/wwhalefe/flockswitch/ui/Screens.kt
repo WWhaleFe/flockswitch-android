@@ -466,6 +466,11 @@ private fun GeneralTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
         SwitchRow(stringResource(R.string.haptics_switch), cfg.haptics.onSwitch) { on -> update { copy(haptics = haptics.copy(onSwitch = on)) } }
         HorizontalDivider()
         SwitchRow(stringResource(R.string.haptics_edge), cfg.haptics.onEdge) { on -> update { copy(haptics = haptics.copy(onEdge = on)) } }
+        HorizontalDivider()
+        Text(stringResource(R.string.haptics_intensity), style = MaterialTheme.typography.labelLarge)
+        // 0 = as Logi Options+ sets it; otherwise the strength in percent.
+        val levels = listOf(0 to stringResource(R.string.haptics_follow), 25 to "25%", 50 to "50%", 75 to "75%", 100 to "100%")
+        ValuePicker(levels, cfg.haptics.intensity) { level -> update { copy(haptics = haptics.copy(intensity = level)) } }
         Hint(stringResource(R.string.haptics_hint))
     }
 

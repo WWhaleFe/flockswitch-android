@@ -155,6 +155,9 @@ data class Haptics(
     val switchWaveform: Int = 7,
     val arriveWaveform: Int = 3,
     val edgeWaveform: Int = 4,
+    /** Strength in percent (1-100), put on the mouse whenever it is here; 0 leaves the
+     *  mouse as Logi Options+ set it. */
+    val intensity: Int = 0,
 )
 
 /** Each button that can switch has its own setting. */
@@ -225,6 +228,7 @@ data class Config(
         if (Edge.entries.any { edges.channel(it) !in 0..3 }) out += "edges: the channel must be 1, 2, 3 or 0"
         if (edges.dwellMs !in 100..5000) out += "edges: the time at the edge must be 100 to 5000 ms"
         if (listOf(haptics.switchWaveform, haptics.arriveWaveform, haptics.edgeWaveform).any { it !in 0..31 }) out += "haptics: waveforms are numbered 0 to 31"
+        if (haptics.intensity !in 0..100) out += "haptics: the strength must be 0 (as Options+ sets it) or 1-100 percent"
         return out
     }
 

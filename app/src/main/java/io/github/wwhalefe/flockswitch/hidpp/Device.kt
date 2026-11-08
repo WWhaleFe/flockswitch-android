@@ -94,12 +94,21 @@ data class Device(
         return (r.data.u(4) shl 24) or (r.data.u(5) shl 16) or (r.data.u(6) shl 8) or r.data.u(7)
     }
 
-    /** Whether haptic playback is enabled on the device (0x19B0 getConfiguration, flag
-     *  bit 0), which Logi Options+ controls; null when unknown. */
-    fun hapticsEnabled(ep: Endpoint): Boolean? {
+    /** The haptic configuration (0x19B0 getConfiguration): flags (bit 0 = haptics on,
+     *  bit 1 = power save) and the strength in percent, as Logi Options+ sets them. */
+    fun hapticConfig(ep: Endpoint): Pair<Int, Int>? {
         val fi = feature(FEATURE_HAPTIC) ?: return null
         val r = ep.request(index, fi, 1, byteArrayOf(), SLOW_TIMEOUT) as? Reply.Ok ?: return null
-        return r.data.isNotEmpty() && (r.data.u(0) and 0x01) != 0
+        if (r.data.size < 2) return null
+        return r.data.u(0) to r.data.u(1)
+    }
+
+    /** Sets the haptic flags and strength (0x19B0 setConfiguration). The device keeps
+     *  this only until it loses power, so the engine applies it again when the mouse
+     *  comes back. */
+    fun setHapticConfig(ep: Endpoint, flags: Int, intensity: Int): Boolean {
+        val fi = feature(FEATURE_HAPTIC) ?: return false
+        return ep.request(index, fi, 2, byteArrayOf(flags.toByte(), intensity.toByte(), 0), SLOW_TIMEOUT) is Reply.Ok
     }
 
     /** Plays a haptic waveform (0x19B0 play). The device answers at once; the waveform
