@@ -143,6 +143,34 @@ class EngineTest {
         assertEquals(emptyList<String>(), receiver.events.drop(1))
     }
 
+    private fun reload(engine: Engine) =
+        Engine::class.java.getDeclaredMethod("reloadConfig").apply { isAccessible = true }.invoke(engine)
+
+    private fun hapticMouse() = mouse().let { FakeDevice(it.wpid, it.kindCode, it.name, controls = it.controls, haptics = true) }
+
+    @Test
+    fun aWaveformJustChosenPlaysOnce() {
+        val (engine, receiver, shared) = setup(m = hapticMouse())
+        receiver.events.clear()
+        shared.updateConfig { it.copy(haptics = it.haptics.copy(arriveWaveform = 12)) }
+        reload(engine)
+        assertEquals(listOf("B042 play 12"), receiver.events)
+        // Waveform 27 is outside the run 0-14 but the MX Master 4 has it.
+        receiver.events.clear()
+        shared.updateConfig { it.copy(haptics = it.haptics.copy(switchWaveform = 27)) }
+        reload(engine)
+        assertEquals(listOf("B042 play 27"), receiver.events)
+    }
+
+    @Test
+    fun aStrengthJustChosenGoesToTheMouseWithAPulse() {
+        val (engine, receiver, shared) = setup(m = hapticMouse())
+        receiver.events.clear()
+        shared.updateConfig { it.copy(haptics = it.haptics.copy(intensity = 50)) }
+        reload(engine)
+        assertEquals(listOf("B042 strength 50", "B042 play 7"), receiver.events)
+    }
+
     @Test
     fun theTileGoesOnlyWhereTheMouseCanGo() {
         // A mouse with two channels, on 2: like its button, the tile goes to 1 (not 3,

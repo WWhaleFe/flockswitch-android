@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 — 2026-11-09
+
+- Haptics settings moved into a dialog (Settings → General → Haptics → **Haptics Settings…**): haptics on or off, each situation on or off, strength, and the waveform for switching, arrival and the wait at an edge (the MX Master 4's 16 waveforms). **Apply** saves and sends to the mouse and stays open, **OK** saves and closes, **Close** puts back what was set when the dialog opened, even after Apply. A waveform just chosen plays once so the hand can judge it
+- Stronger as the switch nears (on by default): while the pointer waits at a screen edge the pulses get quicker and sharper, with one more as it switches. Turn it off for the even pulses of before
+- A countdown near the pointer while it waits at a screen edge, in #FFCC00: ring, semicircle, bar, pulse wave, neon laser, particle vortex, cyber scan or liquid (Buttons tab → **Switch at the screen edge** → **Countdown effect**, with direction, shrink and a preview), or none. It is gone the moment the wait is called off or the switch happens, and takes no input. On Android 12 and later it is drawn at 80 % opacity, as the system requires of a window clicks must pass through
+- *Only while Control is held* for the edges: the wait does not start until Control is down. With flockswitch's accessibility service on (see below) letting go calls it off at once; without it Android reports the key only as the pointer moves, so a key pressed or released while the pointer stands still counts at the next movement
+- Find the cursor (General tab → **Find the cursor**): a pulse ring, radar or spotlight around the pointer in #FFCC00, for 1.3 s with a fade, when the mouse arrives from another computer, on Ctrl+Alt+L, or from a button in the notification, with a preview in the settings. Needs Android 14 and flockswitch's accessibility service, the only way Android tells an app where the pointer is. Listening holds the mouse back from other apps, so flockswitch listens for one event only: the highlight appears at the next mouse movement, and stays where the pointer was then. Shaking the mouse is not a trigger on Android, since that would need the mouse's movement all the time
+- Settings: **Show log** and **Reset settings…** on the General tab
 ## 0.3.0 — 2026-11-08
 
 - Haptics on a mouse with a motor (MX Master 4, HID++ feature 0x19B0): a pulse as the mouse is switched away and one when it comes back here, and short pulses while the pointer waits at a screen edge to switch (Settings → General → **Haptics**; both can be turned off). The strength follows the haptics setting in Logi Options+. A mouse without a motor is simply quiet

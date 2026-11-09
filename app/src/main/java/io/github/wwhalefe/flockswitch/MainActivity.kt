@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -18,6 +19,8 @@ import io.github.wwhalefe.flockswitch.ui.Actions
 import io.github.wwhalefe.flockswitch.ui.FlockswitchApp
 
 class MainActivity : ComponentActivity() {
+    private var preview: EdgeOverlay? = null
+    private var locatePreview: LocateOverlay? = null
     private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
     private val askNearby = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted && shared.config.value.enabled) SwitchService.start(this)
@@ -33,9 +36,10 @@ class MainActivity : ComponentActivity() {
             setEnabled = ::setEnabled,
             allowUsb = { allowUsb(again = true) },
             allowNearby = { if (Build.VERSION.SDK_INT >= 31) askNearby.launch(Manifest.permission.BLUETOOTH_CONNECT) },
-            allowOverlay = {
-                runCatching { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }
-            },
+            allowOverlay = ::allowOverlay,
+            previewEdge = ::previewEdge,
+            previewLocate = ::previewLocate,
+            openAccessibility = { runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } },
             notificationsOn = { NotificationManagerCompat.from(this).areNotificationsEnabled() },
             switchTo = { channel -> shared.requestSwitch(channel) },
             open = { url -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
@@ -50,6 +54,31 @@ class MainActivity : ComponentActivity() {
         // allowed already) make sure the background service runs.
         allowUsb(again = false)
         if (shared.config.value.enabled) SwitchService.start(this)
+    }
+
+    override fun onDestroy() {
+        preview?.end()
+        locatePreview?.end()
+        super.onDestroy()
+    }
+
+    private fun allowOverlay() {
+        runCatching { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }
+    }
+
+    /** Plays the countdown once, for the settings. */
+    private fun previewEdge(edges: Edges) {
+        if (!Settings.canDrawOverlays(this)) return allowOverlay()
+        (preview ?: EdgeOverlay(this).also { preview = it }).preview(edges)
+    }
+
+    /** Plays the highlight once at this point, for the settings: through the accessibility
+     *  service if it is on, otherwise in a window that needs "display over other apps". */
+    private fun previewLocate(style: LocateStyle, x: Float, y: Float) {
+        PointerService.instance?.let { return it.preview(style, x, y) }
+        if (!Settings.canDrawOverlays(this)) return allowOverlay()
+        val overlay = locatePreview ?: LocateOverlay(applicationContext, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY).also { locatePreview = it }
+        overlay.show(style, x, y)
     }
 
     private fun granted(permission: String) = checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED

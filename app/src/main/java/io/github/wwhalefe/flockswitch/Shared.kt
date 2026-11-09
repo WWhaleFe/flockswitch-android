@@ -59,7 +59,25 @@ data class Status(
     val serviceBlocked: Boolean = false,
     /** An edge has a channel but "display over other apps" is not allowed yet. */
     val overlayNeeded: Boolean = false,
+    /** The user has turned flockswitch's accessibility service on. */
+    val pointerService: Boolean = false,
 )
+
+/** What the accessibility service sees of the keyboard. Main thread only. */
+class PointerState {
+    /** Whether Control is held; null while the service is not reading keys. */
+    var ctrl: Boolean? = null
+        private set
+
+    /** Told when Control goes down or up. */
+    var onControl: ((Boolean) -> Unit)? = null
+
+    fun setControl(down: Boolean?) {
+        if (down == ctrl) return
+        ctrl = down
+        if (down != null) onControl?.invoke(down)
+    }
+}
 
 class Shared(private val dir: File) {
     private val configFile = File(dir, "config.json")
@@ -71,6 +89,8 @@ class Shared(private val dir: File) {
 
     private val _status = MutableStateFlow(Status())
     val status: StateFlow<Status> = _status.asStateFlow()
+
+    val pointer = PointerState()
 
     private val switchRequest = AtomicInteger(0)
     private val hapticRequest = AtomicInteger(-1)

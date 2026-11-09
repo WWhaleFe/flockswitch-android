@@ -29,13 +29,13 @@ Install flockswitch on **every** computer you switch between, and pair each devi
 
 ## Use
 
-The app has four tabs; every change applies at once:
+The app has four tabs; every change applies at once (in the haptics dialog, on Apply or OK):
 
 - **Home**: what is going on, switching on or off, and *Switch now* buttons that send the group and the master mouse to a channel.
 - **Buttons**: per button (wheel mode-shift, gesture, wheel click — several can be on), the channel it goes to. Settings are kept per computer, so choose on each one; this device's own channel is shown but cannot be chosen. The gesture button can also switch by holding it and moving the mouse up, down, left or right, each direction with its own channel.
-- **Edges** (on the Buttons tab): rest the pointer against the left or right edge of the screen for a moment (0.3 to 2 s, your choice) and the group and the master mouse go to the channel set for that side. No network: each device watches its own screen, so set it up on every computer. Needs *Display over other apps*: thin invisible strips along the edges notice the pointer. The top and bottom edges sit under the status bar and the navigation bar, so they rarely work.
+- **Edges** (on the Buttons tab): rest the pointer against the left or right edge of the screen for a moment (0.3 to 2 s, your choice) and the group and the master mouse go to the channel set for that side. No network: each device watches its own screen, so set it up on every computer. Needs *Display over other apps*: thin invisible strips along the edges notice the pointer. The top and bottom edges sit under the status bar and the navigation bar, so they rarely work. A countdown near the pointer shows the wait (eight effects with a preview, or none), and the switch can be limited to while Control is held.
 - **Devices**: the master mouse, and the devices that move along (devices on another computer are listed too).
-- **General**: start when the device starts, haptics on an MX Master 4 (a pulse when switching and short pulses while the pointer waits at a screen edge), Bluetooth devices (experimental), updates, report to the developer.
+- **General**: start when the device starts, find the cursor (a highlight around the pointer when the mouse arrives, on Ctrl+Alt+L or from the notification; needs Android 14 and the accessibility service, and appears at the next mouse movement), haptics on an MX Master 4 (*Haptics Settings…*: on or off for each situation, strength, waveforms, and pulses that get stronger as an edge switch nears), Bluetooth devices (experimental), updates, report to the developer, the log, and resetting the settings.
 
 While switching is on, flockswitch runs in the background with a notification that shows the master mouse and this device's channel, with a button for each other channel. Android lets no app take keyboard shortcuts for the whole system, so instead of shortcuts there is a **Quick Settings tile**: add *flockswitch* to Quick Settings and tap it to switch like a press of the wheel mode-shift button would.
 
@@ -46,7 +46,8 @@ When switching is turned off or a button is turned off, the button is put back e
 - **USB device access** (asked by Android when the receiver is plugged in): to talk to the receiver.
 - **Notifications**: for the background notification with the channel buttons.
 - **Nearby devices**: only for Bluetooth devices, or if Android insists on it before letting flockswitch run in the background.
-- **Display over other apps**: only for switching at the screen edge. The strips along the edges are invisible and take no input.
+- **Display over other apps**: only for switching at the screen edge. The strips along the edges are invisible and take no input, and the countdown drawn during a wait takes none either.
+- **Accessibility service** (off until you turn it on; only for the settings that use it): reads Control and catches Ctrl+Alt+L (other keys pass through untouched), and reads the pointer's position once per find-the-cursor. Android may ask you to allow restricted settings first, in the app's App info page.
 - **Internet**: only to ask GitHub whether a newer version exists (can be turned off). Nothing else is sent anywhere.
 
 ## Build

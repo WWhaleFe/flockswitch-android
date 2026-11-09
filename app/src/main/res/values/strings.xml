@@ -90,12 +90,91 @@
     <string name="edge_dwell">Time at the edge</string>
     <string name="seconds">%s s</string>
     <string name="edges_corner_hint">The corners do not count.</string>
-    <string name="overlay_permission">To watch the screen edges flockswitch needs “Display over other apps”: thin invisible strips along the edges notice the pointer. Nothing is drawn and no input is taken.</string>
+    <string name="overlay_permission">To watch the screen edges flockswitch needs “Display over other apps”: thin invisible strips along the edges notice the pointer, and the countdown is drawn on top of what is on the screen. No input is taken.</string>
 
     <string name="section_haptics">Haptics (MX Master 4)</string>
     <string name="haptics_switch">Pulse when switching channels</string>
     <string name="haptics_edge">Pulse while waiting at a screen edge</string>
-    <string name="haptics_hint">Only a Logitech mouse with a haptic motor (MX Master 4) vibrates. One pulse as the mouse leaves and one when it is back; at a screen edge, short pulses while the pointer waits. A strength you choose goes to the mouse at once, with a pulse to judge it by; the mouse forgets it when it loses power, so it is applied again whenever the mouse is here. “Options+” leaves the Logi Options+ setting alone.</string>
+    <string name="haptics_hint">Only a Logitech mouse with a haptic motor (MX Master 4) vibrates. A strength you choose goes to the mouse when applied, with a pulse to judge it by; the mouse forgets it when it loses power, so it is applied again whenever the mouse is here. “Options+” leaves the Logi Options+ setting alone.</string>
     <string name="haptics_intensity">Strength</string>
     <string name="haptics_follow">Options+</string>
+
+    <string name="haptics_open">Haptics Settings…</string>
+    <string name="haptics_dialog_title">Haptics Settings</string>
+    <string name="haptics_master">Use haptics</string>
+    <string name="haptics_state_on">On</string>
+    <string name="haptics_state_off">Off</string>
+    <string name="haptics_wave_switch">Waveform when switching</string>
+    <string name="haptics_wave_arrive">Waveform on arrival</string>
+    <string name="haptics_wave_edge">Waveform at an edge</string>
+    <string name="haptics_progressive">Stronger as the switch nears</string>
+    <string name="haptics_progressive_hint">While the pointer waits at an edge the pulses get quicker and stronger, with one more as it switches. This replaces the edge waveform while on.</string>
+    <string-array name="waveform_names">
+        <item>Sharp state change</item>
+        <item>Damp state change</item>
+        <item>Sharp collision</item>
+        <item>Damp collision</item>
+        <item>Subtle collision</item>
+        <item>Happy alert</item>
+        <item>Angry alert</item>
+        <item>Completed</item>
+        <item>Square</item>
+        <item>Wave</item>
+        <item>Firework</item>
+        <item>Mad</item>
+        <item>Knock</item>
+        <item>Jingle</item>
+        <item>Ringing</item>
+        <item>Whisper collision</item>
+    </string-array>
+    <string name="apply">Apply</string>
+    <string name="ok">OK</string>
+    <string name="close">Close</string>
+    <string name="preview">Preview</string>
+
+    <string name="edge_require_control">Only while Control is held</string>
+    <string name="edge_require_control_hint">The wait does not start until Control is down, even with the pointer at the edge. With flockswitch\'s accessibility service on, letting go calls it off at once; without it Android reports the key only as the pointer moves.</string>
+    <string name="edge_control_service">Turn on flockswitch\'s accessibility service so the key counts at once, even with the pointer standing still. Without it, hold Control before reaching the edge, and to call the wait off let go and move the pointer.</string>
+    <string name="open_accessibility">Accessibility settings</string>
+    <string name="edge_anim">Countdown effect</string>
+    <string-array name="edge_anim_names">
+        <item>None</item>
+        <item>Ring</item>
+        <item>Semicircle</item>
+        <item>Bar</item>
+        <item>Pulse wave</item>
+        <item>Neon laser</item>
+        <item>Particle vortex</item>
+        <item>Cyber scan</item>
+        <item>Liquid</item>
+    </string-array>
+    <string name="edge_anim_direction">Drains</string>
+    <string name="dir_clockwise">Clockwise</string>
+    <string name="dir_counter">Counter</string>
+    <string name="dir_both">Both ways</string>
+    <string name="bar_forward">Forward</string>
+    <string name="bar_reverse">Reverse</string>
+    <string name="bar_both">From both ends</string>
+    <string name="edge_anim_shrink">Shrink away instead</string>
+
+    <string name="section_locate">Find the cursor</string>
+    <string name="locate_on">Highlight the cursor</string>
+    <string name="locate_style">Effect</string>
+    <string name="locate_ring">Pulse ring</string>
+    <string name="locate_radar">Radar</string>
+    <string name="locate_spotlight">Spotlight</string>
+    <string name="locate_use_hotkey">With a shortcut (Ctrl+Alt+L)</string>
+    <string name="locate_arrival">When the mouse arrives from another computer</string>
+    <string name="locate_action">Find the cursor</string>
+    <string name="locate_hint">Android tells an app where the pointer is only through an accessibility service, and only by holding the mouse back from other apps while it listens. So flockswitch listens for just one event: the highlight appears at your next mouse movement, within 5 seconds, and stays where the pointer was then. The notification has a button for it too.</string>
+    <string name="locate_service_needed">Turn on flockswitch\'s accessibility service so it can read where the pointer is. If Android says the setting is restricted, allow it first in the app\'s App info page (⋮ menu → Allow restricted settings).</string>
+    <string name="locate_needs_android14">Android gives apps the mouse pointer\'s position only from Android 14 on. On this version only the preview can be shown.</string>
+    <string name="pointer_service_label">flockswitch keyboard and pointer</string>
+    <string name="pointer_service_description">Used only for flockswitch settings you turn on. Sees the keyboard to know whether Control is held and to catch Ctrl+Alt+L; every other key passes through untouched and nothing is stored or sent. Reads the mouse pointer\'s position once, at the next movement after you ask to find the cursor.</string>
+
+    <string name="report_log">Show log</string>
+    <string name="reset_button">Reset settings…</string>
+    <string name="reset_explain">Puts every setting back to how it started.</string>
+    <string name="reset_confirm">Reset</string>
+    <string name="cancel">Cancel</string>
 </resources>

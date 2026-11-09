@@ -17,6 +17,9 @@ class FakeDevice(
     var current: Int = 1,
     /** Control ID -> reporting flags (bit0 diverted, bit4 raw XY). Empty for a keyboard. */
     val controls: MutableMap<Int, Int> = mutableMapOf(),
+    /** Has a haptic motor (feature 0x19B0, index 4), offering waveforms 0-14 and 27. */
+    val haptics: Boolean = false,
+    var hapticStrength: Int = 60,
 )
 
 /** A Bolt receiver answering HID++ the way the real one was seen to. */
@@ -80,6 +83,7 @@ class FakeReceiver(val slots: Map<Int, FakeDevice>) : Transport {
                     0x0005 -> 1
                     0x1814 -> 2
                     0x1B04 -> if (dev.controls.isEmpty()) 0 else 3
+                    0x19B0 -> if (dev.haptics) 4 else 0
                     else -> 0
                 }
                 reply(*head, index)
@@ -118,6 +122,19 @@ class FakeReceiver(val slots: Map<Int, FakeDevice>) : Transport {
                     events += "%04X %04X divert=%b raw=%b".format(dev.wpid, cid, f and 1 != 0, f and 0x10 != 0)
                 }
                 reply(*head, cid shr 8, cid and 0xFF, dev.controls[cid]!!)
+            }
+            4 -> when (fn) { // haptics
+                0 -> reply(*head, 0, 0, 0, 0, 0x08, 0x00, 0x7F, 0xFF)
+                1 -> reply(*head, 0x01, dev.hapticStrength)
+                2 -> {
+                    dev.hapticStrength = report.u(5)
+                    events += "%04X strength %d".format(dev.wpid, dev.hapticStrength)
+                    reply(*head)
+                }
+                else -> {
+                    events += "%04X play %d".format(dev.wpid, report.u(4))
+                    reply(*head)
+                }
             }
             else -> reply(0x11, idx, 0xFF, feature, fnSw, 0x02)
         }

@@ -113,6 +113,23 @@ enum class Edge {
     val vertical get() = this == Left || this == Right
 }
 
+/** What is drawn near the pointer while it waits at a screen edge. Each one but None is
+ *  a drawing function in the table in EdgeOverlay.kt. */
+@Serializable
+enum class EdgeAnimStyle {
+    None, Ring, Semicircle, Bar, Pulse, Laser, Vortex, Scan, Liquid;
+
+    /** Whether the effect drains in a direction the user can choose. */
+    val hasDirection get() = this == Ring || this == Semicircle || this == Bar
+
+    /** Whether the effect can shrink away instead of draining. */
+    val canShrink get() = this == Ring || this == Semicircle
+}
+
+/** Which way the ring, semicircle or bar drains. */
+@Serializable
+enum class EdgeAnimDirection { Clockwise, CounterClockwise, Both }
+
 /** Switching at the screen edge: rest the pointer against an edge and the group goes to
  *  that edge's channel (0 = that edge does nothing). Each device watches its own screen. */
 @Serializable
@@ -125,6 +142,13 @@ data class Edges(
     val bottom: Int = 0,
     /** Density-independent pixels at each end of an edge that do not count. */
     val cornerMargin: Int = 80,
+    /** The wait runs only while Control is held. */
+    val requireControl: Boolean = false,
+    /** What is drawn while the pointer waits. */
+    val animStyle: EdgeAnimStyle = EdgeAnimStyle.Ring,
+    val animDirection: EdgeAnimDirection = EdgeAnimDirection.Clockwise,
+    /** The ring or semicircle shrinks away instead of draining. */
+    val animShrink: Boolean = false,
 ) {
     fun channel(e: Edge): Int = when (e) {
         Edge.Left -> left
@@ -144,6 +168,17 @@ data class Edges(
     fun any() = Edge.entries.any { channel(it) != 0 }
 }
 
+/** Haptic waveform IDs of HID++ feature 0x19B0 (the names Logi Options+ uses). */
+object Waveform {
+    const val SHARP_COLLISION = 2
+    const val DAMP_COLLISION = 3
+    const val SUBTLE_COLLISION = 4
+    const val COMPLETED = 7
+
+    /** Every waveform the MX Master 4 offers, in the order the settings list them. */
+    val ALL = listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 27)
+}
+
 /** Vibration on a mouse with a haptic motor (MX Master 4): a pulse when the mouse is
  *  switched away and when it comes back, and pulses while the pointer waits at a screen
  *  edge. Waveforms are the IDs of HID++ feature 0x19B0 (0-14 and 27 on the MX Master 4:
@@ -158,6 +193,24 @@ data class Haptics(
     /** Strength in percent (1-100), put on the mouse whenever it is here; 0 leaves the
      *  mouse as Logi Options+ set it. */
     val intensity: Int = 0,
+    /** The pulses at a screen edge get faster and stronger as the switch nears, instead
+     *  of repeating [edgeWaveform] evenly. */
+    val progressive: Boolean = true,
+)
+
+/** How the pointer is shown. Each one is a drawing function in the table in Overlay.kt. */
+@Serializable
+enum class LocateStyle { Ring, Radar, Spotlight }
+
+/** Showing where the pointer is with a short highlight around it. */
+@Serializable
+data class Locate(
+    val on: Boolean = false,
+    /** Shown after Ctrl+Alt+L. */
+    val onHotkey: Boolean = true,
+    /** Shown when the mouse arrives from another computer. */
+    val onArrival: Boolean = true,
+    val style: LocateStyle = LocateStyle.Ring,
 )
 
 /** Each button that can switch has its own setting. */
@@ -192,6 +245,8 @@ data class Config(
     val edges: Edges = Edges(),
     /** Vibration on a mouse with a haptic motor. */
     val haptics: Haptics = Haptics(),
+    /** Showing where the pointer is. */
+    val locate: Locate = Locate(),
 ) {
     /** The setting of a trigger button ([cid] must be one of [BUTTONS]). */
     fun button(cid: Int): ButtonSetting = when (cid) {
@@ -260,6 +315,8 @@ data class Config(
             ignoreUnknownKeys = true
             encodeDefaults = true
             prettyPrint = true
+            // A style from a newer version must not throw every setting away.
+            coerceInputValues = true
         }
 
         /** Reads saved settings; unreadable or unusable ones give the defaults. */

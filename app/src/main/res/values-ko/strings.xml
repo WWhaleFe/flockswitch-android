@@ -89,12 +89,91 @@
     <string name="edge_dwell">머무는 시간</string>
     <string name="seconds">%s초</string>
     <string name="edges_corner_hint">네 귀퉁이는 제외됩니다.</string>
-    <string name="overlay_permission">화면 가장자리를 지켜보려면 “다른 앱 위에 표시” 권한이 필요합니다. 가장자리를 따라 보이지 않는 얇은 띠가 포인터를 감지할 뿐, 아무것도 그리지 않고 입력도 가로채지 않습니다.</string>
+    <string name="overlay_permission">화면 가장자리를 지켜보려면 “다른 앱 위에 표시” 권한이 필요합니다. 가장자리를 따라 보이지 않는 얇은 띠가 포인터를 감지하고, 전환 대기 효과를 화면 위에 그립니다. 입력은 가로채지 않습니다.</string>
 
     <string name="section_haptics">진동 (MX Master 4)</string>
     <string name="haptics_switch">채널을 전환할 때 진동</string>
     <string name="haptics_edge">모서리에서 전환을 기다리는 동안 진동</string>
-    <string name="haptics_hint">진동 모터가 있는 Logitech 마우스(MX Master 4)에서만 울립니다. 마우스가 떠날 때와 돌아왔을 때 한 번씩, 모서리에서는 머무는 동안 짧게 반복됩니다. 세기를 고르면 마우스에 바로 적용되고 한 번 울려서 확인할 수 있습니다. 마우스는 전원이 꺼지면 세기를 잊으므로 돌아올 때마다 다시 적용합니다. “Options+”는 Logi Options+의 설정을 그대로 둡니다.</string>
+    <string name="haptics_hint">진동 모터가 있는 Logitech 마우스(MX Master 4)에서만 울립니다. 세기를 고르면 적용할 때 마우스에 반영되고 한 번 울려서 확인할 수 있습니다. 마우스는 전원이 꺼지면 세기를 잊으므로 돌아올 때마다 다시 적용합니다. “Options+”는 Logi Options+의 설정을 그대로 둡니다.</string>
     <string name="haptics_intensity">진동 세기</string>
     <string name="haptics_follow">Options+</string>
+
+    <string name="haptics_open">진동 설정…</string>
+    <string name="haptics_dialog_title">진동 설정</string>
+    <string name="haptics_master">진동 사용</string>
+    <string name="haptics_state_on">켜짐</string>
+    <string name="haptics_state_off">꺼짐</string>
+    <string name="haptics_wave_switch">전환할 때 파형</string>
+    <string name="haptics_wave_arrive">도착했을 때 파형</string>
+    <string name="haptics_wave_edge">모서리 대기 파형</string>
+    <string name="haptics_progressive">전환이 가까울수록 진동 강화</string>
+    <string name="haptics_progressive_hint">모서리에서 기다리는 동안 진동 간격이 짧아지고 세지며, 전환되는 순간 한 번 더 울립니다. 켜 두면 모서리 대기 파형 대신 이 패턴을 씁니다.</string>
+    <string-array name="waveform_names">
+        <item>날카로운 상태 변화</item>
+        <item>부드러운 상태 변화</item>
+        <item>날카로운 충돌</item>
+        <item>부드러운 충돌</item>
+        <item>미세한 충돌</item>
+        <item>기쁜 알림</item>
+        <item>경고 알림</item>
+        <item>완료</item>
+        <item>사각파</item>
+        <item>물결</item>
+        <item>불꽃놀이</item>
+        <item>거친 진동</item>
+        <item>노크</item>
+        <item>징글</item>
+        <item>벨소리</item>
+        <item>속삭이는 충돌</item>
+    </string-array>
+    <string name="apply">적용</string>
+    <string name="ok">확인</string>
+    <string name="close">닫기</string>
+    <string name="preview">미리 보기</string>
+
+    <string name="edge_require_control">Control 키를 누른 동안에만 전환</string>
+    <string name="edge_require_control_hint">포인터가 모서리에 있어도 Control을 누르기 전에는 기다리는 시간이 시작되지 않습니다. flockswitch 접근성 서비스를 켜면 키를 떼는 즉시 취소되고, 켜지 않으면 안드로이드는 포인터가 움직일 때만 키 상태를 알려 줍니다.</string>
+    <string name="edge_control_service">포인터가 멈춰 있어도 키가 바로 반영되도록 flockswitch 접근성 서비스를 켜세요. 켜지 않으면 모서리에 닿기 전에 Control을 누르고, 취소하려면 키를 뗀 뒤 포인터를 움직여야 합니다.</string>
+    <string name="open_accessibility">접근성 설정</string>
+    <string name="edge_anim">전환 대기 효과</string>
+    <string-array name="edge_anim_names">
+        <item>없음</item>
+        <item>링</item>
+        <item>반원</item>
+        <item>막대</item>
+        <item>펄스 파동</item>
+        <item>네온 레이저</item>
+        <item>파티클 보텍스</item>
+        <item>사이버 스캔</item>
+        <item>리퀴드</item>
+    </string-array>
+    <string name="edge_anim_direction">줄어드는 방향</string>
+    <string name="dir_clockwise">시계</string>
+    <string name="dir_counter">반시계</string>
+    <string name="dir_both">양방향</string>
+    <string name="bar_forward">정방향</string>
+    <string name="bar_reverse">역방향</string>
+    <string name="bar_both">양 끝에서</string>
+    <string name="edge_anim_shrink">크기가 작아지며 사라지기</string>
+
+    <string name="section_locate">마우스 찾기</string>
+    <string name="locate_on">커서 위치 강조 표시</string>
+    <string name="locate_style">효과</string>
+    <string name="locate_ring">펄스 링</string>
+    <string name="locate_radar">레이더</string>
+    <string name="locate_spotlight">스포트라이트</string>
+    <string name="locate_use_hotkey">단축키로 표시 (Ctrl+Alt+L)</string>
+    <string name="locate_arrival">다른 컴퓨터에서 마우스가 도착했을 때</string>
+    <string name="locate_action">마우스 찾기</string>
+    <string name="locate_hint">안드로이드는 접근성 서비스를 통해서만 포인터 위치를 알려 주며, 듣는 동안에는 마우스 입력이 다른 앱으로 가지 않습니다. 그래서 flockswitch는 이벤트 하나만 듣습니다. 강조 표시는 5초 안에 다음 마우스 움직임이 있을 때 나타나고 그때의 포인터 위치에 머뭅니다. 알림에도 이 버튼이 있습니다.</string>
+    <string name="locate_service_needed">포인터 위치를 읽을 수 있도록 flockswitch 접근성 서비스를 켜세요. 안드로이드가 제한된 설정이라고 하면 앱 정보 화면(⋮ 메뉴 → 제한된 설정 허용)에서 먼저 허용하세요.</string>
+    <string name="locate_needs_android14">안드로이드 14부터 앱에 마우스 포인터 위치를 알려 줍니다. 이 버전에서는 미리 보기만 표시할 수 있습니다.</string>
+    <string name="pointer_service_label">flockswitch 키보드와 포인터</string>
+    <string name="pointer_service_description">켜 둔 flockswitch 설정에만 쓰입니다. Control을 누르고 있는지 확인하고 Ctrl+Alt+L을 받기 위해 키보드를 봅니다. 다른 키는 그대로 통과하며 저장하거나 보내지 않습니다. 마우스 찾기를 요청한 뒤 다음 움직임에서 포인터 위치를 한 번 읽습니다.</string>
+
+    <string name="report_log">로그 보기</string>
+    <string name="reset_button">설정 초기화…</string>
+    <string name="reset_explain">모든 설정을 처음 상태로 되돌립니다.</string>
+    <string name="reset_confirm">초기화</string>
+    <string name="cancel">취소</string>
 </resources>

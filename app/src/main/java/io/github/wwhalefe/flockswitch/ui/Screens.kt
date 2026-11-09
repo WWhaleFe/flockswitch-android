@@ -14,12 +14,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +38,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,15 +53,22 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.wwhalefe.flockswitch.BUTTON_GESTURE
 import io.github.wwhalefe.flockswitch.BUTTON_MIDDLE
@@ -65,7 +78,13 @@ import io.github.wwhalefe.flockswitch.BuildConfig
 import io.github.wwhalefe.flockswitch.Config
 import io.github.wwhalefe.flockswitch.DeviceInfo
 import io.github.wwhalefe.flockswitch.Edge
+import io.github.wwhalefe.flockswitch.EdgeAnimDirection
+import io.github.wwhalefe.flockswitch.EdgeAnimStyle
+import io.github.wwhalefe.flockswitch.Edges
 import io.github.wwhalefe.flockswitch.Gesture
+import io.github.wwhalefe.flockswitch.Haptics
+import io.github.wwhalefe.flockswitch.LocateStyle
+import io.github.wwhalefe.flockswitch.Log
 import io.github.wwhalefe.flockswitch.MainActivity
 import io.github.wwhalefe.flockswitch.MoveSetting
 import io.github.wwhalefe.flockswitch.R
@@ -73,8 +92,10 @@ import io.github.wwhalefe.flockswitch.RELEASES_PAGE
 import io.github.wwhalefe.flockswitch.Shared
 import io.github.wwhalefe.flockswitch.Status
 import io.github.wwhalefe.flockswitch.UpdateState
+import io.github.wwhalefe.flockswitch.Waveform
 import io.github.wwhalefe.flockswitch.checkForUpdate
 import io.github.wwhalefe.flockswitch.pick
+import io.github.wwhalefe.flockswitch.pointerReadable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -85,6 +106,9 @@ class Actions(
     val allowUsb: () -> Unit,
     val allowNearby: () -> Unit,
     val allowOverlay: () -> Unit,
+    val previewEdge: (Edges) -> Unit,
+    val previewLocate: (LocateStyle, Float, Float) -> Unit,
+    val openAccessibility: () -> Unit,
     val notificationsOn: () -> Boolean,
     val switchTo: (Int) -> Unit,
     val open: (String) -> Unit,
@@ -241,14 +265,35 @@ private fun ChannelPicker(selected: Int?, here: Int?, onPick: (Int) -> Unit) {
 /** One of a few fixed values, e.g. the time at the edge. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun <T> ValuePicker(options: List<Pair<T, String>>, selected: T, onPick: (T) -> Unit) {
+private fun <T> ValuePicker(options: List<Pair<T, String>>, selected: T, enabled: Boolean = true, onPick: (T) -> Unit) {
     SingleChoiceSegmentedButtonRow(Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
         options.forEachIndexed { i, (value, label) ->
             SegmentedButton(
                 selected = selected == value,
                 onClick = { onPick(value) },
+                enabled = enabled,
                 shape = SegmentedButtonDefaults.itemShape(index = i, count = options.size),
             ) { Text(label) }
+        }
+    }
+}
+
+/** One of a longer list of values, e.g. a waveform. */
+@Composable
+private fun <T> DropdownRow(title: String, options: List<Pair<T, String>>, selected: T, enabled: Boolean = true, onPick: (T) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Text(title, style = MaterialTheme.typography.labelLarge)
+    Box {
+        OutlinedButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
+            Text(options.firstOrNull { it.first == selected }?.second ?: selected.toString())
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            for ((value, label) in options) {
+                DropdownMenuItem(text = { Text(label) }, onClick = {
+                    open = false
+                    onPick(value)
+                })
+            }
         }
     }
 }
@@ -397,6 +442,147 @@ private fun EdgesSection(cfg: Config, s: Status, update: (Config.() -> Config) -
             .map { (ms, text) -> ms to stringResource(R.string.seconds, text) }
         ValuePicker(options, cfg.edges.dwellMs) { ms -> update { copy(edges = edges.copy(dwellMs = ms)) } }
         Hint(stringResource(R.string.edges_corner_hint))
+        HorizontalDivider()
+        SwitchRow(stringResource(R.string.edge_require_control), cfg.edges.requireControl, subtitle = stringResource(R.string.edge_require_control_hint)) { on ->
+            update { copy(edges = edges.copy(requireControl = on)) }
+        }
+        if (cfg.edges.requireControl && !s.pointerService) {
+            Notice(stringResource(R.string.edge_control_service), stringResource(R.string.open_accessibility), actions.openAccessibility)
+        }
+        HorizontalDivider()
+        EdgeAnimRows(cfg, update, actions)
+    }
+}
+
+/** What is drawn during the wait at an edge. */
+@Composable
+private fun EdgeAnimRows(cfg: Config, update: (Config.() -> Config) -> Unit, actions: Actions) {
+    val style = cfg.edges.animStyle
+    DropdownRow(stringResource(R.string.edge_anim), EdgeAnimStyle.entries.zip(stringArrayResource(R.array.edge_anim_names)), style) { chosen ->
+        update { copy(edges = edges.copy(animStyle = chosen)) }
+    }
+    if (style != EdgeAnimStyle.None) {
+        OutlinedButton(onClick = { actions.previewEdge(cfg.edges) }) { Text(stringResource(R.string.preview)) }
+    }
+    if (style.canShrink) {
+        SwitchRow(stringResource(R.string.edge_anim_shrink), cfg.edges.animShrink) { on -> update { copy(edges = edges.copy(animShrink = on)) } }
+    }
+    if (style.hasDirection && !(cfg.edges.animShrink && style.canShrink)) {
+        val labels = if (style == EdgeAnimStyle.Bar) {
+            listOf(R.string.bar_forward, R.string.bar_reverse, R.string.bar_both)
+        } else {
+            listOf(R.string.dir_clockwise, R.string.dir_counter, R.string.dir_both)
+        }
+        Text(stringResource(R.string.edge_anim_direction), style = MaterialTheme.typography.labelLarge)
+        ValuePicker(EdgeAnimDirection.entries.zip(labels.map { stringResource(it) }), cfg.edges.animDirection) { d ->
+            update { copy(edges = edges.copy(animDirection = d)) }
+        }
+    }
+}
+
+/** Highlighting the pointer: on/off, the effect, and what brings it up. */
+@Composable
+private fun LocateSection(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions) {
+    val l = cfg.locate
+    Section(stringResource(R.string.section_locate)) {
+        SwitchRow(stringResource(R.string.locate_on), l.on) { on -> update { copy(locate = locate.copy(on = on)) } }
+        if (l.on) {
+            HorizontalDivider()
+            Text(stringResource(R.string.locate_style), style = MaterialTheme.typography.labelLarge)
+            val styles = listOf(
+                LocateStyle.Ring to stringResource(R.string.locate_ring),
+                LocateStyle.Radar to stringResource(R.string.locate_radar),
+                LocateStyle.Spotlight to stringResource(R.string.locate_spotlight),
+            )
+            ValuePicker(styles, l.style) { style -> update { copy(locate = locate.copy(style = style)) } }
+            // The pointer is on the button when it is pressed: the preview plays there.
+            var at by remember { mutableStateOf(Offset.Zero) }
+            OutlinedButton(
+                onClick = { actions.previewLocate(l.style, at.x, at.y) },
+                modifier = Modifier.onGloballyPositioned { at = it.boundsInWindow().center },
+            ) { Text(stringResource(R.string.preview)) }
+            HorizontalDivider()
+            if (!pointerReadable) {
+                Hint(stringResource(R.string.locate_needs_android14))
+            } else {
+                if (!s.pointerService) {
+                    Notice(stringResource(R.string.locate_service_needed), stringResource(R.string.open_accessibility), actions.openAccessibility)
+                }
+                SwitchRow(stringResource(R.string.locate_use_hotkey), l.onHotkey) { on -> update { copy(locate = locate.copy(onHotkey = on)) } }
+                SwitchRow(stringResource(R.string.locate_arrival), l.onArrival) { on -> update { copy(locate = locate.copy(onArrival = on)) } }
+                Hint(stringResource(R.string.locate_hint))
+            }
+        }
+    }
+}
+
+/** The recent log lines, to read or copy. */
+@Composable
+private fun LogDialog(onClose: () -> Unit) {
+    val lines = remember { Log.recent().joinToString("\n") }
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(stringResource(R.string.report_log)) },
+        text = {
+            Box(Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
+                SelectionContainer { Text(lines, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
+        confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.close)) } },
+    )
+}
+
+private val hapticsSaver = Saver<Haptics, String>(
+    save = { Config.json.encodeToString(Haptics.serializer(), it) },
+    restore = { Config.json.decodeFromString(Haptics.serializer(), it) },
+)
+
+/** The haptics settings. Nothing reaches the mouse before Apply or OK; Close puts back
+ *  what was set when the dialog opened, undoing an Apply too. */
+@Composable
+private fun HapticsDialog(cfg: Config, update: (Config.() -> Config) -> Unit, onClose: () -> Unit) {
+    val openedWith = rememberSaveable(saver = hapticsSaver) { cfg.haptics }
+    var d by rememberSaveable(stateSaver = hapticsSaver) { mutableStateOf(cfg.haptics) }
+    val close = {
+        if (cfg.haptics != openedWith) update { copy(haptics = openedWith) }
+        onClose()
+    }
+    Dialog(onDismissRequest = close, properties = DialogProperties(dismissOnClickOutside = false)) {
+        Surface(shape = MaterialTheme.shapes.extraLarge, tonalElevation = 6.dp) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.haptics_dialog_title), style = MaterialTheme.typography.titleLarge)
+                Column(
+                    Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    val on = d.onSwitch || d.onEdge
+                    SwitchRow(stringResource(R.string.haptics_master), on) { d = d.copy(onSwitch = it, onEdge = it) }
+                    HorizontalDivider()
+                    SwitchRow(stringResource(R.string.haptics_switch), d.onSwitch, enabled = on) { d = d.copy(onSwitch = it) }
+                    SwitchRow(stringResource(R.string.haptics_edge), d.onEdge, enabled = on) { d = d.copy(onEdge = it) }
+                    SwitchRow(stringResource(R.string.haptics_progressive), d.progressive, stringResource(R.string.haptics_progressive_hint), enabled = on) { d = d.copy(progressive = it) }
+                    HorizontalDivider()
+                    Text(stringResource(R.string.haptics_intensity), style = MaterialTheme.typography.labelLarge)
+                    // 0 = as Logi Options+ sets it; otherwise the strength in percent.
+                    val levels = listOf(0 to stringResource(R.string.haptics_follow), 25 to "25%", 50 to "50%", 75 to "75%", 100 to "100%")
+                    ValuePicker(levels, d.intensity, enabled = on) { d = d.copy(intensity = it) }
+                    HorizontalDivider()
+                    val waves = Waveform.ALL.zip(stringArrayResource(R.array.waveform_names))
+                    DropdownRow(stringResource(R.string.haptics_wave_switch), waves, d.switchWaveform, enabled = on) { d = d.copy(switchWaveform = it) }
+                    DropdownRow(stringResource(R.string.haptics_wave_arrive), waves, d.arriveWaveform, enabled = on) { d = d.copy(arriveWaveform = it) }
+                    DropdownRow(stringResource(R.string.haptics_wave_edge), waves, d.edgeWaveform, enabled = on && !d.progressive) { d = d.copy(edgeWaveform = it) }
+                    Hint(stringResource(R.string.haptics_hint))
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)) {
+                    TextButton(onClick = { update { copy(haptics = d) } }) { Text(stringResource(R.string.apply)) }
+                    Button(onClick = {
+                        update { copy(haptics = d) }
+                        onClose()
+                    }) { Text(stringResource(R.string.ok)) }
+                    TextButton(onClick = close) { Text(stringResource(R.string.close)) }
+                }
+            }
+        }
     }
 }
 
@@ -462,17 +648,18 @@ private fun GeneralTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
         }
     }
 
+    LocateSection(cfg, s, update, actions)
+
+    var hapticsOpen by rememberSaveable { mutableStateOf(false) }
     Section(stringResource(R.string.section_haptics)) {
-        SwitchRow(stringResource(R.string.haptics_switch), cfg.haptics.onSwitch) { on -> update { copy(haptics = haptics.copy(onSwitch = on)) } }
-        HorizontalDivider()
-        SwitchRow(stringResource(R.string.haptics_edge), cfg.haptics.onEdge) { on -> update { copy(haptics = haptics.copy(onEdge = on)) } }
-        HorizontalDivider()
-        Text(stringResource(R.string.haptics_intensity), style = MaterialTheme.typography.labelLarge)
-        // 0 = as Logi Options+ sets it; otherwise the strength in percent.
-        val levels = listOf(0 to stringResource(R.string.haptics_follow), 25 to "25%", 50 to "50%", 75 to "75%", 100 to "100%")
-        ValuePicker(levels, cfg.haptics.intensity) { level -> update { copy(haptics = haptics.copy(intensity = level)) } }
-        Hint(stringResource(R.string.haptics_hint))
+        val state = stringResource(if (cfg.haptics.onSwitch || cfg.haptics.onEdge) R.string.haptics_state_on else R.string.haptics_state_off)
+        val strength = if (cfg.haptics.intensity == 0) stringResource(R.string.haptics_follow) else "${cfg.haptics.intensity}%"
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("$state · ${stringResource(R.string.haptics_intensity)} $strength", Modifier.weight(1f))
+            OutlinedButton(onClick = { hapticsOpen = true }) { Text(stringResource(R.string.haptics_open)) }
+        }
     }
+    if (hapticsOpen) HapticsDialog(cfg, update) { hapticsOpen = false }
 
     var updateState by remember { mutableStateOf<UpdateState>(UpdateState.Unknown) }
     val scope = rememberCoroutineScope()
@@ -506,6 +693,29 @@ private fun GeneralTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
             Button(onClick = actions.report) { Text(stringResource(R.string.report_mail)) }
             OutlinedButton(onClick = { actions.open(MainActivity.ISSUES_PAGE) }) { Text(stringResource(R.string.report_issue)) }
         }
+        var showLog by rememberSaveable { mutableStateOf(false) }
+        OutlinedButton(onClick = { showLog = true }) { Text(stringResource(R.string.report_log)) }
+        if (showLog) LogDialog { showLog = false }
+    }
+
+    var confirmReset by rememberSaveable { mutableStateOf(false) }
+    Section {
+        Hint(stringResource(R.string.reset_explain))
+        OutlinedButton(onClick = { confirmReset = true }) { Text(stringResource(R.string.reset_button)) }
+    }
+    if (confirmReset) {
+        AlertDialog(
+            onDismissRequest = { confirmReset = false },
+            text = { Text(stringResource(R.string.reset_explain)) },
+            confirmButton = {
+                Button(onClick = {
+                    confirmReset = false
+                    update { Config() }
+                    actions.setEnabled(true)
+                }) { Text(stringResource(R.string.reset_confirm)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
     Spacer(Modifier.height(8.dp))
 }

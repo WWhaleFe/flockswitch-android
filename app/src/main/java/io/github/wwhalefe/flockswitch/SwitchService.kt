@@ -74,10 +74,24 @@ class SwitchService : Service() {
                 .distinctUntilChanged()
                 .collect { (s, c) -> nm.notify(NOTIFICATION_ID, notification(s, c)) }
         }
+        scope.launch {
+            var here: Boolean? = null
+            shared.status.collect { s ->
+                val now = s.trigger != null
+                if (here == false && now) arrived()
+                here = now
+            }
+        }
         val watcher = EdgeWatcher(this, shared)
         edges = watcher
         scope.launch { shared.config.collect { syncEdges(watcher, it) } }
         registerReceiver(screenChanged, IntentFilter(Intent.ACTION_CONFIGURATION_CHANGED))
+    }
+
+    /** The master mouse came from another computer: show where the pointer is. */
+    private fun arrived() {
+        val locate = shared.config.value.locate
+        if (locate.on && locate.onArrival) PointerService.instance?.locateOnNextMove()
     }
 
     /** Shows or hides the edge strips for these settings and tells the screen whether
@@ -93,6 +107,7 @@ class SwitchService : Service() {
         edges?.let { syncEdges(it, shared.config.value) }
         when (intent?.action) {
             ACTION_SWITCH -> shared.requestSwitch(intent.getIntExtra(EXTRA_CHANNEL, 0))
+            ACTION_LOCATE -> PointerService.instance?.locateOnNextMove()
             ACTION_STOP -> {
                 shared.updateConfig { it.copy(enabled = false) }
                 stopSelf()
@@ -167,6 +182,10 @@ class SwitchService : Service() {
                 if (channel == s.channel) continue
                 b.addAction(0, getString(R.string.go_to_channel, channel), switchIntent(this, channel))
             }
+            if (c.locate.on && s.pointerService && pointerReadable) {
+                val intent = Intent(this, SwitchService::class.java).setAction(ACTION_LOCATE)
+                b.addAction(0, getString(R.string.locate_action), PendingIntent.getService(this, LOCATE_REQUEST, intent, PendingIntent.FLAG_IMMUTABLE))
+            }
         }
         return b.build()
     }
@@ -180,6 +199,8 @@ class SwitchService : Service() {
         private var engineThread: Thread? = null
         const val ACTION_SWITCH = "io.github.wwhalefe.flockswitch.SWITCH"
         const val ACTION_STOP = "io.github.wwhalefe.flockswitch.STOP"
+        const val ACTION_LOCATE = "io.github.wwhalefe.flockswitch.LOCATE"
+        private const val LOCATE_REQUEST = 100
         const val EXTRA_CHANNEL = "channel"
 
         fun start(context: Context) {

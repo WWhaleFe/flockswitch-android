@@ -15,7 +15,8 @@
     <!-- Only to ask GitHub whether a newer version exists. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Switching at the screen edge: thin invisible strips along the edges notice the
-         mouse pointer. Asked for only when an edge is given a channel. -->
+         mouse pointer, and the countdown is drawn over the screen. Asked for only when an
+         edge is given a channel. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
@@ -64,6 +65,19 @@
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
+        </service>
+
+        <service
+            android:name=".PointerService"
+            android:exported="true"
+            android:label="@string/pointer_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/pointer_service" />
         </service>
 
         <receiver

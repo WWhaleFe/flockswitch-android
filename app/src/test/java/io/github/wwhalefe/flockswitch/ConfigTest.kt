@@ -22,6 +22,40 @@ class ConfigTest {
         assertEquals(Edges(), Config.fromJson("{\"enabled\": true}").edges)
     }
 
+    @Test
+    fun edgeCountdownSettings() {
+        assertFalse(Edges().requireControl)
+        assertEquals(EdgeAnimStyle.Ring, Edges().animStyle)
+        val e = Edges(requireControl = true, animStyle = EdgeAnimStyle.Vortex, animDirection = EdgeAnimDirection.Both, animShrink = true)
+        val c = Config().copy(edges = e)
+        assertEquals(e, Config.fromJson(c.toJson()).edges)
+        // A style from a newer version falls back to the default, keeping everything else.
+        val newer = c.toJson().replace("\"Vortex\"", "\"Sparkle\"")
+        assertEquals(EdgeAnimStyle.Ring, Config.fromJson(newer).edges.animStyle)
+        assertTrue(Config.fromJson(newer).edges.requireControl)
+        assertTrue(EdgeAnimStyle.Bar.hasDirection && !EdgeAnimStyle.Bar.canShrink)
+        assertFalse(EdgeAnimStyle.None.hasDirection || EdgeAnimStyle.Vortex.canShrink)
+    }
+
+    @Test
+    fun locateSettings() {
+        assertFalse(Locate().on)
+        val l = Locate(on = true, onHotkey = false, style = LocateStyle.Spotlight)
+        assertEquals(l, Config.fromJson(Config().copy(locate = l).toJson()).locate)
+        assertEquals(Locate(), Config.fromJson("{\"enabled\": true}").locate)
+    }
+
+    @Test
+    fun hapticsSettings() {
+        assertTrue(Haptics().progressive)
+        val h = Haptics(progressive = false, switchWaveform = 27)
+        assertEquals(h, Config.fromJson(Config().copy(haptics = h).toJson()).haptics)
+        // Settings from before these existed.
+        assertEquals(Haptics(), Config.fromJson("{\"enabled\": true}").haptics)
+        assertEquals(16, Waveform.ALL.size)
+        assertEquals(27, Waveform.ALL.last())
+    }
+
     private fun button(vararg channels: Int) = ButtonSetting(on = true, channels = channels.toList())
 
     private fun press(b: ButtonSetting, current0: Int, count: Int) = b.channelAfter(Gesture.Press, current0, count)

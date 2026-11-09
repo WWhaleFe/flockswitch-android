@@ -238,16 +238,21 @@ class Engine(
         }
         val sourceChanged = next.bluetooth != cfg.bluetooth
         val intensityChanged = next.haptics.intensity != cfg.haptics.intensity
+        // A waveform just chosen, played once so the hand can judge it.
+        val waveforms = { h: Haptics -> listOf(h.switchWaveform, h.arriveWaveform, h.edgeWaveform) }
+        val newWaveform = waveforms(next.haptics).zip(waveforms(cfg.haptics)).firstOrNull { (new, old) -> new != old }?.first
         cfg = next
         Log.i("settings changed (${modeText()})")
         if (sourceChanged) {
             scan()
         }
         if (cfg.enabled) ensureDiverted() else Log.i("paused: the button is back to normal")
-        if (intensityChanged) {
-            applyHapticIntensity()
+        if (intensityChanged) applyHapticIntensity()
+        if (newWaveform != null) {
+            buzz(newWaveform)
+        } else if (intensityChanged && cfg.haptics.intensity != 0) {
             // A pulse at the new strength, so the hand can judge it.
-            if (cfg.haptics.intensity != 0) buzz(cfg.haptics.switchWaveform)
+            buzz(cfg.haptics.switchWaveform)
         }
         publish()
     }
