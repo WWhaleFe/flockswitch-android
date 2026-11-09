@@ -147,6 +147,7 @@
         <item>Particle vortex</item>
         <item>Cyber scan</item>
         <item>Liquid</item>
+        <item>Random</item>
     </string-array>
     <string name="edge_anim_direction">Drains</string>
     <string name="dir_clockwise">Clockwise</string>
@@ -157,6 +158,9 @@
     <string name="bar_both">From both ends</string>
     <string name="edge_anim_shrink">Shrink away instead</string>
 
+    <string name="effect_color">Color</string>
+    <string name="color_other">Other color</string>
+    <string name="locate_random">Random</string>
     <string name="section_locate">Find the cursor</string>
     <string name="locate_on">Highlight the cursor</string>
     <string name="locate_style">Effect</string>

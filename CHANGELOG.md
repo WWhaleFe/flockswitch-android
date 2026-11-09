@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 — 2026-11-09
+
+- Effect colours: the screen-edge countdown and the find-the-cursor highlight each have their own colour (seven ready-made, any other from the picker with sliders or a typed #RRGGBB)
+- Random effects: choose **Random** for the edge countdown or the highlight and each one shows a different effect
+- Settings: the four screen edges take less room, each side on one line
+
 ## 0.4.0 — 2026-11-09
 
 - Haptics settings moved into a dialog (Settings → General → Haptics → **Haptics Settings…**): haptics on or off, each situation on or off, strength, and the waveform for switching, arrival and the wait at an edge (the MX Master 4's 16 waveforms). **Apply** saves and sends to the mouse and stays open, **OK** saves and closes, **Close** puts back what was set when the dialog opened, even after Apply. A waveform just chosen plays once so the hand can judge it

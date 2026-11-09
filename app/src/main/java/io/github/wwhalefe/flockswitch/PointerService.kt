@@ -88,7 +88,7 @@ class PointerService : AccessibilityService() {
     override fun onMotionEvent(event: MotionEvent) {
         if (!waiting || !event.isFromSource(InputDevice.SOURCE_MOUSE)) return
         stopWaiting()
-        overlay.show(shared.config.value.locate.style, event.rawX, event.rawY)
+        overlay.show(shared.config.value.locate, event.rawX, event.rawY)
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
@@ -102,7 +102,7 @@ class PointerService : AccessibilityService() {
     }
 
     /** Plays the highlight once, for the settings. */
-    fun preview(style: LocateStyle, x: Float, y: Float) = overlay.show(style, x, y)
+    fun preview(locate: Locate, x: Float, y: Float) = overlay.show(locate, x, y)
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
 

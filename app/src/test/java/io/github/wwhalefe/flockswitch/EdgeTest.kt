@@ -44,9 +44,27 @@ class EdgeTest {
     @Test
     fun everyEffectIsInTheTable() {
         for (style in EdgeAnimStyle.entries) {
-            if (style == EdgeAnimStyle.None) assertNull(edgeRenderers[style]) else assertTrue("$style", style in edgeRenderers)
+            if (style == EdgeAnimStyle.None || style == EdgeAnimStyle.Random) assertNull(edgeRenderers[style]) else assertTrue("$style", style in edgeRenderers)
         }
-        for (style in LocateStyle.entries) assertTrue("$style", style in locateRenderers)
+        for (style in LocateStyle.entries) {
+            if (style == LocateStyle.Random) assertNull(locateRenderers[style]) else assertTrue("$style", style in locateRenderers)
+        }
+    }
+
+    @Test
+    fun randomOnlyEverPicksARealEffect() {
+        val edge = (1..500).map { EdgeAnimStyle.Random.resolved() }.toSet()
+        assertFalse(EdgeAnimStyle.None in edge || EdgeAnimStyle.Random in edge)
+        assertEquals("every real effect comes up", EdgeAnimStyle.entries.size - 2, edge.size)
+        val locate = (1..500).map { LocateStyle.Random.resolved() }.toSet()
+        assertFalse(LocateStyle.Random in locate)
+        assertEquals(LocateStyle.entries.size - 1, locate.size)
+        // Anything else stays what it is.
+        assertEquals(EdgeAnimStyle.None, EdgeAnimStyle.None.resolved())
+        assertEquals(EdgeAnimStyle.Bar, EdgeAnimStyle.Bar.resolved())
+        assertEquals(LocateStyle.Radar, LocateStyle.Radar.resolved())
+        // Random has no direction or shrink of its own, so those controls hide.
+        assertFalse(EdgeAnimStyle.Random.hasDirection || EdgeAnimStyle.Random.canShrink)
     }
 
     @Test

@@ -40,8 +40,8 @@ private const val STRIP_DEPTH_DP = 240
 private const val LOCATE_MS = 1300L
 private const val LOCATE_FADE_S = 0.35
 
-/** #FFCC00 with this much opacity (0..1). */
-private fun yellow(alpha: Double): Int = ((alpha.coerceIn(0.0, 1.0) * 255).toInt() shl 24) or 0xFFCC00
+/** A colour from the settings, as 0xRRGGBB. */
+private fun effectColor(text: String): Int = parseColor(text) ?: parseColor(DEFAULT_EFFECT_COLOR) ?: 0xFFCC00
 
 /** Repeatable noise in 0..1, so particles and sparks stay put from frame to frame. */
 private fun noise(n: Int): Double {
@@ -57,7 +57,12 @@ private fun smooth(from: Double, to: Double, v: Double): Double {
 private data class Pt(val x: Double, val y: Double)
 
 /** What every effect draws with, in y-up dp with the origin at the window's lower left. */
-abstract class OverlayFrame internal constructor(val c: Canvas, internal val paint: Paint)
+abstract class OverlayFrame internal constructor(
+    val c: Canvas,
+    internal val paint: Paint,
+    /** The colour chosen for this effect, as 0xRRGGBB. */
+    internal val rgb: Int,
+)
 
 /** One frame of a countdown. */
 class EdgeFrame internal constructor(
@@ -80,7 +85,8 @@ class EdgeFrame internal constructor(
     val direction: EdgeAnimDirection,
     val shrink: Boolean,
     paint: Paint,
-) : OverlayFrame(c, paint)
+    rgb: Int,
+) : OverlayFrame(c, paint, rgb)
 
 typealias EdgeRenderer = (EdgeFrame) -> Unit
 
@@ -96,7 +102,8 @@ class LocateFrame internal constructor(
     /** 1 until the fade-out, then down to 0. */
     val fade: Double,
     paint: Paint,
-) : OverlayFrame(c, paint)
+    rgb: Int,
+) : OverlayFrame(c, paint, rgb)
 
 typealias LocateRenderer = (LocateFrame) -> Unit
 
@@ -106,17 +113,20 @@ private val EdgeFrame.anchor get() = Pt(anchorX, anchorY)
 private fun EdgeFrame.fromAnchor(a: Double, d: Double) =
     Pt(anchorX + alongX * a + inX * d, anchorY + alongY * a + inY * d)
 
+/** The effect's colour with this much opacity (0..1). */
+private fun OverlayFrame.accent(alpha: Double): Int = ((alpha.coerceIn(0.0, 1.0) * 255).toInt() shl 24) or rgb
+
 private fun OverlayFrame.stroke(alpha: Double) {
     paint.style = Paint.Style.STROKE
-    paint.color = yellow(alpha)
+    paint.color = accent(alpha)
 }
 
 private fun OverlayFrame.fill(alpha: Double) {
     paint.style = Paint.Style.FILL
-    paint.color = yellow(alpha)
+    paint.color = accent(alpha)
 }
 
-private fun OverlayFrame.glow(blur: Double, alpha: Double) = paint.setShadowLayer(blur.toFloat(), 0f, 0f, yellow(alpha))
+private fun OverlayFrame.glow(blur: Double, alpha: Double) = paint.setShadowLayer(blur.toFloat(), 0f, 0f, accent(alpha))
 
 private fun OverlayFrame.noGlow() = paint.clearShadowLayer()
 
@@ -414,7 +424,8 @@ private fun edgeLiquid(f: EdgeFrame) {
     f.c.restore()
 }
 
-/** Every effect, by style. EdgeAnimStyle.None has no entry and draws nothing. */
+/** Every effect, by style. EdgeAnimStyle.None has no entry and draws nothing; Random is
+ *  resolved to one of the others before drawing. */
 val edgeRenderers: Map<EdgeAnimStyle, EdgeRenderer> = mapOf(
     EdgeAnimStyle.Ring to ::edgeRing,
     EdgeAnimStyle.Semicircle to ::edgeSemicircle,
@@ -481,7 +492,7 @@ private fun locateSpotlight(f: LocateFrame) {
     f.circle(center, radius)
 }
 
-/** Every highlight, by style. */
+/** Every highlight, by style; Random is resolved to one of the others before drawing. */
 val locateRenderers: Map<LocateStyle, LocateRenderer> = mapOf(
     LocateStyle.Ring to ::locateRing,
     LocateStyle.Radar to ::locateRadar,
@@ -497,6 +508,7 @@ private class CountdownView(
     private val style: EdgeRenderer,
     private val direction: EdgeAnimDirection,
     private val shrink: Boolean,
+    private val rgb: Int,
     private val startMs: Long,
     private val durationMs: Long,
     /** Where along the edge the pointer is, in screen pixels. */
@@ -549,7 +561,7 @@ private class CountdownView(
         alongY: Double,
         p: Double,
         t: Double,
-    ) = EdgeFrame(canvas, w, h, ax, ay, inX, inY, alongX, alongY, p, t, direction, shrink, paint)
+    ) = EdgeFrame(canvas, w, h, ax, ay, inX, inY, alongX, alongY, p, t, direction, shrink, paint, rgb)
 }
 
 /** The countdown on one edge of the screen. Main thread only. */
@@ -564,7 +576,7 @@ class EdgeOverlay(context: Context) {
      *  (screen pixels along the edge). Does nothing for EdgeAnimStyle.None. */
     fun begin(edge: Edge, edges: Edges, along: Float, elapsedMs: Long, durationMs: Long) {
         end()
-        val render = edgeRenderers[edges.animStyle] ?: return
+        val render = edgeRenderers[edges.animStyle.resolved()] ?: return
         if (!Settings.canDrawOverlays(app)) return
         val bounds = screenBounds(wm)
         val depth = (STRIP_DEPTH_DP * app.resources.displayMetrics.density).toInt()
@@ -600,6 +612,7 @@ class EdgeOverlay(context: Context) {
             render,
             edges.animDirection,
             edges.animShrink,
+            effectColor(edges.animColor),
             SystemClock.uptimeMillis() - elapsedMs,
             durationMs,
             along,
@@ -646,6 +659,7 @@ class EdgeOverlay(context: Context) {
 private class LocateView(
     context: Context,
     private val render: LocateRenderer,
+    private val rgb: Int,
     private val x: Float,
     private val y: Float,
     private val startMs: Long,
@@ -668,7 +682,7 @@ private class LocateView(
         val fade = ((LOCATE_MS / 1000.0 - t) / LOCATE_FADE_S).coerceIn(0.0, 1.0)
         paint.reset()
         paint.isAntiAlias = true
-        val frame = LocateFrame(canvas, w, h, (x - location[0]) / density.toDouble(), h - (y - location[1]) / density.toDouble(), t, fade, paint)
+        val frame = LocateFrame(canvas, w, h, (x - location[0]) / density.toDouble(), h - (y - location[1]) / density.toDouble(), t, fade, paint, rgb)
         val save = canvas.save()
         // y-up points, as the effects are written.
         canvas.translate(0f, height.toFloat())
@@ -688,9 +702,9 @@ class LocateOverlay(private val context: Context, private val windowType: Int) {
     private var view: LocateView? = null
     private val finish = Runnable { end() }
 
-    fun show(style: LocateStyle, x: Float, y: Float) {
+    fun show(locate: Locate, x: Float, y: Float) {
         end()
-        val render = locateRenderers[style] ?: return
+        val render = locateRenderers[locate.style.resolved()] ?: return
         val bounds = screenBounds(wm)
         val params = WindowManager.LayoutParams(
             bounds.width(),
@@ -715,7 +729,7 @@ class LocateOverlay(private val context: Context, private val windowType: Int) {
                 context.getSystemService(InputManager::class.java)?.let { alpha = min(alpha, it.maximumObscuringOpacityForTouch) }
             }
         }
-        val v = LocateView(context, render, x, y, SystemClock.uptimeMillis())
+        val v = LocateView(context, render, effectColor(locate.color), x, y, SystemClock.uptimeMillis())
         try {
             wm.addView(v, params)
             view = v

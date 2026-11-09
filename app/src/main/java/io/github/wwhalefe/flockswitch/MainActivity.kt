@@ -74,11 +74,11 @@ class MainActivity : ComponentActivity() {
 
     /** Plays the highlight once at this point, for the settings: through the accessibility
      *  service if it is on, otherwise in a window that needs "display over other apps". */
-    private fun previewLocate(style: LocateStyle, x: Float, y: Float) {
-        PointerService.instance?.let { return it.preview(style, x, y) }
+    private fun previewLocate(locate: Locate, x: Float, y: Float) {
+        PointerService.instance?.let { return it.preview(locate, x, y) }
         if (!Settings.canDrawOverlays(this)) return allowOverlay()
         val overlay = locatePreview ?: LocateOverlay(applicationContext, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY).also { locatePreview = it }
-        overlay.show(style, x, y)
+        overlay.show(locate, x, y)
     }
 
     private fun granted(permission: String) = checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED

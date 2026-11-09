@@ -146,6 +146,7 @@
         <item>파티클 보텍스</item>
         <item>사이버 스캔</item>
         <item>리퀴드</item>
+        <item>랜덤</item>
     </string-array>
     <string name="edge_anim_direction">줄어드는 방향</string>
     <string name="dir_clockwise">시계</string>
@@ -156,6 +157,9 @@
     <string name="bar_both">양 끝에서</string>
     <string name="edge_anim_shrink">크기가 작아지며 사라지기</string>
 
+    <string name="effect_color">색상</string>
+    <string name="color_other">다른 색상</string>
+    <string name="locate_random">랜덤</string>
     <string name="section_locate">마우스 찾기</string>
     <string name="locate_on">커서 위치 강조 표시</string>
     <string name="locate_style">효과</string>

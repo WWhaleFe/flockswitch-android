@@ -113,11 +113,39 @@ enum class Edge {
     val vertical get() = this == Left || this == Right
 }
 
+/** The colour of the on-screen effects until another is chosen. */
+const val DEFAULT_EFFECT_COLOR = "#FFCC00"
+
+/** The ready-made colours of a colour row; any other comes from the picker beside them. */
+val COLOR_PRESETS = listOf(0xFFCC00, 0xFF7A1A, 0xFF3B30, 0xFF2D92, 0x0A84FF, 0x34C759, 0xFFFFFF)
+
+/** Red, green and blue (0xRRGGBB) of a colour written as "#RRGGBB"; null if it is not one. */
+fun parseColor(text: String): Int? {
+    val t = text.trim()
+    if (t.length != 7 || t[0] != '#') return null
+    val hex = t.substring(1)
+    if (!hex.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) return null
+    return hex.toInt(16)
+}
+
+/** A colour (0xRRGGBB) as the settings write it. */
+fun formatColor(rgb: Int): String = "#%06X".format(rgb and 0xFFFFFF)
+
+/** A number below [n], different each time. Good enough to choose an effect. */
+private fun randomBelow(n: Int) = kotlin.random.Random.nextInt(n)
+
 /** What is drawn near the pointer while it waits at a screen edge. Each one but None is
  *  a drawing function in the table in EdgeOverlay.kt. */
 @Serializable
 enum class EdgeAnimStyle {
-    None, Ring, Semicircle, Bar, Pulse, Laser, Vortex, Scan, Liquid;
+    None, Ring, Semicircle, Bar, Pulse, Laser, Vortex, Scan, Liquid,
+
+    /** A different effect each time; see [resolved]. Has no drawing function of its own. */
+    Random;
+
+    /** The effect to draw now: for Random one of the others (never None). */
+    fun resolved(): EdgeAnimStyle =
+        if (this == Random) entries.filter { it != None && it != Random }.let { it[randomBelow(it.size)] } else this
 
     /** Whether the effect drains in a direction the user can choose. */
     val hasDirection get() = this == Ring || this == Semicircle || this == Bar
@@ -149,6 +177,8 @@ data class Edges(
     val animDirection: EdgeAnimDirection = EdgeAnimDirection.Clockwise,
     /** The ring or semicircle shrinks away instead of draining. */
     val animShrink: Boolean = false,
+    /** "#RRGGBB". */
+    val animColor: String = DEFAULT_EFFECT_COLOR,
 ) {
     fun channel(e: Edge): Int = when (e) {
         Edge.Left -> left
@@ -200,7 +230,15 @@ data class Haptics(
 
 /** How the pointer is shown. Each one is a drawing function in the table in Overlay.kt. */
 @Serializable
-enum class LocateStyle { Ring, Radar, Spotlight }
+enum class LocateStyle {
+    Ring, Radar, Spotlight,
+
+    /** A different effect each time; see [resolved]. Has no drawing function of its own. */
+    Random;
+
+    /** The effect to draw now: for Random one of the others. */
+    fun resolved(): LocateStyle = if (this == Random) entries.filter { it != Random }.let { it[randomBelow(it.size)] } else this
+}
 
 /** Showing where the pointer is with a short highlight around it. */
 @Serializable
@@ -211,6 +249,8 @@ data class Locate(
     /** Shown when the mouse arrives from another computer. */
     val onArrival: Boolean = true,
     val style: LocateStyle = LocateStyle.Ring,
+    /** "#RRGGBB". */
+    val color: String = DEFAULT_EFFECT_COLOR,
 )
 
 /** Each button that can switch has its own setting. */
@@ -282,6 +322,8 @@ data class Config(
         if (triggers().isEmpty()) out += "turn on at least one button"
         if (Edge.entries.any { edges.channel(it) !in 0..3 }) out += "edges: the channel must be 1, 2, 3 or 0"
         if (edges.dwellMs !in 100..5000) out += "edges: the time at the edge must be 100 to 5000 ms"
+        if (parseColor(edges.animColor) == null) out += "edges: the colour must be like #FFCC00"
+        if (parseColor(locate.color) == null) out += "locate: the colour must be like #FFCC00"
         if (listOf(haptics.switchWaveform, haptics.arriveWaveform, haptics.edgeWaveform).any { it !in 0..31 }) out += "haptics: waveforms are numbered 0 to 31"
         if (haptics.intensity !in 0..100) out += "haptics: the strength must be 0 (as Options+ sets it) or 1-100 percent"
         return out

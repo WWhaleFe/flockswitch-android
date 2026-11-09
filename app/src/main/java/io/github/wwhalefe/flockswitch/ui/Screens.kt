@@ -2,20 +2,27 @@ package io.github.wwhalefe.flockswitch.ui
 
 import android.os.Build
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -31,11 +38,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -63,6 +72,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -75,6 +87,7 @@ import io.github.wwhalefe.flockswitch.BUTTON_MIDDLE
 import io.github.wwhalefe.flockswitch.BUTTON_WHEEL_MODE
 import io.github.wwhalefe.flockswitch.BUTTONS
 import io.github.wwhalefe.flockswitch.BuildConfig
+import io.github.wwhalefe.flockswitch.COLOR_PRESETS
 import io.github.wwhalefe.flockswitch.Config
 import io.github.wwhalefe.flockswitch.DeviceInfo
 import io.github.wwhalefe.flockswitch.Edge
@@ -83,6 +96,7 @@ import io.github.wwhalefe.flockswitch.EdgeAnimStyle
 import io.github.wwhalefe.flockswitch.Edges
 import io.github.wwhalefe.flockswitch.Gesture
 import io.github.wwhalefe.flockswitch.Haptics
+import io.github.wwhalefe.flockswitch.Locate
 import io.github.wwhalefe.flockswitch.LocateStyle
 import io.github.wwhalefe.flockswitch.Log
 import io.github.wwhalefe.flockswitch.MainActivity
@@ -94,6 +108,8 @@ import io.github.wwhalefe.flockswitch.Status
 import io.github.wwhalefe.flockswitch.UpdateState
 import io.github.wwhalefe.flockswitch.Waveform
 import io.github.wwhalefe.flockswitch.checkForUpdate
+import io.github.wwhalefe.flockswitch.formatColor
+import io.github.wwhalefe.flockswitch.parseColor
 import io.github.wwhalefe.flockswitch.pick
 import io.github.wwhalefe.flockswitch.pointerReadable
 import kotlinx.coroutines.Dispatchers
@@ -107,7 +123,7 @@ class Actions(
     val allowNearby: () -> Unit,
     val allowOverlay: () -> Unit,
     val previewEdge: (Edges) -> Unit,
-    val previewLocate: (LocateStyle, Float, Float) -> Unit,
+    val previewLocate: (Locate, Float, Float) -> Unit,
     val openAccessibility: () -> Unit,
     val notificationsOn: () -> Boolean,
     val switchTo: (Int) -> Unit,
@@ -241,7 +257,7 @@ private val OffGray = Color(0xFF8E8E93)
  *  cannot be chosen. Off replaces an on/off switch. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ChannelPicker(selected: Int?, here: Int?, onPick: (Int) -> Unit) {
+private fun ChannelPicker(selected: Int?, here: Int?, showHere: Boolean = true, onPick: (Int) -> Unit) {
     val chosen = selected ?: 0
     SingleChoiceSegmentedButtonRow(Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
         for (c in 0..3) {
@@ -259,7 +275,7 @@ private fun ChannelPicker(selected: Int?, here: Int?, onPick: (Int) -> Unit) {
             ) { Text(if (off) stringResource(R.string.off) else "$c") }
         }
     }
-    if (here != null) Hint(stringResource(R.string.here_channel, here))
+    if (here != null && showHere) Hint(stringResource(R.string.here_channel, here))
 }
 
 /** One of a few fixed values, e.g. the time at the edge. */
@@ -423,8 +439,8 @@ private fun EdgesSection(cfg: Config, s: Status, update: (Config.() -> Config) -
         if (s.overlayNeeded) {
             Notice(stringResource(R.string.overlay_permission), stringResource(R.string.grant), actions.allowOverlay)
         }
+        HorizontalDivider()
         for (edge in Edge.entries) {
-            HorizontalDivider()
             val name = stringResource(
                 when (edge) {
                     Edge.Left -> R.string.edge_left
@@ -433,9 +449,14 @@ private fun EdgesSection(cfg: Config, s: Status, update: (Config.() -> Config) -
                     Edge.Bottom -> R.string.edge_bottom
                 },
             )
-            Text(name, style = MaterialTheme.typography.bodyLarge)
-            ChannelPicker(cfg.edges.channel(edge), s.channel) { c -> update { copy(edges = edges.with(edge, c)) } }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(name, Modifier.width(64.dp), style = MaterialTheme.typography.bodyLarge)
+                Box(Modifier.weight(1f)) {
+                    ChannelPicker(cfg.edges.channel(edge), s.channel, showHere = false) { c -> update { copy(edges = edges.with(edge, c)) } }
+                }
+            }
         }
+        s.channel?.let { Hint(stringResource(R.string.here_channel, it)) }
         HorizontalDivider()
         Text(stringResource(R.string.edge_dwell), style = MaterialTheme.typography.labelLarge)
         val options = listOf(300L to "0.3", 500L to "0.5", 1000L to "1", 2000L to "2")
@@ -478,6 +499,91 @@ private fun EdgeAnimRows(cfg: Config, update: (Config.() -> Config) -> Unit, act
             update { copy(edges = edges.copy(animDirection = d)) }
         }
     }
+    if (style != EdgeAnimStyle.None) {
+        EffectColorRow(cfg.edges.animColor) { color -> update { copy(edges = edges.copy(animColor = color)) } }
+    }
+}
+
+/** One colour to click on. */
+@Composable
+private fun ColorSwatch(rgb: Int, selected: Boolean, description: String, onClick: () -> Unit) {
+    val ring = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    Box(
+        Modifier
+            .size(32.dp)
+            .background(Color(0xFF000000 or rgb.toLong()), CircleShape)
+            .border(if (selected) 3.dp else 1.dp, ring, CircleShape)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .semantics { contentDescription = description },
+    )
+}
+
+/** The ready-made colours, and one more swatch that opens a picker for any other. */
+@Composable
+private fun EffectColorRow(color: String, onPick: (String) -> Unit) {
+    val current = parseColor(color) ?: COLOR_PRESETS.first()
+    var picking by rememberSaveable { mutableStateOf(false) }
+    Text(stringResource(R.string.effect_color), style = MaterialTheme.typography.labelLarge)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        for (preset in COLOR_PRESETS) {
+            ColorSwatch(preset, preset == current, formatColor(preset)) { onPick(formatColor(preset)) }
+        }
+        val other = current !in COLOR_PRESETS
+        Box(contentAlignment = Alignment.Center) {
+            ColorSwatch(if (other) current else 0x808080, other, stringResource(R.string.color_other)) { picking = true }
+            if (!other) Text("+", color = Color.White, fontWeight = FontWeight.SemiBold)
+        }
+    }
+    if (picking) {
+        ColorPickerDialog(current, onClose = { picking = false }) { rgb ->
+            picking = false
+            onPick(formatColor(rgb))
+        }
+    }
+}
+
+/** Any colour: red, green and blue sliders, or the "#RRGGBB" typed in. */
+@Composable
+private fun ColorPickerDialog(initial: Int, onClose: () -> Unit, onChoose: (Int) -> Unit) {
+    var rgb by rememberSaveable { mutableIntStateOf(initial) }
+    var hex by rememberSaveable { mutableStateOf(formatColor(initial)) }
+    fun typed(text: String): Int? = parseColor(if (text.trim().startsWith("#")) text else "#" + text.trim())
+    val valid = typed(hex) != null
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(stringResource(R.string.effect_color)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(Modifier.fillMaxWidth().height(40.dp).background(Color(0xFF000000 or rgb.toLong()), MaterialTheme.shapes.small))
+                for ((label, shift) in listOf("R" to 16, "G" to 8, "B" to 0)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, Modifier.width(20.dp))
+                        Slider(
+                            value = ((rgb shr shift) and 0xFF).toFloat(),
+                            onValueChange = { v ->
+                                rgb = (rgb and (0xFF shl shift).inv()) or (v.toInt().coerceIn(0, 255) shl shift)
+                                hex = formatColor(rgb)
+                            },
+                            valueRange = 0f..255f,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = hex,
+                    onValueChange = { text ->
+                        hex = text
+                        typed(text)?.let { rgb = it }
+                    },
+                    label = { Text("#RRGGBB") },
+                    singleLine = true,
+                    isError = !valid,
+                )
+            }
+        },
+        confirmButton = { Button(onClick = { onChoose(rgb) }, enabled = valid) { Text(stringResource(R.string.ok)) } },
+        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.close)) } },
+    )
 }
 
 /** Highlighting the pointer: on/off, the effect, and what brings it up. */
@@ -488,17 +594,18 @@ private fun LocateSection(cfg: Config, s: Status, update: (Config.() -> Config) 
         SwitchRow(stringResource(R.string.locate_on), l.on) { on -> update { copy(locate = locate.copy(on = on)) } }
         if (l.on) {
             HorizontalDivider()
-            Text(stringResource(R.string.locate_style), style = MaterialTheme.typography.labelLarge)
             val styles = listOf(
                 LocateStyle.Ring to stringResource(R.string.locate_ring),
                 LocateStyle.Radar to stringResource(R.string.locate_radar),
                 LocateStyle.Spotlight to stringResource(R.string.locate_spotlight),
+                LocateStyle.Random to stringResource(R.string.locate_random),
             )
-            ValuePicker(styles, l.style) { style -> update { copy(locate = locate.copy(style = style)) } }
+            DropdownRow(stringResource(R.string.locate_style), styles, l.style) { style -> update { copy(locate = locate.copy(style = style)) } }
+            EffectColorRow(l.color) { color -> update { copy(locate = locate.copy(color = color)) } }
             // The pointer is on the button when it is pressed: the preview plays there.
             var at by remember { mutableStateOf(Offset.Zero) }
             OutlinedButton(
-                onClick = { actions.previewLocate(l.style, at.x, at.y) },
+                onClick = { actions.previewLocate(l, at.x, at.y) },
                 modifier = Modifier.onGloballyPositioned { at = it.boundsInWindow().center },
             ) { Text(stringResource(R.string.preview)) }
             HorizontalDivider()

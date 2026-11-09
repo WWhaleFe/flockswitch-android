@@ -38,6 +38,36 @@ class ConfigTest {
     }
 
     @Test
+    fun colours() {
+        assertEquals(0x0A84FF, parseColor("#0a84ff"))
+        assertEquals(0xFFCC00, parseColor(" #FFCC00 "))
+        assertEquals(0, parseColor("#000000"))
+        assertEquals("#0A84FF", formatColor(0x0A84FF))
+        assertEquals("#000000", formatColor(0))
+        for (bad in listOf("red", "#12345", "#1234567", "#GGGGGG", "0A84FF", "#+12345", "#-12345", "#한글한글한글", "")) {
+            assertNull(bad, parseColor(bad))
+        }
+        assertEquals(7, COLOR_PRESETS.size)
+        assertEquals(DEFAULT_EFFECT_COLOR, formatColor(COLOR_PRESETS.first()))
+        assertTrue(COLOR_PRESETS.all { parseColor(formatColor(it)) == it })
+    }
+
+    @Test
+    fun effectColoursAreSavedAndChecked() {
+        assertEquals("#FFCC00", Edges().animColor)
+        assertEquals("#FFCC00", Locate().color)
+        val c = Config().copy(edges = Edges(animColor = "#0A84FF", animStyle = EdgeAnimStyle.Random), locate = Locate(color = "#34C759", style = LocateStyle.Random))
+        assertTrue(c.problems().isEmpty())
+        val back = Config.fromJson(c.toJson())
+        assertEquals(c.edges, back.edges)
+        assertEquals(c.locate, back.locate)
+        // Settings from before colours existed.
+        assertEquals("#FFCC00", Config.fromJson("{\"enabled\": true}").edges.animColor)
+        assertFalse(Config().copy(edges = Edges(animColor = "yellow")).problems().isEmpty())
+        assertFalse(Config().copy(locate = Locate(color = "#12")).problems().isEmpty())
+    }
+
+    @Test
     fun locateSettings() {
         assertFalse(Locate().on)
         val l = Locate(on = true, onHotkey = false, style = LocateStyle.Spotlight)
