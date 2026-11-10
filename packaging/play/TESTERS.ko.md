@@ -28,6 +28,8 @@ flockswitch는 Logitech 마우스 버튼 하나(또는 화면 가장자리)로 �
 비공개 테스트에 참여해 주실 분을 찾습니다.
 
 • 필요한 것: Android 8.0 이상 기기, Google 계정
+• 꼭 확인: 휴대전화의 Play 스토어에 로그인된 Google 계정으로 그룹에 가입해 주세요.
+  다른 계정으로 가입하면 나중에 받는 링크로 테스트에 참여할 수 없습니다.
 • 할 일: 아래 그룹에 가입 → 며칠 뒤 받는 링크로 테스트 참여 → Play에서 설치 →
   14일 동안 앱을 지우지 않고 가끔 열어 보기
 • Logitech MX Master 마우스가 있으시면 실제로 써 보고 의견을 주시면 큰 도움이 됩니다
@@ -47,6 +49,8 @@ device with one mouse button or a screen edge. To publish it on Google Play I ne
 testers for a 14-day closed test.
 
 • You need: an Android 8.0+ device and a Google account
+• Important: join the group with the same Google account that your phone's
+  Play Store uses. With a different account the test link won't let you join.
 • What to do: join the group below → use the link you'll get in a few days to
   join the test → install from Play → keep the app installed for 14 days and open
   it now and then
@@ -65,6 +69,8 @@ Join: (Google Group link)
 flockswitch 비공개 테스트가 열렸습니다. 아래 순서로 참여해 주세요.
 
 1. 이 링크를 그룹에 가입한 Google 계정으로 엽니다: (옵트인 링크)
+   휴대전화 Play 스토어의 계정도 같은 계정이어야 합니다. 여러 계정을 쓰신다면
+   Play 스토어 오른쪽 위 프로필에서 그 계정으로 바꾼 뒤 설치하세요.
 2. "테스터 되기"를 누릅니다.
 3. 같은 페이지의 "Google Play에서 다운로드" 링크로 앱을 설치합니다.
    (GitHub에서 받은 flockswitch가 이미 있으면 먼저 [일반 → 설정 백업 → 저장]으로
@@ -83,6 +89,8 @@ flockswitch 비공개 테스트가 열렸습니다. 아래 순서로 참여해 �
 The flockswitch closed test is open. To join:
 
 1. Open this link with the Google account you joined the group with: (opt-in link)
+   Your phone's Play Store must use that same account. If you have several,
+   switch to it from the profile picture at the top right of the Play Store first.
 2. Tap "Become a tester".
 3. Install the app from the "Download it on Google Play" link on that page.
    (If you already have flockswitch from GitHub, save your settings first in
