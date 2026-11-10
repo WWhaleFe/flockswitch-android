@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.0 — 2026-11-10
+
+- Each edge countdown effect (ring, semicircle, bar, pulse wave, neon laser, particle vortex, cyber scan, liquid) keeps its own colour and size, and the ring, semicircle and bar their own direction (and the ring and semicircle their own *Shrink away*): choosing *Both ways* for the ring no longer changes the bar. The settings show and change the chosen effect's own values, and the preview plays it with them. Saved in config.json under `edges.effects`; settings from earlier versions (and Google backups of them) give every effect the look they had
+- **Random** now varies more: each countdown is a random effect in that effect's own colour and size, with a random direction for the ring, semicircle and bar and a random shrink-away for the ring and semicircle. A chosen effect keeps its saved direction and shrinking
+- Settings backup: shorter buttons — **Save**, **Load**, **Manage**, **Open folder** — and the number of saved files ("3/10"). flockswitch keeps a list of the files it saved (it keeps access to each) and drops those deleted elsewhere. At most 10: with 10 saved, **Save** asks to tidy up in **Manage** first. **Manage** lists them newest first, each with **Rename** (the name is checked: not empty, at most 60 characters, none of `/ \ : * ? " < > |`; it stays a .json file) and **Delete** (after asking; where the storage does not allow it, the file can be taken off the list instead). **Load** still opens any settings file. A round **i** beside the title explains the list, copying a file to another Android device to load it there, and that channels are per device
+
 ## 0.8.0 — 2026-11-10
 
 - Keyboard shortcuts explained: a round **i** beside *With a shortcut (Ctrl+Alt+L)* and *Only while Control is held* says what works on Android — Ctrl+Alt+L is the only shortcut (either Ctrl and Alt, not with Shift or Meta held), only on a hardware keyboard, only with the accessibility service on (without it Control is noticed only while the pointer moves), keys that Android or the device maker keep never arrive, and the computers' channel shortcuts do not exist here. It shows while the mouse rests on it, on a tap and on a long press

@@ -7,6 +7,7 @@
 package io.github.wwhalefe.flockswitch
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -25,6 +26,14 @@ data class ExportHeader(
     /** When they were saved, local time, ISO 8601. */
     val date: String = "",
 )
+
+/** A settings file this app saved: its document (a content URI the app keeps access
+ *  to), its name, and when it was saved (milliseconds since 1970). */
+@Serializable
+data class SavedFile(val uri: String, val name: String, val savedAt: Long)
+
+/** Why a new name for a saved file cannot be used. */
+enum class RenameProblem { Empty, TooLong, BadCharacter, Taken }
 
 /** Why a file was not loaded. */
 enum class ImportRejection {
@@ -93,6 +102,63 @@ object SettingsFile {
         if (problems.isNotEmpty()) return ImportResult.Rejected(ImportRejection.Unusable, problems.joinToString("; "))
         return ImportResult.Ok(cfg, header)
     }
+
+    /** How many saved files the app keeps track of; saving more asks to tidy up first. */
+    const val MAX_SAVED = 10
+
+    /** The longest name a saved file can be renamed to, without ".json". */
+    const val MAX_NAME = 60
+
+    /** Characters a new name may not hold: what some file system or another refuses. */
+    const val FORBIDDEN = "/\\:*?\"<>|"
+
+    private const val EXT = ".json"
+
+    /** Whether another file can be saved next to [count] saved ones. */
+    fun canSave(count: Int): Boolean = count < MAX_SAVED
+
+    /** A file's name as the list shows it: without ".json". */
+    fun shownName(fileName: String): String =
+        if (fileName.endsWith(EXT, ignoreCase = true) && fileName.length > EXT.length) fileName.dropLast(EXT.length) else fileName
+
+    /** What is wrong with [typed] as a new name; null when it can be used. [others]: the
+     *  file names of the other saved files, which it may not repeat. */
+    fun renameProblem(typed: String, others: List<String> = emptyList()): RenameProblem? {
+        val name = stem(typed)
+        return when {
+            name.isEmpty() || name.all { it == '.' } -> RenameProblem.Empty
+            name.length > MAX_NAME -> RenameProblem.TooLong
+            name.any { it in FORBIDDEN || it.isISOControl() } -> RenameProblem.BadCharacter
+            others.any { shownName(it).equals(name, ignoreCase = true) } -> RenameProblem.Taken
+            else -> null
+        }
+    }
+
+    /** The file name [typed] gives (check [renameProblem] first): trimmed, ending in ".json". */
+    fun renamedFileName(typed: String): String = stem(typed) + EXT
+
+    /** What the user typed as a name, without spaces around it or a ".json" of its own. */
+    private fun stem(typed: String): String {
+        val t = typed.trim()
+        return (if (t.endsWith(EXT, ignoreCase = true)) t.dropLast(EXT.length) else t).trim()
+    }
+
+    /** [list] with [file] added as the newest (a file saved over again moves to the top). */
+    fun added(list: List<SavedFile>, file: SavedFile): List<SavedFile> =
+        listOf(file) + list.filter { it.uri != file.uri }
+
+    /** Newest first. */
+    fun sorted(list: List<SavedFile>): List<SavedFile> = list.sortedByDescending { it.savedAt }
+
+    /** The list as the app keeps it. */
+    fun encodeList(list: List<SavedFile>): String = Config.json.encodeToString(ListSerializer(SavedFile.serializer()), list)
+
+    /** A kept list; anything unreadable gives an empty one. */
+    fun decodeList(text: String?): List<SavedFile> =
+        text?.let { runCatching { Config.json.decodeFromString(ListSerializer(SavedFile.serializer()), it) }.getOrNull() }
+            ?.filter { it.uri.isNotBlank() }
+            ?.distinctBy { it.uri }
+            .orEmpty()
 
     private val stamp = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
 

@@ -21,9 +21,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.edit
+import androidx.lifecycle.lifecycleScope
 import io.github.wwhalefe.flockswitch.hidpp.UsbTransport
 import io.github.wwhalefe.flockswitch.ui.Actions
 import io.github.wwhalefe.flockswitch.ui.FlockswitchApp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.FileNotFoundException
 import java.io.IOException
 import java.time.LocalDateTime
 
@@ -69,6 +74,10 @@ class MainActivity : ComponentActivity() {
             loadSettings = { pickSettings(lastSaved() ?: downloads()) },
             openSettingsFolder = ::openSettingsFolder,
             applySettings = ::applySettings,
+            refreshSaved = { refreshSaved() },
+            renameSaved = ::renameSaved,
+            deleteSaved = ::deleteSaved,
+            forgetSaved = ::forgetSaved,
         )
         setContent { FlockswitchApp(shared, actions) }
         SelfUpdate.autoCheck(this)
@@ -92,6 +101,8 @@ class MainActivity : ComponentActivity() {
         // allowed already) make sure the background service runs.
         allowUsb(again = false)
         if (shared.config.value.enabled) SwitchService.start(this)
+        // Files deleted elsewhere drop off the list of saved settings.
+        refreshSaved()
     }
 
     override fun onDestroy() {
@@ -150,8 +161,10 @@ class MainActivity : ComponentActivity() {
     // Settings to another device: saved and loaded through the system's file picker
     // (Storage Access Framework), so no storage permission is needed.
 
-    /** Asks where to save the settings, starting where the last ones went. */
-    private fun saveSettings() {
+    /** Asks where to save the settings, starting where the last ones went; with
+     *  [SettingsFile.MAX_SAVED] files saved already, asks to tidy up instead. */
+    private fun saveSettings() = refreshSaved { list ->
+        if (!SettingsFile.canSave(list.size)) return@refreshSaved shared.setBackup(BackupState.Full)
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
             .addCategory(Intent.CATEGORY_OPENABLE)
             .setType(SettingsFile.MIME)
@@ -171,9 +184,139 @@ class MainActivity : ComponentActivity() {
             return shared.setBackup(BackupState.SaveFailed)
         }
         prefs().edit { putString(LAST_SAVED, uri.toString()) }
+        // Kept, so the file can be renamed or deleted from the list later.
+        runCatching { contentResolver.takePersistableUriPermission(uri, RW) }
+            .onFailure { Log.w("no lasting access to the saved file: $it") }
         val name = displayName(uri)
+        keepSaved(SettingsFile.added(savedList(), SavedFile(uri.toString(), name, System.currentTimeMillis())))
         Log.i("settings saved to $name")
         shared.setBackup(BackupState.Saved(name))
+    }
+
+    // The settings files saved from here, kept as a list (at most SettingsFile.MAX_SAVED)
+    // with lasting access to each, to rename or delete them. Changed on the main thread
+    // only; the file providers are asked on another.
+
+    private fun savedList(): List<SavedFile> = SettingsFile.sorted(SettingsFile.decodeList(prefs().getString(SAVED, null)))
+
+    private fun keepSaved(list: List<SavedFile>) {
+        val sorted = SettingsFile.sorted(list)
+        prefs().edit { putString(SAVED, SettingsFile.encodeList(sorted)) }
+        shared.setSaved(sorted)
+    }
+
+    /** Whether a document is there: its current name, null when it is gone, or
+     *  [UNKNOWN] when that cannot be told (access lost, the provider failing). */
+    private fun lookUp(uri: Uri): String? = try {
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) ?: UNKNOWN else null
+        }
+    } catch (_: FileNotFoundException) {
+        null
+    } catch (_: IllegalArgumentException) {
+        null
+    } catch (_: Exception) {
+        UNKNOWN
+    }
+
+    /** Takes files that are gone off the list and picks up names changed elsewhere, then
+     *  gives the list to [then]. */
+    private fun refreshSaved(then: ((List<SavedFile>) -> Unit)? = null) {
+        val before = savedList()
+        shared.setSaved(before)
+        lifecycleScope.launch {
+            val found = withContext(Dispatchers.IO) { before.associate { it.uri to lookUp(Uri.parse(it.uri)) } }
+            // The list may have changed meanwhile: only what was looked at is touched.
+            val now = savedList()
+            val next = now.mapNotNull { f ->
+                if (f.uri !in found) return@mapNotNull f
+                when (val name = found[f.uri]) {
+                    null -> {
+                        release(f)
+                        null
+                    }
+                    UNKNOWN -> f
+                    else -> f.copy(name = name)
+                }
+            }
+            if (next != now) keepSaved(next)
+            then?.invoke(next)
+        }
+    }
+
+    private fun release(f: SavedFile) {
+        runCatching { contentResolver.releasePersistableUriPermission(Uri.parse(f.uri), RW) }
+    }
+
+    /** Takes [f] off the list (the file stays where it is). */
+    private fun forgetSaved(f: SavedFile) {
+        release(f)
+        val rest = savedList().filter { it.uri != f.uri }
+        keepSaved(rest)
+        if (prefs().getString(LAST_SAVED, null) == f.uri) {
+            prefs().edit { rest.firstOrNull()?.let { putString(LAST_SAVED, it.uri) } ?: remove(LAST_SAVED) }
+        }
+    }
+
+    /** Renames a saved file to [typed] (checked on the screen), keeping ".json". */
+    private fun renameSaved(f: SavedFile, typed: String, done: (ManageOutcome) -> Unit) {
+        val newName = SettingsFile.renamedFileName(typed)
+        val uri = Uri.parse(f.uri)
+        lifecycleScope.launch {
+            val (renamed, name, gone) = withContext(Dispatchers.IO) {
+                val to = try {
+                    DocumentsContract.renameDocument(contentResolver, uri, newName)
+                } catch (e: Exception) {
+                    Log.w("cannot rename ${f.name}: $e")
+                    null
+                }
+                if (to != null) {
+                    // A provider whose document IDs follow the name gives a new document,
+                    // with access to it for now; keep that access if it lets us.
+                    if (to != uri) runCatching { contentResolver.takePersistableUriPermission(to, RW) }
+                    Triple(to, lookUp(to)?.takeIf { it != UNKNOWN } ?: newName, false)
+                } else {
+                    Triple(null, null, lookUp(uri) == null)
+                }
+            }
+            when {
+                renamed != null -> {
+                    if (renamed != uri) release(f)
+                    keepSaved(savedList().map { if (it.uri == f.uri) it.copy(uri = renamed.toString(), name = name ?: newName) else it })
+                    if (prefs().getString(LAST_SAVED, null) == f.uri) prefs().edit { putString(LAST_SAVED, renamed.toString()) }
+                    Log.i("settings file ${f.name} renamed to ${name ?: newName}")
+                    done(ManageOutcome.Done)
+                }
+                gone -> {
+                    forgetSaved(f)
+                    done(ManageOutcome.Gone)
+                }
+                else -> done(ManageOutcome.Failed)
+            }
+        }
+    }
+
+    /** Deletes a saved file from the device, and from the list. */
+    private fun deleteSaved(f: SavedFile, done: (ManageOutcome) -> Unit) {
+        val uri = Uri.parse(f.uri)
+        lifecycleScope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                val deleted = try {
+                    DocumentsContract.deleteDocument(contentResolver, uri)
+                } catch (e: Exception) {
+                    Log.w("cannot delete ${f.name}: $e")
+                    false
+                }
+                when {
+                    deleted -> ManageOutcome.Done
+                    lookUp(uri) == null -> ManageOutcome.Gone
+                    else -> ManageOutcome.Failed
+                }
+            }
+            if (outcome != ManageOutcome.Failed) forgetSaved(f)
+            if (outcome == ManageOutcome.Done) Log.i("settings file ${f.name} deleted")
+            done(outcome)
+        }
     }
 
     /** The system's file picker for a settings file, opened at [at] where it can be. */
@@ -305,6 +448,14 @@ class MainActivity : ComponentActivity() {
 
         /** Where the last settings file went (a document URI). */
         private const val LAST_SAVED = "lastSaved"
+
+        /** The settings files saved from here (JSON, see [SettingsFile.encodeList]). */
+        private const val SAVED = "saved"
+
+        /** [lookUp]: the document may be there, but cannot be asked about. */
+        private const val UNKNOWN = "\u0000?"
+
+        private const val RW = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         private const val DOWNLOADS_AUTHORITY = "com.android.providers.downloads.documents"
 
         /** The settings screen is on screen, so a system prompt may be opened. */

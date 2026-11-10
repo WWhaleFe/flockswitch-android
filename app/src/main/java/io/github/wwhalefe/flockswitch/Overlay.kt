@@ -596,13 +596,16 @@ class EdgeOverlay(context: Context) {
     private var previewEnd: Runnable? = null
 
     /** Starts the countdown on [edge], [elapsedMs] into a wait of [durationMs], at [along]
-     *  (screen pixels along the edge). Does nothing for EdgeAnimStyle.None. */
+     *  (screen pixels along the edge), drawn with the effect's own settings (see
+     *  [Edges.countdown]). Does nothing for EdgeAnimStyle.None. */
     fun begin(edge: Edge, edges: Edges, along: Float, elapsedMs: Long, durationMs: Long) {
         end()
-        val render = edgeRenderers[edges.animStyle.resolved()] ?: return
+        val countdown = edges.countdown() ?: return
+        val render = edgeRenderers[countdown.style] ?: return
+        val look = countdown.look
         if (!Settings.canDrawOverlays(app)) return
         val bounds = screenBounds(wm)
-        val scale = effectScale(edges.animSize)
+        val scale = effectScale(look.size)
         val depth = (STRIP_DEPTH_DP * maxOf(1.0, scale) * app.resources.displayMetrics.density).toInt()
             .coerceAtMost(minOf(bounds.width(), bounds.height()))
         val params = WindowManager.LayoutParams(
@@ -635,10 +638,10 @@ class EdgeOverlay(context: Context) {
             app,
             edge,
             render,
-            edges.animDirection,
-            edges.animShrink,
+            look.direction,
+            look.shrink,
             scale,
-            effectColor(edges.animColor),
+            effectColor(look.color),
             SystemClock.uptimeMillis() - elapsedMs,
             durationMs,
             along,

@@ -111,7 +111,9 @@ import io.github.wwhalefe.flockswitch.BuildConfig
 import io.github.wwhalefe.flockswitch.COLOR_PRESETS
 import io.github.wwhalefe.flockswitch.Config
 import io.github.wwhalefe.flockswitch.DeviceInfo
+import io.github.wwhalefe.flockswitch.DRAWN_EFFECTS
 import io.github.wwhalefe.flockswitch.EFFECT_SIZES
+import io.github.wwhalefe.flockswitch.EffectLook
 import io.github.wwhalefe.flockswitch.Edge
 import io.github.wwhalefe.flockswitch.EdgeAnimDirection
 import io.github.wwhalefe.flockswitch.EdgeAnimStyle
@@ -123,8 +125,12 @@ import io.github.wwhalefe.flockswitch.Haptics
 import io.github.wwhalefe.flockswitch.Locate
 import io.github.wwhalefe.flockswitch.LocateStyle
 import io.github.wwhalefe.flockswitch.MainActivity
+import io.github.wwhalefe.flockswitch.ManageOutcome
 import io.github.wwhalefe.flockswitch.MoveSetting
 import io.github.wwhalefe.flockswitch.R
+import io.github.wwhalefe.flockswitch.RenameProblem
+import io.github.wwhalefe.flockswitch.SavedFile
+import io.github.wwhalefe.flockswitch.SettingsFile
 import io.github.wwhalefe.flockswitch.RELEASES_PAGE
 import io.github.wwhalefe.flockswitch.Shared
 import io.github.wwhalefe.flockswitch.Status
@@ -167,6 +173,14 @@ class Actions(
     val openSettingsFolder: () -> Unit,
     /** Puts the settings read from the named file in place. */
     val applySettings: (Config, String) -> Unit,
+    /** Takes saved settings files that are gone off the list. */
+    val refreshSaved: () -> Unit,
+    /** Renames a saved file to the name typed (already checked), keeping ".json". */
+    val renameSaved: (SavedFile, String, (ManageOutcome) -> Unit) -> Unit,
+    /** Deletes a saved file from the device and the list. */
+    val deleteSaved: (SavedFile, (ManageOutcome) -> Unit) -> Unit,
+    /** Takes a saved file off the list only. */
+    val forgetSaved: (SavedFile) -> Unit,
 )
 
 private enum class Tab(@StringRes val title: Int, val glyph: String) {
@@ -255,7 +269,7 @@ fun FlockswitchApp(shared: Shared, actions: Actions) = theme {
                             Tab.Home -> HomeTab(cfg, status, actions)
                             Tab.Buttons -> ButtonsTab(cfg, status, update, actions)
                             Tab.Devices -> DevicesTab(cfg, status, update, shared)
-                            Tab.General -> GeneralTab(cfg, status, shared.update, shared.backup, shared::setBackup, update, actions)
+                            Tab.General -> GeneralTab(cfg, status, shared.update, shared.backup, shared.saved, shared::setBackup, update, actions)
                         }
                     }
                 }
@@ -305,10 +319,22 @@ private val ToggleRowHeight = 32.dp
 private val ButtonPadding = PaddingValues(horizontal = 16.dp)
 
 @Composable
-private fun Section(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
+private fun Section(
+    title: String? = null,
+    /** A small button at the end of the title, e.g. [InfoIcon]. */
+    info: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(ItemGap)) {
-            if (title != null) Text(title, style = MaterialTheme.typography.titleMedium)
+            if (title != null && info != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleMedium)
+                    info()
+                }
+            } else if (title != null) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+            }
             content()
         }
     }
@@ -410,12 +436,18 @@ private fun SwitchRow(
  *  flockswitch see and which not. Shown while the mouse rests on it, on a tap, and on a
  *  long press; it stays until the pointer leaves or the screen is tapped elsewhere.
  *  TalkBack reads the whole text as the button's description. */
+@Composable
+private fun ShortcutInfo() = InfoIcon(
+    stringResource(R.string.shortcut_info_title),
+    stringResource(R.string.shortcut_info_text),
+    stringResource(R.string.shortcut_info),
+)
+
+/** A round "i" that shows [title] and [text] on hover, tap or long press; [label] is what
+ *  TalkBack says a tap does. See [ShortcutInfo]. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ShortcutInfo() {
-    val title = stringResource(R.string.shortcut_info_title)
-    val text = stringResource(R.string.shortcut_info_text)
-    val label = stringResource(R.string.shortcut_info)
+private fun InfoIcon(title: String, text: String, label: String) {
     val state = rememberTooltipState(isPersistent = true)
     val scope = rememberCoroutineScope()
     val color = MaterialTheme.colorScheme.primary
@@ -761,7 +793,9 @@ private fun EdgesSection(cfg: Config, s: Status, update: (Config.() -> Config) -
     }
 }
 
-/** What is drawn during the wait at an edge. */
+/** What is drawn during the wait at an edge. Each effect keeps its own colour, size,
+ *  direction and shrinking: the rows below show and change the chosen effect's. Random
+ *  has none of its own, so it shows only what it does. */
 @Composable
 private fun EdgeAnimRows(cfg: Config, update: (Config.() -> Config) -> Unit, actions: Actions) {
     val style = cfg.edges.animStyle
@@ -769,30 +803,34 @@ private fun EdgeAnimRows(cfg: Config, update: (Config.() -> Config) -> Unit, act
         // The effect, with its preview beside it.
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             ValueMenu(EdgeAnimStyle.entries.zip(stringArrayResource(R.array.edge_anim_names)), style, Modifier.weight(1f)) { chosen ->
-                update { copy(edges = edges.copy(animStyle = chosen)) }
+                update { copy(edges = edges.withStyle(chosen)) }
             }
             if (style != EdgeAnimStyle.None) AppButton(stringResource(R.string.preview), { actions.previewEdge(cfg.edges) })
         }
     }
-    if (style.canShrink) {
-        SwitchRow(stringResource(R.string.edge_anim_shrink), cfg.edges.animShrink) { on -> update { copy(edges = edges.copy(animShrink = on)) } }
+    if (style == EdgeAnimStyle.Random) {
+        Hint(stringResource(R.string.edge_anim_random_hint))
+        return
     }
-    if (style.hasDirection && !(cfg.edges.animShrink && style.canShrink)) {
+    if (style !in DRAWN_EFFECTS) return
+    val look = cfg.edges.look(style)
+    val set: (EffectLook) -> Unit = { l -> update { copy(edges = edges.withLook(style, l)) } }
+    if (style.canShrink) {
+        SwitchRow(stringResource(R.string.edge_anim_shrink), look.shrink) { on -> set(look.copy(shrink = on)) }
+    }
+    if (style.hasDirection && !(look.shrink && style.canShrink)) {
         val labels = if (style == EdgeAnimStyle.Bar) {
             listOf(R.string.bar_forward, R.string.bar_reverse, R.string.bar_both)
         } else {
             listOf(R.string.dir_clockwise, R.string.dir_counter, R.string.dir_both)
         }
         LabeledControl(stringResource(R.string.edge_anim_direction)) {
-            ValuePicker(EdgeAnimDirection.entries.zip(labels.map { stringResource(it) }), cfg.edges.animDirection) { d ->
-                update { copy(edges = edges.copy(animDirection = d)) }
-            }
+            ValuePicker(EdgeAnimDirection.entries.zip(labels.map { stringResource(it) }), look.direction) { d -> set(look.copy(direction = d)) }
         }
     }
-    if (style != EdgeAnimStyle.None) {
-        EffectColorRow(cfg.edges.animColor) { color -> update { copy(edges = edges.copy(animColor = color)) } }
-        EffectSizeRow(cfg.edges.animSize) { size -> update { copy(edges = edges.copy(animSize = size)) } }
-    }
+    EffectColorRow(look.color) { color -> set(look.copy(color = color)) }
+    EffectSizeRow(look.size) { size -> set(look.copy(size = size)) }
+    Hint(stringResource(R.string.edge_anim_own_hint))
 }
 
 /** How large an effect is drawn. */
@@ -1224,17 +1262,34 @@ private fun osName(os: String) = when (os.lowercase()) {
 }
 
 /** Saving the settings to a file and loading them from one, to move a setup to another
- *  device; loading asks first, and a file that is not usable is refused with the reason. */
+ *  device; loading asks first, and a file that is not usable is refused with the reason.
+ *  The files saved from here (at most [SettingsFile.MAX_SAVED]) can be renamed and
+ *  deleted under Manage. */
 @Composable
-private fun BackupSection(backup: StateFlow<BackupState>, setBackup: (BackupState) -> Unit, actions: Actions) {
+private fun BackupSection(backup: StateFlow<BackupState>, saved: StateFlow<List<SavedFile>>, setBackup: (BackupState) -> Unit, actions: Actions) {
     val state by backup.collectAsStateWithLifecycle()
-    Section(stringResource(R.string.section_backup)) {
+    val files by saved.collectAsStateWithLifecycle()
+    var manage by rememberSaveable { mutableStateOf(false) }
+    val info: @Composable () -> Unit = {
+        InfoIcon(
+            stringResource(R.string.backup_info_title),
+            stringResource(R.string.backup_info_text, SettingsFile.MAX_SAVED),
+            stringResource(R.string.backup_info),
+        )
+    }
+    Section(stringResource(R.string.section_backup), info = info) {
         Hint(stringResource(R.string.backup_hint))
+        // Four short buttons: two to a row on a narrow (folded) screen, all four when wide.
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AppButton(stringResource(R.string.backup_save), actions.saveSettings, kind = ButtonKind.Filled)
             AppButton(stringResource(R.string.backup_load), actions.loadSettings)
+            AppButton(stringResource(R.string.backup_manage), {
+                actions.refreshSaved()
+                manage = true
+            })
             AppButton(stringResource(R.string.backup_folder), actions.openSettingsFolder)
         }
+        Hint(stringResource(R.string.backup_count, files.size, SettingsFile.MAX_SAVED))
         when (val b = state) {
             is BackupState.Saved -> Hint(stringResource(R.string.backup_saved, b.name))
             BackupState.SaveFailed -> Text(
@@ -1279,8 +1334,157 @@ private fun BackupSection(backup: StateFlow<BackupState>, setBackup: (BackupStat
             // What exactly is wrong, as the settings' own checks put it.
             if (b.why == ImportRejection.Unusable && b.detail != null) Hint(b.detail)
         }
+        BackupState.Full -> AppDialog(
+            null,
+            dismiss,
+            listOf(
+                Triple(stringResource(R.string.close), ButtonKind.Outlined, dismiss),
+                Triple(stringResource(R.string.backup_manage), ButtonKind.Filled) {
+                    dismiss()
+                    manage = true
+                },
+            ),
+        ) { Text(stringResource(R.string.backup_full, SettingsFile.MAX_SAVED)) }
         else -> {}
     }
+    if (manage) ManageSavedDialog(files, actions) { manage = false }
+}
+
+/** The settings files saved from here, newest first, each to rename or delete. */
+@Composable
+private fun ManageSavedDialog(files: List<SavedFile>, actions: Actions, onClose: () -> Unit) {
+    // Kept by URI: the list can change under the dialog (a file found gone, a rename).
+    var renaming by rememberSaveable { mutableStateOf<String?>(null) }
+    var typed by rememberSaveable { mutableStateOf("") }
+    var deleting by rememberSaveable { mutableStateOf<String?>(null) }
+    var cannotDelete by rememberSaveable { mutableStateOf<String?>(null) }
+    // A line under one file: what happened when renaming or deleting it.
+    var noteFor by rememberSaveable { mutableStateOf<String?>(null) }
+    var note by rememberSaveable { mutableStateOf<ManageOutcome?>(null) }
+    var gone by rememberSaveable { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val dates = remember { java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT) }
+    AppDialog(
+        stringResource(R.string.backup_manage_title),
+        onClose,
+        listOf(Triple(stringResource(R.string.close), ButtonKind.Outlined, onClose)),
+    ) {
+        Hint(stringResource(R.string.backup_count, files.size, SettingsFile.MAX_SAVED))
+        gone?.let { Hint(stringResource(R.string.backup_gone, it)) }
+        if (files.isEmpty()) Hint(stringResource(R.string.backup_none))
+        files.forEachIndexed { i, f ->
+            if (i > 0) SectionDivider()
+            Column(verticalArrangement = Arrangement.spacedBy(LabelGap)) {
+                Text(
+                    SettingsFile.shownName(f.name),
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Hint(dates.format(java.util.Date(f.savedAt)))
+                if (renaming == f.uri) {
+                    val others = files.filter { it.uri != f.uri }.map { it.name }
+                    val problem = SettingsFile.renameProblem(typed, others)
+                    OutlinedTextField(
+                        value = typed,
+                        onValueChange = {
+                            typed = it
+                            if (noteFor == f.uri) note = null
+                        },
+                        label = { Text(stringResource(R.string.backup_new_name)) },
+                        suffix = { Text(".json") },
+                        singleLine = true,
+                        isError = problem != null,
+                        supportingText = problem?.let { p -> { Text(renameProblemText(p)) } },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AppButton(stringResource(R.string.ok), {
+                            busy = true
+                            actions.renameSaved(f, typed) { outcome ->
+                                busy = false
+                                when (outcome) {
+                                    ManageOutcome.Done -> renaming = null
+                                    ManageOutcome.Gone -> {
+                                        renaming = null
+                                        gone = SettingsFile.shownName(f.name)
+                                    }
+                                    ManageOutcome.Failed -> {
+                                        noteFor = f.uri
+                                        note = outcome
+                                    }
+                                }
+                            }
+                        }, kind = ButtonKind.Filled, enabled = problem == null && !busy)
+                        AppButton(stringResource(R.string.cancel), {
+                            renaming = null
+                            note = null
+                        })
+                    }
+                } else {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AppButton(stringResource(R.string.backup_rename), {
+                            renaming = f.uri
+                            typed = SettingsFile.shownName(f.name)
+                            note = null
+                        }, enabled = !busy)
+                        AppButton(stringResource(R.string.backup_delete), { deleting = f.uri }, enabled = !busy)
+                    }
+                }
+                if (noteFor == f.uri && note == ManageOutcome.Failed) {
+                    Text(
+                        stringResource(R.string.backup_rename_failed),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        }
+    }
+    files.firstOrNull { it.uri == deleting }?.let { f ->
+        val cancel = { deleting = null }
+        AppDialog(
+            stringResource(R.string.backup_delete_title),
+            cancel,
+            listOf(
+                Triple(stringResource(R.string.cancel), ButtonKind.Outlined, cancel),
+                Triple(stringResource(R.string.backup_delete), ButtonKind.Filled) {
+                    deleting = null
+                    busy = true
+                    actions.deleteSaved(f) { outcome ->
+                        busy = false
+                        when (outcome) {
+                            ManageOutcome.Done -> {}
+                            ManageOutcome.Gone -> gone = SettingsFile.shownName(f.name)
+                            ManageOutcome.Failed -> cannotDelete = f.uri
+                        }
+                    }
+                },
+            ),
+        ) { Text(stringResource(R.string.backup_delete_text, SettingsFile.shownName(f.name))) }
+    }
+    files.firstOrNull { it.uri == cannotDelete }?.let { f ->
+        val close = { cannotDelete = null }
+        AppDialog(
+            stringResource(R.string.backup_delete_failed_title),
+            close,
+            listOf(
+                Triple(stringResource(R.string.close), ButtonKind.Outlined, close),
+                Triple(stringResource(R.string.backup_forget), ButtonKind.Filled) {
+                    cannotDelete = null
+                    actions.forgetSaved(f)
+                },
+            ),
+        ) { Text(stringResource(R.string.backup_delete_failed, SettingsFile.shownName(f.name))) }
+    }
+}
+
+@Composable
+private fun renameProblemText(p: RenameProblem): String = when (p) {
+    RenameProblem.Empty -> stringResource(R.string.backup_name_empty)
+    RenameProblem.TooLong -> stringResource(R.string.backup_name_long, SettingsFile.MAX_NAME)
+    RenameProblem.BadCharacter -> stringResource(R.string.backup_name_chars, SettingsFile.FORBIDDEN.toList().joinToString(" "))
+    RenameProblem.Taken -> stringResource(R.string.backup_name_taken)
 }
 
 @Composable
@@ -1289,6 +1493,7 @@ private fun GeneralTab(
     s: Status,
     updates: StateFlow<UpdateState>,
     backup: StateFlow<BackupState>,
+    saved: StateFlow<List<SavedFile>>,
     setBackup: (BackupState) -> Unit,
     update: (Config.() -> Config) -> Unit,
     actions: Actions,
@@ -1323,7 +1528,7 @@ private fun GeneralTab(
         ReportSection(actions)
     }
 
-    BackupSection(backup, setBackup, actions)
+    BackupSection(backup, saved, setBackup, actions)
 
     var confirmReset by rememberSaveable { mutableStateOf(false) }
     Section {

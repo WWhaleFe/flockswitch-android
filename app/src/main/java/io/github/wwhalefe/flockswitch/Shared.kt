@@ -79,6 +79,20 @@ sealed interface BackupState {
 
     /** Not loaded: [why] (null when the file could not be read at all). */
     data class Rejected(val why: ImportRejection?, val detail: String? = null) : BackupState
+
+    /** Not saved: [SettingsFile.MAX_SAVED] files are saved already. */
+    data object Full : BackupState
+}
+
+/** How renaming or deleting a saved settings file went. */
+enum class ManageOutcome {
+    Done,
+
+    /** The file is not there any more; it was taken off the list. */
+    Gone,
+
+    /** Where the file is does not let flockswitch do that. */
+    Failed,
 }
 
 /** What the haptics dialog asks to feel on the mouse. */
@@ -140,6 +154,14 @@ class Shared(private val dir: File) {
 
     fun setBackup(state: BackupState) {
         _backup.value = state
+    }
+
+    /** The settings files this app saved and still finds, newest first. */
+    private val _saved = MutableStateFlow<List<SavedFile>>(emptyList())
+    val saved: StateFlow<List<SavedFile>> = _saved.asStateFlow()
+
+    fun setSaved(list: List<SavedFile>) {
+        _saved.value = list
     }
 
     private val switchRequest = AtomicInteger(0)

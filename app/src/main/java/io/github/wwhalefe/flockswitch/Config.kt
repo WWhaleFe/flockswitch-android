@@ -10,6 +10,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlin.math.abs
 
 /** Buttons that can switch, by HID++ control ID (REPROG_CONTROLS_V4). */
@@ -151,10 +152,12 @@ private fun randomBelow(n: Int) = kotlin.random.Random.nextInt(n)
 enum class EdgeAnimStyle {
     None, Ring, Semicircle, Bar, Pulse, Laser, Vortex, Scan, Liquid,
 
-    /** A different effect each time; see [resolved]. Has no drawing function of its own. */
+    /** A different effect each time, with random options too; see [Edges.countdown]. Has
+     *  no drawing function or settings of its own. */
     Random;
 
-    /** The effect to draw now: for Random one of the others (never None). */
+    /** For Random one of the others (never None). [Edges.countdown] is what the
+     *  countdown uses: it also picks the effect's options. */
     fun resolved(): EdgeAnimStyle =
         if (this == Random) entries.filter { it != None && it != Random }.let { it[randomBelow(it.size)] } else this
 
@@ -168,6 +171,48 @@ enum class EdgeAnimStyle {
 /** Which way the ring, semicircle or bar drains. */
 @Serializable
 enum class EdgeAnimDirection { Clockwise, CounterClockwise, Both }
+
+/** The effects that are drawn (every style but None and Random), in the settings' order. */
+val DRAWN_EFFECTS: List<EdgeAnimStyle> = EdgeAnimStyle.entries.filter { it != EdgeAnimStyle.None && it != EdgeAnimStyle.Random }
+
+/** An effect's name in config.json's `edges.effects`: "ring", "semicircle", … */
+val EdgeAnimStyle.key: String get() = name.lowercase()
+
+/** Every effect's settings until the user changes them: the shared fields' defaults. */
+private val DEFAULT_EFFECTS: Map<String, EffectEntry> = DRAWN_EFFECTS.associate {
+    it.key to EffectEntry(
+        DEFAULT_EFFECT_COLOR,
+        100,
+        if (it.hasDirection) EdgeAnimDirection.Clockwise else null,
+        if (it.canShrink) false else null,
+    )
+}
+
+/** One effect's own settings as config.json keeps them. A field left out comes from the
+ *  older shared fields (animColor, animSize, animDirection, animShrink) when the settings
+ *  are read; [Edges.filled] does that. [direction] is only for effects with one, [shrink]
+ *  only for those that can shrink. */
+@Serializable
+data class EffectEntry(
+    /** "#RRGGBB". */
+    val color: String? = null,
+    /** Percent. */
+    val size: Int? = null,
+    val direction: EdgeAnimDirection? = null,
+    val shrink: Boolean? = null,
+)
+
+/** How one effect is drawn: its colour, size, and (where it has them) direction and
+ *  shrinking. */
+data class EffectLook(
+    val color: String = DEFAULT_EFFECT_COLOR,
+    val size: Int = 100,
+    val direction: EdgeAnimDirection = EdgeAnimDirection.Clockwise,
+    val shrink: Boolean = false,
+)
+
+/** What one countdown draws: the effect and how. */
+data class Countdown(val style: EdgeAnimStyle, val look: EffectLook)
 
 /** Switching at the screen edge: rest the pointer against an edge and the group goes to
  *  that edge's channel (0 = that edge does nothing). Each device watches its own screen. */
@@ -185,6 +230,9 @@ data class Edges(
     val requireControl: Boolean = false,
     /** What is drawn while the pointer waits. */
     val animStyle: EdgeAnimStyle = EdgeAnimStyle.Ring,
+    /** The next four were shared by every effect before 0.9.0. Each effect now has its
+     *  own in [effects]; these mirror the chosen effect's (so an older version reading
+     *  the settings keeps its look), and fill in what [effects] leaves out. */
     val animDirection: EdgeAnimDirection = EdgeAnimDirection.Clockwise,
     /** The ring or semicircle shrinks away instead of draining. */
     val animShrink: Boolean = false,
@@ -192,7 +240,75 @@ data class Edges(
     val animColor: String = DEFAULT_EFFECT_COLOR,
     /** Size of the countdown in percent. */
     val animSize: Int = 100,
+    /** Each effect's own settings, by [EdgeAnimStyle.key]. Settings saved before 0.9.0
+     *  have none: [Config.decode] then fills them in from the shared fields. For an Edges
+     *  made in code with only the shared fields set, `copy(effects = emptyMap()).filled()`
+     *  gives every effect those. */
+    val effects: Map<String, EffectEntry> = DEFAULT_EFFECTS,
 ) {
+    /** The look the shared fields describe. */
+    private fun legacyLook() = EffectLook(animColor, animSize, animDirection, animShrink)
+
+    /** How [style] is drawn: its own settings, what it lacks from the shared fields. For
+     *  None and Random (no drawing of their own), the shared fields. */
+    fun look(style: EdgeAnimStyle): EffectLook {
+        val base = legacyLook()
+        val e = effects[style.key] ?: return base
+        return EffectLook(
+            e.color ?: base.color,
+            e.size ?: base.size,
+            if (style.hasDirection) e.direction ?: base.direction else base.direction,
+            if (style.canShrink) e.shrink ?: base.shrink else base.shrink,
+        )
+    }
+
+    /** Every drawn effect with all its settings written out, and nothing else in
+     *  [effects]: what the settings hold from now on, so changing one effect (or the
+     *  shared fields it mirrors) leaves the others as they are. */
+    fun filled(): Edges = copy(effects = DRAWN_EFFECTS.associate { it.key to entry(it, look(it)) })
+
+    /** [style] drawn with [look]; the shared fields follow when it is the chosen effect. */
+    fun withLook(style: EdgeAnimStyle, look: EffectLook): Edges {
+        if (style !in DRAWN_EFFECTS) return this
+        val f = filled()
+        val out = f.copy(effects = f.effects + (style.key to entry(style, look)))
+        return if (style == animStyle) out.mirror(style) else out
+    }
+
+    /** [style] chosen; the shared fields take its settings. */
+    fun withStyle(style: EdgeAnimStyle): Edges = filled().copy(animStyle = style).mirror(style)
+
+    /** The shared fields set to [style]'s settings (for None and Random left as they are). */
+    private fun mirror(style: EdgeAnimStyle): Edges {
+        if (style !in DRAWN_EFFECTS) return this
+        val l = look(style)
+        return copy(
+            animColor = l.color,
+            animSize = l.size,
+            animDirection = if (style.hasDirection) l.direction else animDirection,
+            animShrink = if (style.canShrink) l.shrink else animShrink,
+        )
+    }
+
+    /** What the next countdown draws; null for None. A chosen effect is drawn with its
+     *  own settings. Random picks an effect with [pick] (a number below its argument),
+     *  drawn in that effect's own colour and size, and picks a direction and whether to
+     *  shrink away too where the effect has them. */
+    fun countdown(pick: (Int) -> Int = ::randomBelow): Countdown? = when (animStyle) {
+        EdgeAnimStyle.None -> null
+        EdgeAnimStyle.Random -> {
+            val style = DRAWN_EFFECTS[pick(DRAWN_EFFECTS.size).coerceIn(DRAWN_EFFECTS.indices)]
+            var l = look(style)
+            if (style.hasDirection) {
+                val dirs = EdgeAnimDirection.entries
+                l = l.copy(direction = dirs[pick(dirs.size).coerceIn(dirs.indices)])
+            }
+            if (style.canShrink) l = l.copy(shrink = pick(2) == 1)
+            Countdown(style, l)
+        }
+        else -> Countdown(animStyle, look(animStyle))
+    }
+
     fun channel(e: Edge): Int = when (e) {
         Edge.Left -> left
         Edge.Right -> right
@@ -210,6 +326,14 @@ data class Edges(
     /** Whether any edge has a channel. */
     fun any() = Edge.entries.any { channel(it) != 0 }
 }
+
+/** [look] as [style]'s entry: direction and shrink only where the effect has them. */
+private fun entry(style: EdgeAnimStyle, look: EffectLook) = EffectEntry(
+    look.color,
+    look.size,
+    look.direction.takeIf { style.hasDirection },
+    look.shrink.takeIf { style.canShrink },
+)
 
 /** Haptic waveform IDs of HID++ feature 0x19B0 (the names Logi Options+ uses). */
 object Waveform {
@@ -363,6 +487,11 @@ data class Config(
         if (parseColor(edges.animColor) == null) out += "edges: the colour must be like #FFCC00"
         if (parseColor(locate.color) == null) out += "locate: the colour must be like #FFCC00"
         if (!validEffectSize(edges.animSize)) out += "edges: the size must be 50 to 200 percent"
+        for (style in DRAWN_EFFECTS) {
+            val e = edges.effects[style.key] ?: continue
+            if (e.color != null && parseColor(e.color) == null) out += "edges: ${style.key}: the colour must be like #FFCC00"
+            if (e.size != null && !validEffectSize(e.size)) out += "edges: ${style.key}: the size must be 50 to 200 percent"
+        }
         if (!validEffectSize(locate.size)) out += "locate: the size must be 50 to 200 percent"
         if (listOf(haptics.switchWaveform, haptics.arriveWaveform, haptics.edgeWaveform).any { it !in 0..31 && it != Waveform.RANDOM }) {
             out += "haptics: waveforms are numbered 0 to 31, or random"
@@ -401,6 +530,8 @@ data class Config(
             prettyPrint = true
             // A style from a newer version must not throw every setting away.
             coerceInputValues = true
+            // An effect's entry writes only the fields it has (no "direction": null).
+            explicitNulls = false
         }
 
         /** Reads saved settings; unreadable or unusable ones give the defaults. */
@@ -411,16 +542,50 @@ data class Config(
 
         /** The settings in [root], brought up to date; throws if they cannot be read. Says
          *  nothing about whether they are usable: see [problems]. */
-        fun decode(root: JsonElement): Config = json.decodeFromJsonElement(serializer(), migrate(root))
+        fun decode(root: JsonElement): Config = json.decodeFromJsonElement(serializer(), migrate(root)).let {
+            // Before 0.9.0 every effect shared one colour, size, direction and shrink:
+            // each effect starts from those, so older settings keep their look.
+            it.copy(edges = it.edges.filled())
+        }
 
         /** Settings from older versions, brought up to date. Before 0.6.0 one switch
-         *  (`onSwitch`) covered the pulse on leaving and the one on arriving. */
+         *  (`onSwitch`) covered the pulse on leaving and the one on arriving. An effect
+         *  from a newer version in `edges.effects`, or an entry that is not an object, is
+         *  left out. */
         private fun migrate(root: JsonElement): JsonElement {
-            val obj = root as? JsonObject ?: return root
-            val h = obj["haptics"] as? JsonObject ?: return root
-            if ("onArrive" in h) return root
+            var obj = root as? JsonObject ?: return root
+            val edges = obj["edges"] as? JsonObject
+            val effects = edges?.get("effects")
+            // Before 0.9.0: none of their own, so each takes the shared fields (decode).
+            if (edges != null && effects == null) {
+                obj = JsonObject(obj + ("edges" to JsonObject(edges + ("effects" to JsonObject(emptyMap())))))
+            }
+            if (effects != null) {
+                val known = DRAWN_EFFECTS.map { it.key }.toSet()
+                val kept = (effects as? JsonObject)
+                    ?.filter { (k, v) -> k in known && v is JsonObject }
+                    ?.mapValues { (_, v) -> cleanEntry(v as JsonObject) }
+                    .orEmpty()
+                obj = JsonObject(obj + ("edges" to JsonObject(edges + ("effects" to JsonObject(kept)))))
+            }
+            val h = obj["haptics"] as? JsonObject ?: return obj
+            if ("onArrive" in h) return obj
             val leaving = (h["onSwitch"] as? JsonPrimitive)?.booleanOrNull ?: true
             return JsonObject(obj + ("haptics" to JsonObject(h + ("onArrive" to JsonPrimitive(leaving)))))
         }
+
+        /** An effect's entry with only the fields of the right kind, so one odd value
+         *  falls back to the shared field instead of costing every setting. */
+        private fun cleanEntry(o: JsonObject): JsonObject = JsonObject(
+            o.filter { (k, v) ->
+                val p = v as? JsonPrimitive
+                when (k) {
+                    "color", "direction" -> p?.isString == true
+                    "size" -> p != null && !p.isString && p.intOrNull != null
+                    "shrink" -> p != null && !p.isString && p.booleanOrNull != null
+                    else -> false
+                }
+            },
+        )
     }
 }
