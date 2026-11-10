@@ -1,0 +1,4 @@
+First version on Google Play (0.9.0).
+• Each edge countdown effect keeps its own colour, size and direction: changing the ring leaves the bar alone.
+• Random varies more: each time a random effect, with a random direction and shrink-away too.
+• Settings backup: Save, Load, Manage and Open folder, with the number of saved files (up to 10). Rename or delete them in Manage.

@@ -1135,15 +1135,36 @@ private fun ChoiceRow(title: String, subtitle: String?, checked: Boolean, radio:
  *  Its state follows the system, so a step shows as done on coming back. */
 @Composable
 private fun AccessibilityGuide(s: Status, actions: Actions, onClose: () -> Unit) {
+    // Google Play: what the service accesses, and an explicit Agree, come before any step
+    // that leads to Android's settings. No thanks (or going back) closes it; it opens again
+    // from the same buttons. The GitHub build goes straight to the steps, as before.
+    var agreed by rememberSaveable { mutableStateOf(!BuildConfig.PLAY_STORE || s.pointerService) }
+    if (!agreed) {
+        AppDialog(
+            stringResource(R.string.a11y_disclosure_title),
+            onClose,
+            listOf(
+                Triple(stringResource(R.string.a11y_decline), ButtonKind.Outlined, onClose),
+                Triple(stringResource(R.string.a11y_agree), ButtonKind.Filled) { agreed = true },
+            ),
+            dismissOnClickOutside = false,
+        ) { Text(stringResource(R.string.a11y_disclosure_text)) }
+        return
+    }
     AppDialog(stringResource(R.string.guide_title), onClose, listOf(Triple(stringResource(R.string.close), ButtonKind.Outlined, onClose))) {
         Text(stringResource(R.string.guide_why))
         Hint(stringResource(R.string.guide_privacy))
         SectionDivider()
         Text(stringResource(R.string.guide_step1))
         AppButton(stringResource(R.string.open_accessibility), actions.openAccessibility, kind = ButtonKind.Filled)
-        Text(stringResource(R.string.guide_step2))
-        AppButton(stringResource(R.string.guide_app_info), actions.openAppInfo)
-        Text(stringResource(R.string.guide_step3))
+        // Android restricts this setting only for apps installed outside an app store.
+        if (BuildConfig.PLAY_STORE) {
+            Text(stringResource(R.string.guide_step2_play))
+        } else {
+            Text(stringResource(R.string.guide_step2))
+            AppButton(stringResource(R.string.guide_app_info), actions.openAppInfo)
+            Text(stringResource(R.string.guide_step3))
+        }
         SectionDivider()
         Text(
             stringResource(if (s.pointerService) R.string.guide_done else R.string.guide_not_yet),

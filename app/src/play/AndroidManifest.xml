@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only in the Google Play build (-PplayStore, see app/build.gradle.kts). That build has
+     no update check and no self-update, so nothing in it goes on the internet: the
+     permission src/main asks for (for the GitHub build's update check) is taken out. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+</manifest>

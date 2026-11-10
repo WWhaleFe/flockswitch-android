@@ -28,12 +28,12 @@ android {
     sourceSets {
         // The GitHub build updates itself (src/github: code, plus a manifest that adds
         // REQUEST_INSTALL_PACKAGES and the installer's receiver); the Play build gets an
-        // empty stand-in (src/play) and nothing added to the manifest.
+        // empty stand-in (src/play) and a manifest that only takes INTERNET out, since
+        // nothing in it goes online.
         getByName("main").kotlin.directories.add(if (playStore) "src/play/java" else "src/github/java")
-        if (!playStore) {
-            getByName("debug").manifest.srcFile("src/github/AndroidManifest.xml")
-            getByName("release").manifest.srcFile("src/github/AndroidManifest.xml")
-        }
+        val buildManifest = if (playStore) "src/play/AndroidManifest.xml" else "src/github/AndroidManifest.xml"
+        getByName("debug").manifest.srcFile(buildManifest)
+        getByName("release").manifest.srcFile(buildManifest)
     }
 
     signingConfigs {

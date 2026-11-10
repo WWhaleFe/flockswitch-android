@@ -207,6 +207,12 @@
     <string name="guide_app_info">Open App info</string>
     <string name="guide_done">✓ The accessibility service is on</string>
     <string name="guide_not_yet">Still off</string>
+    <!-- Google Play build only: the in-app disclosure and consent before the steps. -->
+    <string name="guide_step2_play">2. Come back here to see below whether it is on.</string>
+    <string name="a11y_disclosure_title">Use of the accessibility service</string>
+    <string name="a11y_disclosure_text">flockswitch uses Android\'s accessibility service (AccessibilityService API) only for three optional features: switching at the top and bottom screen edges, “Only while Control is held”, and Find the cursor.\n\nWhat it accesses\n• Keys of a hardware keyboard: while “Only while Control is held” or the Ctrl+Alt+L shortcut is on, key presses pass through flockswitch. It only checks whether Control is held and takes Ctrl+Alt+L; every other key goes on to the app in front unchanged.\n• The mouse pointer\'s position: read once, at your next mouse movement after you ask to find the cursor.\n• Drawing on screen: invisible thin strips over the status and navigation bars notice the pointer at the top and bottom edges, and the Find the cursor highlight is drawn on top.\nIt does not read what is on the screen, and it does not record or keep the keys you type.\n\nHow it is used\nOnly on this device and only for these features. Nothing is stored, sent or shared, and this version of flockswitch has no internet access.\n\nYou can turn the service off at any time in Android\'s accessibility settings. With No thanks everything else keeps working and only these three features stay off; this notice opens again from “How to turn it on” or from Permissions on the General tab.</string>
+    <string name="a11y_agree">Agree</string>
+    <string name="a11y_decline">No thanks</string>
     <string name="section_permissions">Permissions</string>
     <string name="perm_overlay">Display over other apps</string>
     <string name="perm_overlay_hint">Needed to switch at the screen edge and to show effects.</string>
