@@ -6,6 +6,10 @@
 
     <!-- To install a new version downloaded from GitHub (after checking its SHA-256). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Android 12+: lets SelfUpdate's setRequireUserAction(USER_ACTION_NOT_REQUIRED) take
+         effect, so an app updating itself is not asked to confirm every time. Without it
+         Android ignores that request and always shows its prompt. -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
 
     <application>
         <!-- The installer's answer about an update: done, failed, or the user must confirm. -->

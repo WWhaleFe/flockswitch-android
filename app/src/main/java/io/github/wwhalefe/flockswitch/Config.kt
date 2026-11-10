@@ -404,10 +404,14 @@ data class Config(
         }
 
         /** Reads saved settings; unreadable or unusable ones give the defaults. */
-        fun fromJson(text: String): Config = runCatching { json.decodeFromJsonElement(serializer(), migrate(json.parseToJsonElement(text))) }
+        fun fromJson(text: String): Config = runCatching { decode(json.parseToJsonElement(text)) }
             .getOrNull()
             ?.takeIf { it.problems().isEmpty() }
             ?: Config()
+
+        /** The settings in [root], brought up to date; throws if they cannot be read. Says
+         *  nothing about whether they are usable: see [problems]. */
+        fun decode(root: JsonElement): Config = json.decodeFromJsonElement(serializer(), migrate(root))
 
         /** Settings from older versions, brought up to date. Before 0.6.0 one switch
          *  (`onSwitch`) covered the pulse on leaving and the one on arriving. */

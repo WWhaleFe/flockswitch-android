@@ -30,7 +30,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -46,6 +45,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RichTooltip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -60,6 +60,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -75,6 +79,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -101,6 +106,7 @@ import io.github.wwhalefe.flockswitch.BUTTON_GESTURE
 import io.github.wwhalefe.flockswitch.BUTTON_MIDDLE
 import io.github.wwhalefe.flockswitch.BUTTON_WHEEL_MODE
 import io.github.wwhalefe.flockswitch.BUTTONS
+import io.github.wwhalefe.flockswitch.BackupState
 import io.github.wwhalefe.flockswitch.BuildConfig
 import io.github.wwhalefe.flockswitch.COLOR_PRESETS
 import io.github.wwhalefe.flockswitch.Config
@@ -112,10 +118,10 @@ import io.github.wwhalefe.flockswitch.EdgeAnimStyle
 import io.github.wwhalefe.flockswitch.Edges
 import io.github.wwhalefe.flockswitch.Gesture
 import io.github.wwhalefe.flockswitch.HapticPreview
+import io.github.wwhalefe.flockswitch.ImportRejection
 import io.github.wwhalefe.flockswitch.Haptics
 import io.github.wwhalefe.flockswitch.Locate
 import io.github.wwhalefe.flockswitch.LocateStyle
-import io.github.wwhalefe.flockswitch.Log
 import io.github.wwhalefe.flockswitch.MainActivity
 import io.github.wwhalefe.flockswitch.MoveSetting
 import io.github.wwhalefe.flockswitch.R
@@ -153,6 +159,14 @@ class Actions(
     val checkUpdate: () -> Unit,
     /** Downloads, verifies and installs the new version, or shows Android's waiting prompt. */
     val updateNow: () -> Unit,
+    /** Saves the settings to a file the user picks. */
+    val saveSettings: () -> Unit,
+    /** Picks a settings file to load (asked to confirm on the screen first). */
+    val loadSettings: () -> Unit,
+    /** Shows the folder the settings were last saved to. */
+    val openSettingsFolder: () -> Unit,
+    /** Puts the settings read from the named file in place. */
+    val applySettings: (Config, String) -> Unit,
 )
 
 private enum class Tab(@StringRes val title: Int, val glyph: String) {
@@ -241,7 +255,7 @@ fun FlockswitchApp(shared: Shared, actions: Actions) = theme {
                             Tab.Home -> HomeTab(cfg, status, actions)
                             Tab.Buttons -> ButtonsTab(cfg, status, update, actions)
                             Tab.Devices -> DevicesTab(cfg, status, update, shared)
-                            Tab.General -> GeneralTab(cfg, status, shared.update, update, actions)
+                            Tab.General -> GeneralTab(cfg, status, shared.update, shared.backup, shared::setBackup, update, actions)
                         }
                     }
                 }
@@ -364,7 +378,15 @@ private fun LabeledControl(label: String, enabled: Boolean = true, hint: String?
 
 /** A title (and a hint under it) with a switch on the right. The whole row is one target. */
 @Composable
-private fun SwitchRow(title: String, checked: Boolean, subtitle: String? = null, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+private fun SwitchRow(
+    title: String,
+    checked: Boolean,
+    subtitle: String? = null,
+    enabled: Boolean = true,
+    /** A small button between the text and the switch, e.g. [ShortcutInfo]. */
+    info: (@Composable () -> Unit)? = null,
+    onChange: (Boolean) -> Unit,
+) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -377,10 +399,53 @@ private fun SwitchRow(title: String, checked: Boolean, subtitle: String? = null,
             RowLabel(title, enabled = enabled)
             if (subtitle != null) Hint(subtitle)
         }
+        // A target of its own inside the row: a tap here does not flip the switch.
+        info?.invoke()
         // The row takes the touch, so the switch needs no target of its own.
         Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }
+
+/** The round "i" beside a setting that uses keyboard keys: which keys Android lets
+ *  flockswitch see and which not. Shown while the mouse rests on it, on a tap, and on a
+ *  long press; it stays until the pointer leaves or the screen is tapped elsewhere.
+ *  TalkBack reads the whole text as the button's description. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShortcutInfo() {
+    val title = stringResource(R.string.shortcut_info_title)
+    val text = stringResource(R.string.shortcut_info_text)
+    val label = stringResource(R.string.shortcut_info)
+    val state = rememberTooltipState(isPersistent = true)
+    val scope = rememberCoroutineScope()
+    val color = MaterialTheme.colorScheme.primary
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+        tooltip = {
+            RichTooltip(title = { Text(title) }) {
+                // A small screen (a foldable's cover screen) scrolls it rather than cutting it.
+                Text(text, Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()))
+            }
+        },
+        state = state,
+    ) {
+        Box(
+            Modifier
+                .size(ControlHeight)
+                .clip(CircleShape)
+                .clickable(role = Role.Button, onClickLabel = label) { scope.launch { state.show() } }
+                .semantics { contentDescription = "$title. $text" },
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(Modifier.size(InfoIconSize).border(1.5.dp, color, CircleShape), contentAlignment = Alignment.Center) {
+                Text("i", color = color, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+/** The circle of [ShortcutInfo]; its touch target is a button's height. */
+private val InfoIconSize = 20.dp
 
 /** A dialog with a title, its content (scrolling when long) and a row of equal buttons. */
 @Composable
@@ -678,7 +743,12 @@ private fun EdgesSection(cfg: Config, s: Status, update: (Config.() -> Config) -
             ValuePicker(options, cfg.edges.dwellMs) { ms -> update { copy(edges = edges.copy(dwellMs = ms)) } }
         }
         SectionDivider()
-        SwitchRow(stringResource(R.string.edge_require_control), cfg.edges.requireControl, subtitle = stringResource(R.string.edge_require_control_hint)) { on ->
+        SwitchRow(
+            stringResource(R.string.edge_require_control),
+            cfg.edges.requireControl,
+            subtitle = stringResource(R.string.edge_require_control_hint),
+            info = { ShortcutInfo() },
+        ) { on ->
             update { copy(edges = edges.copy(requireControl = on)) }
         }
         if (cfg.edges.requireControl && !s.pointerService) {
@@ -858,20 +928,13 @@ private fun LocateSection(cfg: Config, s: Status, update: (Config.() -> Config) 
                     Notice(stringResource(R.string.locate_service_needed), stringResource(R.string.guide_open)) { guide = true }
                     if (guide) AccessibilityGuide(s, actions) { guide = false }
                 }
-                SwitchRow(stringResource(R.string.locate_use_hotkey), l.onHotkey) { on -> update { copy(locate = locate.copy(onHotkey = on)) } }
+                SwitchRow(stringResource(R.string.locate_use_hotkey), l.onHotkey, info = { ShortcutInfo() }) { on ->
+                    update { copy(locate = locate.copy(onHotkey = on)) }
+                }
                 SwitchRow(stringResource(R.string.locate_arrival), l.onArrival) { on -> update { copy(locate = locate.copy(onArrival = on)) } }
                 Hint(stringResource(R.string.locate_hint))
             }
         }
-    }
-}
-
-/** The recent log lines, to read or copy. */
-@Composable
-private fun LogDialog(onClose: () -> Unit) {
-    val lines = remember { Log.recent().joinToString("\n") }
-    AppDialog(stringResource(R.string.report_log), onClose, listOf(Triple(stringResource(R.string.close), ButtonKind.Outlined, onClose))) {
-        SelectionContainer { Text(lines, style = MaterialTheme.typography.bodySmall) }
     }
 }
 
@@ -1097,9 +1160,13 @@ private fun UpdateSection(cfg: Config, updates: StateFlow<UpdateState>, update: 
         RowLabel(stringResource(R.string.version, BuildConfig.VERSION_NAME))
         SwitchRow(stringResource(R.string.update_auto), cfg.checkUpdates) { on -> update { copy(checkUpdates = on) } }
         SectionDivider()
-        SwitchRow(stringResource(R.string.update_install_auto), cfg.autoUpdate, subtitle = stringResource(R.string.update_install_auto_hint)) { on ->
-            update { copy(autoUpdate = on) }
-        }
+        // Installing on its own needs the checks made on its own.
+        SwitchRow(
+            stringResource(R.string.update_install_auto),
+            cfg.autoUpdate,
+            subtitle = stringResource(R.string.update_install_auto_hint),
+            enabled = cfg.checkUpdates,
+        ) { on -> update { copy(autoUpdate = on) } }
         SectionDivider()
         val text = when (val u = state) {
             UpdateState.Unknown -> null
@@ -1136,23 +1203,96 @@ private fun UpdateSection(cfg: Config, updates: StateFlow<UpdateState>, update: 
     }
 }
 
-/** Writing to the developer, and the log. */
+/** Writing to the developer (the mail carries the recent log lines). */
 @Composable
 private fun ReportSection(actions: Actions) {
     Section(stringResource(R.string.section_report)) {
         Hint(stringResource(R.string.report_desc))
-        var showLog by rememberSaveable { mutableStateOf(false) }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AppButton(stringResource(R.string.report_mail), actions.report, kind = ButtonKind.Filled)
             AppButton(stringResource(R.string.report_issue), { actions.open(MainActivity.ISSUES_PAGE) })
-            AppButton(stringResource(R.string.report_log), { showLog = true })
         }
-        if (showLog) LogDialog { showLog = false }
+    }
+}
+
+/** A system's name as a settings file writes it, for the screen. */
+private fun osName(os: String) = when (os.lowercase()) {
+    "macos", "mac", "darwin" -> "macOS"
+    "windows" -> "Windows"
+    "linux" -> "Linux"
+    else -> os
+}
+
+/** Saving the settings to a file and loading them from one, to move a setup to another
+ *  device; loading asks first, and a file that is not usable is refused with the reason. */
+@Composable
+private fun BackupSection(backup: StateFlow<BackupState>, setBackup: (BackupState) -> Unit, actions: Actions) {
+    val state by backup.collectAsStateWithLifecycle()
+    Section(stringResource(R.string.section_backup)) {
+        Hint(stringResource(R.string.backup_hint))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AppButton(stringResource(R.string.backup_save), actions.saveSettings, kind = ButtonKind.Filled)
+            AppButton(stringResource(R.string.backup_load), actions.loadSettings)
+            AppButton(stringResource(R.string.backup_folder), actions.openSettingsFolder)
+        }
+        when (val b = state) {
+            is BackupState.Saved -> Hint(stringResource(R.string.backup_saved, b.name))
+            BackupState.SaveFailed -> Text(
+                stringResource(R.string.backup_save_failed),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+            is BackupState.Loaded -> Hint(stringResource(R.string.backup_loaded, b.name))
+            else -> {}
+        }
+    }
+    val dismiss = { setBackup(BackupState.Idle) }
+    when (val b = state) {
+        is BackupState.Confirm -> AppDialog(
+            stringResource(R.string.backup_confirm_title),
+            dismiss,
+            listOf(
+                Triple(stringResource(R.string.cancel), ButtonKind.Outlined, dismiss),
+                Triple(stringResource(R.string.backup_confirm_load), ButtonKind.Filled) { actions.applySettings(b.config, b.name) },
+            ),
+        ) {
+            Text(stringResource(R.string.backup_confirm_text, b.name))
+            val from = b.from
+            Hint(stringResource(R.string.backup_confirm_from, from.device.ifBlank { "?" }, from.version.ifBlank { "?" }, from.date.replace('T', ' ')))
+            Hint(stringResource(R.string.backup_channels))
+        }
+        is BackupState.Rejected -> AppDialog(
+            stringResource(R.string.backup_rejected_title),
+            dismiss,
+            listOf(Triple(stringResource(R.string.close), ButtonKind.Outlined, dismiss)),
+        ) {
+            Text(
+                when (b.why) {
+                    null -> stringResource(R.string.backup_rejected_read)
+                    ImportRejection.NotJson -> stringResource(R.string.backup_rejected_json)
+                    ImportRejection.NotSettings -> stringResource(R.string.backup_rejected_settings)
+                    ImportRejection.OtherOs -> stringResource(R.string.backup_rejected_os, osName(b.detail ?: "?"))
+                    ImportRejection.Unusable -> stringResource(R.string.backup_rejected_unusable)
+                    ImportRejection.TooLarge -> stringResource(R.string.backup_rejected_large)
+                },
+            )
+            // What exactly is wrong, as the settings' own checks put it.
+            if (b.why == ImportRejection.Unusable && b.detail != null) Hint(b.detail)
+        }
+        else -> {}
     }
 }
 
 @Composable
-private fun GeneralTab(cfg: Config, s: Status, updates: StateFlow<UpdateState>, update: (Config.() -> Config) -> Unit, actions: Actions) {
+private fun GeneralTab(
+    cfg: Config,
+    s: Status,
+    updates: StateFlow<UpdateState>,
+    backup: StateFlow<BackupState>,
+    setBackup: (BackupState) -> Unit,
+    update: (Config.() -> Config) -> Unit,
+    actions: Actions,
+) {
     PermissionsSection(s, actions)
 
     Section {
@@ -1182,6 +1322,8 @@ private fun GeneralTab(cfg: Config, s: Status, updates: StateFlow<UpdateState>, 
         UpdateSection(cfg, updates, update, actions)
         ReportSection(actions)
     }
+
+    BackupSection(backup, setBackup, actions)
 
     var confirmReset by rememberSaveable { mutableStateOf(false) }
     Section {

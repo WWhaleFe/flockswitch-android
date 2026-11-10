@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0 — 2026-11-10
+
+- Keyboard shortcuts explained: a round **i** beside *With a shortcut (Ctrl+Alt+L)* and *Only while Control is held* says what works on Android — Ctrl+Alt+L is the only shortcut (either Ctrl and Alt, not with Shift or Meta held), only on a hardware keyboard, only with the accessibility service on (without it Control is noticed only while the pointer moves), keys that Android or the device maker keep never arrive, and the computers' channel shortcuts do not exist here. It shows while the mouse rests on it, on a tap and on a long press
+- **Settings backup** on the General tab: **Save settings** writes every setting to a JSON file through Android's file picker (`flockswitch-settings-<model>-<date-time>.json`, with a header naming the app, system and version), **Load settings** reads one back after asking — a file that is not flockswitch settings for Android, or holds unusable settings, is refused with the reason — and **Open folder** shows Downloads, or the file picker in the folder of a file saved elsewhere. Channels are per device: check them after loading on another device
+- Updates (GitHub version): **Check now** only looks, and **Update now** then downloads, checks and installs the new version whatever *Install updates automatically* says; that switch is for the checks made on their own, and is greyed out while *Check for a new version* is off
+- Updates (GitHub version) can now go in without Android's confirmation on Android 12 and later, as 0.7.0 meant to: the permission Android needs for that was missing. The update from 0.7.0 to this version still asks
+- The **Show log** button is gone; the mail to the developer still carries the recent log
+
 ## 0.7.0 — 2026-11-10
 
 - Automatic updates (GitHub version): when a new version is found it is downloaded, checked against the release's `SHA256SUMS.txt` (never installed if it does not match) and installed. On Android 12 and later it goes in without a question where Android lets an app update itself; otherwise Android's install prompt opens, or, while the app is in the background, a notification says "New version ready to install — tap to install". Settings → General → Updates: **Install updates automatically** (on by default) beside **Check for a new version**, and **Update now** once a new version is available, with downloading, installing and failure shown. The check now also runs in the background service, as it starts and once a day. The Google Play build has none of this and does not ask for the install permission

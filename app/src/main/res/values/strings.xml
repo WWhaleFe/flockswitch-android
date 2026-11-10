@@ -74,7 +74,7 @@
     <string name="update_failed">Could not check</string>
     <string name="update_page">Release page</string>
     <string name="update_install_auto">Install updates automatically</string>
-    <string name="update_install_auto_hint">When a new version is found, it is downloaded, checked (SHA256) and installed. If Android asks for confirmation, a notification lets you know.</string>
+    <string name="update_install_auto_hint">When a check made on its own (at start and once a day) finds a new version, it is downloaded, checked (SHA256) and installed. If Android asks for confirmation, a notification lets you know. Update now installs a version found by Check now either way.</string>
     <string name="update_now">Update now</string>
     <string name="update_downloading">Downloading…</string>
     <string name="update_downloading_percent">Downloading… %d%%</string>
@@ -191,7 +191,6 @@
     <string name="pointer_service_label">flockswitch keyboard and pointer</string>
     <string name="pointer_service_description">Used only for flockswitch settings you turn on. Sees the keyboard to know whether Control is held and to catch Ctrl+Alt+L; every other key passes through untouched and nothing is stored or sent. Reads the mouse pointer\'s position once, at the next movement after you ask to find the cursor.</string>
 
-    <string name="report_log">Show log</string>
     <string name="reset_button">Reset settings…</string>
     <string name="reset_explain">Puts every setting back to how it started.</string>
     <string name="reset_confirm">Reset</string>
@@ -217,4 +216,29 @@
     <string name="haptics_leave_short">Leaving</string>
     <string name="haptics_arrive_short">Back</string>
     <string name="haptics_edge_short">At an edge</string>
+
+    <string name="shortcut_info">About keyboard shortcuts on Android</string>
+    <string name="shortcut_info_title">Keyboard shortcuts on Android</string>
+    <string name="shortcut_info_text">• Ctrl+Alt+L (find the cursor) is the only shortcut, and it cannot be changed. Left or right Ctrl and Alt both work; with Shift or the Meta key (Windows, ⌘ or Search) held too it does not count.\n• “Only while Control is held” takes either Ctrl key.\n• Only a hardware keyboard counts (USB, Bluetooth or on a receiver); the on-screen keyboard sends no keys.\n• flockswitch\'s accessibility service must be on to see keys. Without it Ctrl+Alt+L does nothing, and Control is noticed only while the pointer moves.\n• While it is on, Ctrl+Alt+L goes to flockswitch only, not to the app in front. Keys that Android or the device maker keep for themselves never reach flockswitch.\n• The computers\' channel shortcuts (Ctrl+Alt+1/2/3) do not exist on Android: use Switch now on the Home tab or the notification\'s channel buttons.</string>
+
+    <string name="section_backup">Settings backup</string>
+    <string name="backup_hint">Saves every setting to a file, to load on another phone or tablet (or here again). Channels are per device: after loading on another device, check the channels on the Buttons tab.</string>
+    <string name="backup_save">Save settings</string>
+    <string name="backup_load">Load settings</string>
+    <string name="backup_folder">Open folder</string>
+    <string name="backup_saved">Saved as %s</string>
+    <string name="backup_save_failed">The settings could not be saved to the file.</string>
+    <string name="backup_loaded">Settings loaded from %s. Check the channels: they are per device.</string>
+    <string name="backup_confirm_title">Load these settings?</string>
+    <string name="backup_confirm_text">Every setting here is replaced by those in %s.</string>
+    <string name="backup_confirm_from">Saved on %1$s with flockswitch %2$s, %3$s.</string>
+    <string name="backup_channels">Channels are per device: if these settings come from another device, check the channels on the Buttons tab after loading.</string>
+    <string name="backup_confirm_load">Load</string>
+    <string name="backup_rejected_title">Cannot load this file</string>
+    <string name="backup_rejected_read">The file could not be read.</string>
+    <string name="backup_rejected_json">This is not a flockswitch settings file: it is not JSON.</string>
+    <string name="backup_rejected_settings">This is not a flockswitch settings file. Choose a file made with Save settings.</string>
+    <string name="backup_rejected_os">These are settings of flockswitch for %s. The computer versions keep their settings differently, so they cannot be loaded on Android.</string>
+    <string name="backup_rejected_unusable">These flockswitch settings cannot be used here.</string>
+    <string name="backup_rejected_large">This file is far too large to be flockswitch settings.</string>
 </resources>

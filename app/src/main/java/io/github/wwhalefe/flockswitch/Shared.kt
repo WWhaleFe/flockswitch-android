@@ -63,6 +63,24 @@ data class Status(
     val pointerService: Boolean = false,
 )
 
+/** Where saving or loading a settings file is. */
+sealed interface BackupState {
+    data object Idle : BackupState
+
+    /** Saved under this file name. */
+    data class Saved(val name: String) : BackupState
+    data object SaveFailed : BackupState
+
+    /** Read and usable; waiting for the user to confirm loading it. */
+    data class Confirm(val config: Config, val from: ExportHeader, val name: String) : BackupState
+
+    /** Loaded from this file. */
+    data class Loaded(val name: String) : BackupState
+
+    /** Not loaded: [why] (null when the file could not be read at all). */
+    data class Rejected(val why: ImportRejection?, val detail: String? = null) : BackupState
+}
+
 /** What the haptics dialog asks to feel on the mouse. */
 sealed interface HapticPreview {
     /** One pulse of this waveform (or [Waveform.RANDOM]). */
@@ -114,6 +132,14 @@ class Shared(private val dir: File) {
 
     fun setUpdate(state: UpdateState) {
         _update.value = state
+    }
+
+    /** Saving the settings to a file and loading them from one (the General tab). */
+    private val _backup = MutableStateFlow<BackupState>(BackupState.Idle)
+    val backup: StateFlow<BackupState> = _backup.asStateFlow()
+
+    fun setBackup(state: BackupState) {
+        _backup.value = state
     }
 
     private val switchRequest = AtomicInteger(0)

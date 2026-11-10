@@ -82,7 +82,7 @@ object SelfUpdate {
         work { checkAndMaybeInstall(app, manual = false) }
     }
 
-    /** "Check now". */
+    /** "Check now": asks GitHub and shows what it found; installs nothing (see [updateNow]). */
     fun check(context: Context) {
         val app = context.applicationContext
         work { checkAndMaybeInstall(app, manual = true) }
@@ -152,9 +152,11 @@ object SelfUpdate {
         // Already handed to Android and waiting for the user: not a second time.
         if (confirmation != null && confirming == r.version) return app.shared.setUpdate(UpdateState.Confirming(r.version))
         app.shared.setUpdate(UpdateState.Available(r.version))
-        val cfg = app.shared.config.value
-        if (!cfg.autoUpdate) return
-        if (!manual && declined == r.version) {
+        // "Check now" only finds it: "Update now" installs it, whatever the switch says.
+        // The switch is for the checks made on their own.
+        if (manual) return
+        if (!app.shared.config.value.autoUpdate) return
+        if (declined == r.version) {
             Log.i("update: ${r.version} was cancelled before, not installing it on its own")
             return
         }
