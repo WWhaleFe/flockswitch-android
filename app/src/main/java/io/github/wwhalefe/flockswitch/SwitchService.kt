@@ -22,6 +22,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /** Keeps the engine running in the background, with the notification Android requires
@@ -85,6 +86,10 @@ class SwitchService : Service() {
         val watcher = EdgeWatcher(this, shared)
         edges = watcher
         scope.launch { shared.config.collect { syncEdges(watcher, it) } }
+        // The accessibility service decides which layer the top and bottom strips use.
+        scope.launch {
+            shared.status.map { it.pointerService }.distinctUntilChanged().collect { watcher.relayout(shared.config.value) }
+        }
         registerReceiver(screenChanged, IntentFilter(Intent.ACTION_CONFIGURATION_CHANGED))
     }
 

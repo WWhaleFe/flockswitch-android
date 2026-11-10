@@ -19,6 +19,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -43,6 +47,8 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
@@ -72,15 +78,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.wwhalefe.flockswitch.BUTTON_GESTURE
 import io.github.wwhalefe.flockswitch.BUTTON_MIDDLE
@@ -125,6 +134,8 @@ class Actions(
     val previewEdge: (Edges) -> Unit,
     val previewLocate: (Locate, Float, Float) -> Unit,
     val openAccessibility: () -> Unit,
+    val openAppInfo: () -> Unit,
+    val overlayOn: () -> Boolean,
     val notificationsOn: () -> Boolean,
     val switchTo: (Int) -> Unit,
     val open: (String) -> Unit,
@@ -162,42 +173,77 @@ fun FlockswitchApp(shared: Shared, actions: Actions) = theme {
         if (!shared.updateConfig(change)) scope.launch { snackbar.showSnackbar(needOneButton) }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbar) },
-        bottomBar = {
-            NavigationBar {
-                Tab.entries.forEachIndexed { i, t ->
-                    NavigationBarItem(
-                        selected = tab == i,
-                        onClick = { tab = i },
-                        icon = { Text(t.glyph, style = MaterialTheme.typography.titleLarge) },
-                        label = { Text(stringResource(t.title)) },
-                    )
+    // A phone keeps the bar at the bottom. An open foldable, a tablet or a phone on its
+    // side has room beside the page instead; a cover screen gets one thin row.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val cover = maxWidth < 360.dp && maxHeight < 480.dp
+        val rail = !cover && (maxWidth >= 600.dp || maxHeight < 480.dp)
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbar) },
+            topBar = { if (cover) CompactTabs(tab) { tab = it } },
+            bottomBar = {
+                if (!cover && !rail) {
+                    NavigationBar {
+                        Tab.entries.forEachIndexed { i, t ->
+                            NavigationBarItem(
+                                selected = tab == i,
+                                onClick = { tab = i },
+                                icon = { Text(t.glyph, style = MaterialTheme.typography.titleLarge) },
+                                label = { Text(stringResource(t.title)) },
+                            )
+                        }
+                    }
+                }
+            },
+        ) { padding ->
+            Row(Modifier.fillMaxSize().padding(padding)) {
+                if (rail) {
+                    NavigationRail {
+                        Tab.entries.forEachIndexed { i, t ->
+                            NavigationRailItem(
+                                selected = tab == i,
+                                onClick = { tab = i },
+                                icon = { Text(t.glyph, style = MaterialTheme.typography.titleLarge) },
+                                label = { Text(stringResource(t.title)) },
+                            )
+                        }
+                    }
+                }
+                // On a tablet the settings stay a readable column in the middle.
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
+                    contentAlignment = Alignment.TopCenter,
+                ) {
+                    Column(
+                        Modifier
+                            .widthIn(max = 720.dp)
+                            .fillMaxWidth()
+                            .padding(horizontal = if (cover) 8.dp else 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        when (Tab.entries[tab]) {
+                            Tab.Home -> HomeTab(cfg, status, actions)
+                            Tab.Buttons -> ButtonsTab(cfg, status, update, actions)
+                            Tab.Devices -> DevicesTab(cfg, status, update, shared)
+                            Tab.General -> GeneralTab(cfg, status, update, actions)
+                        }
+                    }
                 }
             }
-        },
-    ) { padding ->
-        // On a tablet the settings stay a readable column in the middle.
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState()),
-            contentAlignment = Alignment.TopCenter,
-        ) {
-            Column(
-                Modifier
-                    .widthIn(max = 720.dp)
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                when (Tab.entries[tab]) {
-                    Tab.Home -> HomeTab(cfg, status, actions)
-                    Tab.Buttons -> ButtonsTab(cfg, status, update, actions)
-                    Tab.Devices -> DevicesTab(cfg, status, update, shared)
-                    Tab.General -> GeneralTab(cfg, status, update, actions)
-                }
+        }
+    }
+}
+
+/** The tabs as one thin row, for a cover screen. */
+@Composable
+private fun CompactTabs(tab: Int, onPick: (Int) -> Unit) {
+    Row(Modifier.fillMaxWidth().statusBarsPadding(), horizontalArrangement = Arrangement.SpaceEvenly) {
+        Tab.entries.forEachIndexed { i, t ->
+            TextButton(onClick = { onPick(i) }) {
+                Text(t.glyph, color = if (tab == i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -272,24 +318,46 @@ private fun ChannelPicker(selected: Int?, here: Int?, showHere: Boolean = true, 
                 } else {
                     SegmentedButtonDefaults.colors()
                 },
-            ) { Text(if (off) stringResource(R.string.off) else "$c") }
+                contentPadding = SegmentPadding,
+                icon = {},
+            ) { SegmentLabel(if (off) stringResource(R.string.off) else "$c") }
         }
     }
     if (here != null && showHere) Hint(stringResource(R.string.here_channel, here))
 }
 
-/** One of a few fixed values, e.g. the time at the edge. */
+/** Segments spend their width on the text: no check mark, and little padding. */
+private val SegmentPadding = PaddingValues(horizontal = 2.dp)
+
+@Composable
+private fun SegmentLabel(text: String) =
+    Text(text, style = MaterialTheme.typography.labelMedium, maxLines = 1, softWrap = false)
+
+/** One of a few fixed values, e.g. the time at the edge. Where the segments would be too
+ *  narrow for their text (the folded screen of a foldable, a larger font, a longer
+ *  language) it is a drop-down instead. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun <T> ValuePicker(options: List<Pair<T, String>>, selected: T, enabled: Boolean = true, onPick: (T) -> Unit) {
-    SingleChoiceSegmentedButtonRow(Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
-        options.forEachIndexed { i, (value, label) ->
-            SegmentedButton(
-                selected = selected == value,
-                onClick = { onPick(value) },
-                enabled = enabled,
-                shape = SegmentedButtonDefaults.itemShape(index = i, count = options.size),
-            ) { Text(label) }
+    val measurer = rememberTextMeasurer()
+    val style = MaterialTheme.typography.labelMedium
+    val widest = with(LocalDensity.current) { options.maxOf { measurer.measure(it.second, style).size.width }.toDp() }
+    BoxWithConstraints(Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
+        if (maxWidth / options.size < widest + 8.dp) {
+            ValueMenu(options, selected, enabled, onPick)
+        } else {
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                options.forEachIndexed { i, (value, label) ->
+                    SegmentedButton(
+                        selected = selected == value,
+                        onClick = { onPick(value) },
+                        enabled = enabled,
+                        shape = SegmentedButtonDefaults.itemShape(index = i, count = options.size),
+                        contentPadding = SegmentPadding,
+                        icon = {},
+                    ) { SegmentLabel(label) }
+                }
+            }
         }
     }
 }
@@ -297,8 +365,13 @@ private fun <T> ValuePicker(options: List<Pair<T, String>>, selected: T, enabled
 /** One of a longer list of values, e.g. a waveform. */
 @Composable
 private fun <T> DropdownRow(title: String, options: List<Pair<T, String>>, selected: T, enabled: Boolean = true, onPick: (T) -> Unit) {
-    var open by remember { mutableStateOf(false) }
     Text(title, style = MaterialTheme.typography.labelLarge)
+    ValueMenu(options, selected, enabled, onPick)
+}
+
+@Composable
+private fun <T> ValueMenu(options: List<Pair<T, String>>, selected: T, enabled: Boolean, onPick: (T) -> Unit) {
+    var open by remember { mutableStateOf(false) }
     Box {
         OutlinedButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
             Text(options.firstOrNull { it.first == selected }?.second ?: selected.toString())
@@ -439,6 +512,11 @@ private fun EdgesSection(cfg: Config, s: Status, update: (Config.() -> Config) -
         if (s.overlayNeeded) {
             Notice(stringResource(R.string.overlay_permission), stringResource(R.string.grant), actions.allowOverlay)
         }
+        if ((cfg.edges.channel(Edge.Top) != 0 || cfg.edges.channel(Edge.Bottom) != 0) && !s.pointerService) {
+            var guide by rememberSaveable { mutableStateOf(false) }
+            Notice(stringResource(R.string.edge_bars_service), stringResource(R.string.guide_open)) { guide = true }
+            if (guide) AccessibilityGuide(s, actions) { guide = false }
+        }
         HorizontalDivider()
         for (edge in Edge.entries) {
             val name = stringResource(
@@ -468,7 +546,9 @@ private fun EdgesSection(cfg: Config, s: Status, update: (Config.() -> Config) -
             update { copy(edges = edges.copy(requireControl = on)) }
         }
         if (cfg.edges.requireControl && !s.pointerService) {
-            Notice(stringResource(R.string.edge_control_service), stringResource(R.string.open_accessibility), actions.openAccessibility)
+            var guide by rememberSaveable { mutableStateOf(false) }
+            Notice(stringResource(R.string.edge_control_service), stringResource(R.string.guide_open)) { guide = true }
+            if (guide) AccessibilityGuide(s, actions) { guide = false }
         }
         HorizontalDivider()
         EdgeAnimRows(cfg, update, actions)
@@ -524,7 +604,7 @@ private fun EffectColorRow(color: String, onPick: (String) -> Unit) {
     val current = parseColor(color) ?: COLOR_PRESETS.first()
     var picking by rememberSaveable { mutableStateOf(false) }
     Text(stringResource(R.string.effect_color), style = MaterialTheme.typography.labelLarge)
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         for (preset in COLOR_PRESETS) {
             ColorSwatch(preset, preset == current, formatColor(preset)) { onPick(formatColor(preset)) }
         }
@@ -613,7 +693,9 @@ private fun LocateSection(cfg: Config, s: Status, update: (Config.() -> Config) 
                 Hint(stringResource(R.string.locate_needs_android14))
             } else {
                 if (!s.pointerService) {
-                    Notice(stringResource(R.string.locate_service_needed), stringResource(R.string.open_accessibility), actions.openAccessibility)
+                    var guide by rememberSaveable { mutableStateOf(false) }
+                    Notice(stringResource(R.string.locate_service_needed), stringResource(R.string.guide_open)) { guide = true }
+                    if (guide) AccessibilityGuide(s, actions) { guide = false }
                 }
                 SwitchRow(stringResource(R.string.locate_use_hotkey), l.onHotkey) { on -> update { copy(locate = locate.copy(onHotkey = on)) } }
                 SwitchRow(stringResource(R.string.locate_arrival), l.onArrival) { on -> update { copy(locate = locate.copy(onArrival = on)) } }
@@ -680,7 +762,7 @@ private fun HapticsDialog(cfg: Config, update: (Config.() -> Config) -> Unit, on
                     DropdownRow(stringResource(R.string.haptics_wave_edge), waves, d.edgeWaveform, enabled = on && !d.progressive) { d = d.copy(edgeWaveform = it) }
                     Hint(stringResource(R.string.haptics_hint))
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)) {
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)) {
                     TextButton(onClick = { update { copy(haptics = d) } }) { Text(stringResource(R.string.apply)) }
                     Button(onClick = {
                         update { copy(haptics = d) }
@@ -744,30 +826,78 @@ private fun ChoiceRow(title: String, subtitle: String?, checked: Boolean, radio:
     }
 }
 
+/** Why the accessibility service is needed and how to turn it on, one step at a time.
+ *  Its state follows the system, so a step shows as done on coming back. */
 @Composable
-private fun GeneralTab(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions) {
-    Section {
-        SwitchRow(stringResource(R.string.start_at_boot), cfg.startAtBoot) { on -> update { copy(startAtBoot = on) } }
+private fun AccessibilityGuide(s: Status, actions: Actions, onClose: () -> Unit) {
+    Dialog(onDismissRequest = onClose) {
+        Surface(shape = MaterialTheme.shapes.extraLarge, tonalElevation = 6.dp) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(stringResource(R.string.guide_title), style = MaterialTheme.typography.titleLarge)
+                Column(
+                    Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(stringResource(R.string.guide_why))
+                    Hint(stringResource(R.string.guide_privacy))
+                    HorizontalDivider()
+                    Text(stringResource(R.string.guide_step1))
+                    Button(onClick = actions.openAccessibility) { Text(stringResource(R.string.open_accessibility)) }
+                    Text(stringResource(R.string.guide_step2))
+                    OutlinedButton(onClick = actions.openAppInfo) { Text(stringResource(R.string.guide_app_info)) }
+                    Text(stringResource(R.string.guide_step3))
+                    HorizontalDivider()
+                    Text(
+                        stringResource(if (s.pointerService) R.string.guide_done else R.string.guide_not_yet),
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (s.pointerService) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    )
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onClose) { Text(stringResource(R.string.close)) }
+                }
+            }
+        }
+    }
+}
+
+/** One system permission: on, or a button that leads to it. */
+@Composable
+private fun PermissionRow(title: String, hint: String, on: Boolean, onSet: () -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Hint(hint)
+        }
+        if (on) {
+            Text(stringResource(R.string.perm_on), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+        } else {
+            Button(onClick = onSet) { Text(stringResource(R.string.perm_set)) }
+        }
+    }
+}
+
+/** What the system has to allow, in one place. */
+@Composable
+private fun PermissionsSection(s: Status, actions: Actions) {
+    // Changed in the system's own screens: read again on coming back.
+    var overlay by remember { mutableStateOf(actions.overlayOn()) }
+    LifecycleResumeEffect(Unit) {
+        overlay = actions.overlayOn()
+        onPauseOrDispose {}
+    }
+    var guide by rememberSaveable { mutableStateOf(false) }
+    Section(stringResource(R.string.section_permissions)) {
+        PermissionRow(stringResource(R.string.perm_overlay), stringResource(R.string.perm_overlay_hint), overlay, actions.allowOverlay)
         HorizontalDivider()
-        SwitchRow(stringResource(R.string.bluetooth_title), cfg.bluetooth, subtitle = stringResource(R.string.bluetooth_hint)) { on ->
-            update { copy(bluetooth = on) }
-            if (on) actions.allowNearby()
-        }
+        PermissionRow(stringResource(R.string.perm_accessibility), stringResource(R.string.perm_accessibility_hint), s.pointerService) { guide = true }
     }
+    if (guide) AccessibilityGuide(s, actions) { guide = false }
+}
 
-    LocateSection(cfg, s, update, actions)
-
-    var hapticsOpen by rememberSaveable { mutableStateOf(false) }
-    Section(stringResource(R.string.section_haptics)) {
-        val state = stringResource(if (cfg.haptics.onSwitch || cfg.haptics.onEdge) R.string.haptics_state_on else R.string.haptics_state_off)
-        val strength = if (cfg.haptics.intensity == 0) stringResource(R.string.haptics_follow) else "${cfg.haptics.intensity}%"
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("$state · ${stringResource(R.string.haptics_intensity)} $strength", Modifier.weight(1f))
-            OutlinedButton(onClick = { hapticsOpen = true }) { Text(stringResource(R.string.haptics_open)) }
-        }
-    }
-    if (hapticsOpen) HapticsDialog(cfg, update) { hapticsOpen = false }
-
+/** The version, and looking for a new one on GitHub. */
+@Composable
+private fun UpdateSection(cfg: Config, update: (Config.() -> Config) -> Unit, actions: Actions) {
     var updateState by remember { mutableStateOf<UpdateState>(UpdateState.Unknown) }
     val scope = rememberCoroutineScope()
     val check: () -> Unit = {
@@ -793,7 +923,11 @@ private fun GeneralTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
             }
         }
     }
+}
 
+/** Writing to the developer, and the log. */
+@Composable
+private fun ReportSection(actions: Actions) {
     Section(stringResource(R.string.section_report)) {
         Hint(stringResource(R.string.report_desc))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -803,6 +937,39 @@ private fun GeneralTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
         var showLog by rememberSaveable { mutableStateOf(false) }
         OutlinedButton(onClick = { showLog = true }) { Text(stringResource(R.string.report_log)) }
         if (showLog) LogDialog { showLog = false }
+    }
+}
+
+@Composable
+private fun GeneralTab(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions) {
+    PermissionsSection(s, actions)
+
+    Section {
+        SwitchRow(stringResource(R.string.start_at_boot), cfg.startAtBoot) { on -> update { copy(startAtBoot = on) } }
+        HorizontalDivider()
+        SwitchRow(stringResource(R.string.bluetooth_title), cfg.bluetooth, subtitle = stringResource(R.string.bluetooth_hint)) { on ->
+            update { copy(bluetooth = on) }
+            if (on) actions.allowNearby()
+        }
+    }
+
+    LocateSection(cfg, s, update, actions)
+
+    var hapticsOpen by rememberSaveable { mutableStateOf(false) }
+    Section(stringResource(R.string.section_haptics)) {
+        val state = stringResource(if (cfg.haptics.onSwitch || cfg.haptics.onEdge) R.string.haptics_state_on else R.string.haptics_state_off)
+        val strength = if (cfg.haptics.intensity == 0) stringResource(R.string.haptics_follow) else "${cfg.haptics.intensity}%"
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("$state · ${stringResource(R.string.haptics_intensity)} $strength", Modifier.weight(1f))
+            OutlinedButton(onClick = { hapticsOpen = true }) { Text(stringResource(R.string.haptics_open)) }
+        }
+    }
+    if (hapticsOpen) HapticsDialog(cfg, update) { hapticsOpen = false }
+
+    // Google Play keeps the app up to date itself, and its listing has the contact details.
+    if (!BuildConfig.PLAY_STORE) {
+        UpdateSection(cfg, update, actions)
+        ReportSection(actions)
     }
 
     var confirmReset by rememberSaveable { mutableStateOf(false) }

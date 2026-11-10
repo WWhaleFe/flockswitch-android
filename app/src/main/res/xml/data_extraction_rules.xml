@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the settings, so they come back after a reinstall or on a new phone. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="config.json" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="config.json" />
+    </device-transfer>
+</data-extraction-rules>

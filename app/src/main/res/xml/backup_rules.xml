@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the settings, so they come back after a reinstall (Android 11 and older). -->
+<full-backup-content>
+    <include domain="file" path="config.json" />
+</full-backup-content>

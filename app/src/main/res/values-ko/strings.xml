@@ -59,7 +59,7 @@
     <string name="notifications_off">알림이 꺼져 있어 채널 버튼이 있는 백그라운드 알림을 표시할 수 없습니다.</string>
 
     <string name="start_at_boot">기기가 켜지면 자동 시작</string>
-    <string name="bluetooth_title">블루투스 장치 (실험)</string>
+    <string name="bluetooth_title">블루투스 장치</string>
     <string name="bluetooth_hint">수신기 없이 블루투스로 이 기기에 연결된 Logitech 장치도 찾습니다.</string>
     <string name="bluetooth_permission">블루투스 장치를 쓰려면 \'근처 기기\' 권한을 허용하세요.</string>
 
@@ -81,7 +81,7 @@
 
     <string name="off">끔</string>
     <string name="edges_title">화면 모서리에서 전환</string>
-    <string name="edges_hint">마우스 포인터를 화면 가장자리에 대고 잠시 머물면 그 방향에 정한 채널로 그룹 장치와 마스터 마우스를 보냅니다. 네트워크 없이 각 컴퓨터가 자기 화면만 봅니다. 마스터 마우스가 이 기기에 있을 때만 동작합니다. 위·아래 가장자리에는 상태 표시줄과 내비게이션 바가 있어 왼쪽·오른쪽이 가장 잘 동작합니다.</string>
+    <string name="edges_hint">마우스 포인터를 화면 가장자리에 대고 잠시 머물면 그 방향에 정한 채널로 그룹 장치와 마스터 마우스를 보냅니다. 네트워크 없이 각 컴퓨터가 자기 화면만 봅니다. 마스터 마우스가 이 기기에 있을 때만 동작합니다.</string>
     <string name="edge_left">왼쪽</string>
     <string name="edge_right">오른쪽</string>
     <string name="edge_top">위</string>
@@ -133,7 +133,7 @@
 
     <string name="edge_require_control">Control 키를 누른 동안에만 전환</string>
     <string name="edge_require_control_hint">포인터가 모서리에 있어도 Control을 누르기 전에는 기다리는 시간이 시작되지 않습니다. flockswitch 접근성 서비스를 켜면 키를 떼는 즉시 취소되고, 켜지 않으면 안드로이드는 포인터가 움직일 때만 키 상태를 알려 줍니다.</string>
-    <string name="edge_control_service">포인터가 멈춰 있어도 키가 바로 반영되도록 flockswitch 접근성 서비스를 켜세요. 켜지 않으면 모서리에 닿기 전에 Control을 누르고, 취소하려면 키를 뗀 뒤 포인터를 움직여야 합니다.</string>
+    <string name="edge_control_service">포인터가 멈춰 있어도 키가 바로 반영되도록 접근성 서비스를 켜 주세요.</string>
     <string name="open_accessibility">접근성 설정</string>
     <string name="edge_anim">전환 대기 효과</string>
     <string-array name="edge_anim_names">
@@ -170,7 +170,7 @@
     <string name="locate_arrival">다른 컴퓨터에서 마우스가 도착했을 때</string>
     <string name="locate_action">마우스 찾기</string>
     <string name="locate_hint">안드로이드는 접근성 서비스를 통해서만 포인터 위치를 알려 주며, 듣는 동안에는 마우스 입력이 다른 앱으로 가지 않습니다. 그래서 flockswitch는 이벤트 하나만 듣습니다. 강조 표시는 5초 안에 다음 마우스 움직임이 있을 때 나타나고 그때의 포인터 위치에 머뭅니다. 알림에도 이 버튼이 있습니다.</string>
-    <string name="locate_service_needed">포인터 위치를 읽을 수 있도록 flockswitch 접근성 서비스를 켜세요. 안드로이드가 제한된 설정이라고 하면 앱 정보 화면(⋮ 메뉴 → 제한된 설정 허용)에서 먼저 허용하세요.</string>
+    <string name="locate_service_needed">마우스 찾기를 쓰려면 접근성 서비스를 켜 주세요.</string>
     <string name="locate_needs_android14">안드로이드 14부터 앱에 마우스 포인터 위치를 알려 줍니다. 이 버전에서는 미리 보기만 표시할 수 있습니다.</string>
     <string name="pointer_service_label">flockswitch 키보드와 포인터</string>
     <string name="pointer_service_description">켜 둔 flockswitch 설정에만 쓰입니다. Control을 누르고 있는지 확인하고 Ctrl+Alt+L을 받기 위해 키보드를 봅니다. 다른 키는 그대로 통과하며 저장하거나 보내지 않습니다. 마우스 찾기를 요청한 뒤 다음 움직임에서 포인터 위치를 한 번 읽습니다.</string>
@@ -180,4 +180,22 @@
     <string name="reset_explain">모든 설정을 처음 상태로 되돌립니다.</string>
     <string name="reset_confirm">초기화</string>
     <string name="cancel">취소</string>
+    <string name="guide_open">설정 방법 보기</string>
+    <string name="guide_title">접근성 서비스 켜기</string>
+    <string name="guide_why">Android는 연결된 키보드의 키 상태와 마우스 포인터 위치를 접근성 서비스로만 앱에 알려 줍니다. 위쪽·아래쪽 모서리 전환, Control 키 조건, 마우스 찾기를 쓰려면 이 서비스를 켜야 합니다.</string>
+    <string name="guide_privacy">화면 내용은 읽지 않습니다. 키는 Control 상태와 Ctrl+Alt+L만 확인하며, 저장하거나 외부로 보내지 않습니다. 언제든 같은 화면에서 끌 수 있습니다.</string>
+    <string name="guide_step1">1. 아래 버튼으로 접근성 설정을 열고 flockswitch를 켠 뒤 허용을 누르세요. 삼성 휴대폰은 \'설치된 앱\' 안에 있습니다.</string>
+    <string name="guide_step2">2. \'제한된 설정\' 창이 뜨면 확인을 누르고, 아래 버튼으로 앱 정보를 연 뒤 오른쪽 위 ⋮ 메뉴에서 \'제한된 설정 허용\'을 누르세요. 그다음 1번을 다시 하세요.</string>
+    <string name="guide_step3">3. 이 화면으로 돌아오면 켜졌는지 아래에 표시됩니다.</string>
+    <string name="guide_app_info">앱 정보 열기</string>
+    <string name="guide_done">✓ 접근성 서비스가 켜져 있습니다</string>
+    <string name="guide_not_yet">아직 꺼져 있습니다</string>
+    <string name="section_permissions">권한</string>
+    <string name="perm_overlay">다른 앱 위에 표시</string>
+    <string name="perm_overlay_hint">화면 모서리 전환과 효과 표시에 필요합니다.</string>
+    <string name="perm_accessibility">접근성 서비스</string>
+    <string name="perm_accessibility_hint">위쪽·아래쪽 모서리, Control 키 조건, 마우스 찾기에 필요합니다.</string>
+    <string name="perm_on">켜짐</string>
+    <string name="perm_set">설정</string>
+    <string name="edge_bars_service">위쪽과 아래쪽 모서리는 상태 표시줄과 내비게이션 바에 가려져 있어, 접근성 서비스를 켜야 동작합니다.</string>
 </resources>

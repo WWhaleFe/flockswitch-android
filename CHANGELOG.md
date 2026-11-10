@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.4 — 2026-11-10
+
+- Foldables: the screen-edge strips follow folding and unfolding, and choice segments become a drop-down where their text would not fit
+- Fixed switching at the top and bottom screen edges, where the status and navigation bars took the pointer. These two edges need the accessibility service
+- Choice segments such as the haptic strength no longer break their text
+- Foldables: on an open foldable or a phone on its side the tabs sit beside the page, and on a cover screen in one thin row
+- Step-by-step directions for turning on the accessibility service, and the permissions at the top of the General tab
+- Settings come back after a reinstall through Google backup (when that is on)
+- The Bluetooth devices setting is no longer marked experimental
+
 ## 0.5.0 — 2026-11-09
 
 - Effect colours: the screen-edge countdown and the find-the-cursor highlight each have their own colour (seven ready-made, any other from the picker with sliders or a typed #RRGGBB)

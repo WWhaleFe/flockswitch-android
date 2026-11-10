@@ -30,6 +30,8 @@ private const val COOLDOWN_MS = 2000L
 private const val HAPTIC_TICK_MS = 150L
 /** A pulse takes a moment to play; Change Host right after would cut it short. */
 private const val FINAL_PULSE_MS = 150L
+/** How long after a screen change the size is looked at again. */
+private const val SETTLE_MS = 500L
 
 /** One pulse at a screen edge: the gap until the next one and its waveform. */
 data class EdgePulse(val gapMs: Long, val waveform: Int)
@@ -88,6 +90,9 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
     private var counting = false
     /** A switch waiting for the last pulse to play. */
     private var delayedSwitch: Runnable? = null
+    /** The screen size the strips were laid out for, and the second look at it. */
+    private var laidOutFor: Rect? = null
+    private var settle: Runnable? = null
 
     /** Whether the strips may be shown: "display over other apps" is allowed. */
     fun allowed(): Boolean = Settings.canDrawOverlays(context)
@@ -102,15 +107,21 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
         val edges = want ?: return
         shared.pointer.onControl = ::controlChanged
         val bounds = screenBounds(wm)
+        laidOutFor = bounds
         val density = context.resources.displayMetrics.density
         val margin = (edges.cornerMargin * density).toInt().coerceAtMost(minOf(bounds.width(), bounds.height()) / 3)
         val thick = (2 * density).toInt().coerceAtLeast(2)
+        // The status and navigation bars lie above ordinary overlays and take the pointer
+        // there; only the accessibility service's windows lie above them.
+        val service = PointerService.instance
         for (edge in Edge.entries) {
             if (edges.channel(edge) == 0) continue
+            val overBars = service != null && !edge.vertical
+            val host: Context = if (overBars) service!! else context
             val params = WindowManager.LayoutParams(
                 if (edge.vertical) thick else bounds.width() - 2 * margin,
                 if (edge.vertical) bounds.height() - 2 * margin else thick,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                if (overBars) WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY else WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
@@ -130,7 +141,7 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
                     else -> margin
                 }
             }
-            val view = View(context)
+            val view = View(host)
             view.setOnHoverListener { _, e ->
                 when (e.actionMasked) {
                     MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE -> hover(edge, edges, e)
@@ -142,7 +153,7 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
                 true
             }
             try {
-                wm.addView(view, params)
+                host.getSystemService(WindowManager::class.java).addView(view, params)
                 views[edge] = view
             } catch (e: Exception) {
                 Log.w("edge window (${edge.name.lowercase()}): ${e.message}")
@@ -154,10 +165,21 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
         }
     }
 
-    /** The screen turned or changed size: lay the strips out again. */
+    /** The screen turned or changed size: lay the strips out again. Folding can report
+     *  the change before the new size is in place, so it is looked at once more. */
     fun relayout(cfg: Config) {
         hide()
         sync(cfg)
+        settle?.let(handler::removeCallbacks)
+        val again = Runnable {
+            settle = null
+            if (screenBounds(wm) != laidOutFor) {
+                hide()
+                sync(shared.config.value)
+            }
+        }
+        settle = again
+        handler.postDelayed(again, SETTLE_MS)
     }
 
     fun hide() {
@@ -166,7 +188,7 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
         stopRest()
         under = null
         shared.pointer.onControl = null
-        for (v in views.values) runCatching { wm.removeView(v) }
+        for (v in views.values) runCatching { v.context.getSystemService(WindowManager::class.java).removeView(v) }
         views.clear()
         shown = null
     }

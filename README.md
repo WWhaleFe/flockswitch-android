@@ -17,7 +17,7 @@ flockswitch was built and tested with the **MX Master 3** and **MX Master 4**. O
 ## How it connects
 
 - **Logi Bolt or Unifying receiver on USB** (recommended): plug the receiver into the tablet or phone, through a USB-C or OTG adapter if needed. A receiver has three parts: keyboard, mouse and a settings channel (HID++). flockswitch takes only the settings channel, so typing and pointing keep working through Android as usual. Android asks once whether flockswitch may use the receiver; tick *Always open flockswitch* so it does not ask again.
-- **Bluetooth** (experimental, off by default): Logitech devices connected to Android over Bluetooth offer HID++ in a Logitech service of their own. Turn on *Bluetooth devices* on the General tab and allow *Nearby devices*.
+- **Bluetooth** (off by default): Logitech devices connected to Android over Bluetooth offer HID++ in a Logitech service of their own. Turn on *Bluetooth devices* on the General tab and allow *Nearby devices*.
 
 If Android's own Logitech driver turns out to be using a receiver (seen with Unifying receivers on some devices), flockswitch hands it back at once so the mouse and keyboard keep working, and says so on the Home tab.
 

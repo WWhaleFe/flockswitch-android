@@ -1,4 +1,4 @@
-// Logitech devices connected over Bluetooth LE (experimental).
+// Logitech devices connected over Bluetooth LE.
 //
 // Android keeps the HID service of a Bluetooth mouse or keyboard to itself, but Logitech
 // devices also offer HID++ in a service of their own. How HID++ reports are framed in

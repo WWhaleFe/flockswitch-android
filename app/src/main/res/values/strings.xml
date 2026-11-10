@@ -60,7 +60,7 @@
     <string name="notifications_off">Notifications are off: the background notification with the channel buttons cannot be shown.</string>
 
     <string name="start_at_boot">Start when this device starts</string>
-    <string name="bluetooth_title">Bluetooth devices (experimental)</string>
+    <string name="bluetooth_title">Bluetooth devices</string>
     <string name="bluetooth_hint">Also looks for Logitech devices connected to this device over Bluetooth, without a receiver.</string>
     <string name="bluetooth_permission">Allow “Nearby devices” to use Bluetooth devices.</string>
 
@@ -82,7 +82,7 @@
 
     <string name="off">Off</string>
     <string name="edges_title">Switch at the screen edge</string>
-    <string name="edges_hint">Rest the mouse pointer against an edge of the screen for a moment and the group and the master mouse go to the channel set for that side. No network: each computer watches its own screen. Works while the master mouse is on this device. Left and right work best; the status bar and the navigation bar sit on the top and bottom edges.</string>
+    <string name="edges_hint">Rest the mouse pointer against an edge of the screen for a moment and the group and the master mouse go to the channel set for that side. No network: each computer watches its own screen. Works while the master mouse is on this device.</string>
     <string name="edge_left">Left</string>
     <string name="edge_right">Right</string>
     <string name="edge_top">Top</string>
@@ -134,7 +134,7 @@
 
     <string name="edge_require_control">Only while Control is held</string>
     <string name="edge_require_control_hint">The wait does not start until Control is down, even with the pointer at the edge. With flockswitch\'s accessibility service on, letting go calls it off at once; without it Android reports the key only as the pointer moves.</string>
-    <string name="edge_control_service">Turn on flockswitch\'s accessibility service so the key counts at once, even with the pointer standing still. Without it, hold Control before reaching the edge, and to call the wait off let go and move the pointer.</string>
+    <string name="edge_control_service">Turn on the accessibility service so the key counts even while the pointer rests.</string>
     <string name="open_accessibility">Accessibility settings</string>
     <string name="edge_anim">Countdown effect</string>
     <string-array name="edge_anim_names">
@@ -171,7 +171,7 @@
     <string name="locate_arrival">When the mouse arrives from another computer</string>
     <string name="locate_action">Find the cursor</string>
     <string name="locate_hint">Android tells an app where the pointer is only through an accessibility service, and only by holding the mouse back from other apps while it listens. So flockswitch listens for just one event: the highlight appears at your next mouse movement, within 5 seconds, and stays where the pointer was then. The notification has a button for it too.</string>
-    <string name="locate_service_needed">Turn on flockswitch\'s accessibility service so it can read where the pointer is. If Android says the setting is restricted, allow it first in the app\'s App info page (⋮ menu → Allow restricted settings).</string>
+    <string name="locate_service_needed">Find the cursor needs the accessibility service.</string>
     <string name="locate_needs_android14">Android gives apps the mouse pointer\'s position only from Android 14 on. On this version only the preview can be shown.</string>
     <string name="pointer_service_label">flockswitch keyboard and pointer</string>
     <string name="pointer_service_description">Used only for flockswitch settings you turn on. Sees the keyboard to know whether Control is held and to catch Ctrl+Alt+L; every other key passes through untouched and nothing is stored or sent. Reads the mouse pointer\'s position once, at the next movement after you ask to find the cursor.</string>
@@ -181,4 +181,22 @@
     <string name="reset_explain">Puts every setting back to how it started.</string>
     <string name="reset_confirm">Reset</string>
     <string name="cancel">Cancel</string>
+    <string name="guide_open">How to turn it on</string>
+    <string name="guide_title">Turn on the accessibility service</string>
+    <string name="guide_why">Android tells an app about a keyboard\'s keys and the mouse pointer only through an accessibility service. The top and bottom edges, the Control option and Find the cursor need it.</string>
+    <string name="guide_privacy">It does not read the screen. It only looks at Control and Ctrl+Alt+L, and stores or sends nothing. You can turn it off on the same screen at any time.</string>
+    <string name="guide_step1">1. Open the accessibility settings below, turn on flockswitch and allow it. On Samsung phones it is under \'Installed apps\'.</string>
+    <string name="guide_step2">2. If a \'Restricted setting\' message appears, tap OK, open App info below, and choose \'Allow restricted settings\' from the ⋮ menu at the top right. Then do step 1 again.</string>
+    <string name="guide_step3">3. Come back here to see below whether it is on.</string>
+    <string name="guide_app_info">Open App info</string>
+    <string name="guide_done">✓ The accessibility service is on</string>
+    <string name="guide_not_yet">Still off</string>
+    <string name="section_permissions">Permissions</string>
+    <string name="perm_overlay">Display over other apps</string>
+    <string name="perm_overlay_hint">Needed to switch at the screen edge and to show effects.</string>
+    <string name="perm_accessibility">Accessibility service</string>
+    <string name="perm_accessibility_hint">Needed for the top and bottom edges, the Control option and Find the cursor.</string>
+    <string name="perm_on">On</string>
+    <string name="perm_set">Set up</string>
+    <string name="edge_bars_service">The status and navigation bars cover the top and bottom edges, so those two need the accessibility service.</string>
 </resources>

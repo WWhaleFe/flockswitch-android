@@ -1,6 +1,7 @@
 package io.github.wwhalefe.flockswitch
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.hardware.usb.UsbManager
@@ -39,7 +40,9 @@ class MainActivity : ComponentActivity() {
             allowOverlay = ::allowOverlay,
             previewEdge = ::previewEdge,
             previewLocate = ::previewLocate,
-            openAccessibility = { runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } },
+            openAccessibility = ::openAccessibility,
+            openAppInfo = { runCatching { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) } },
+            overlayOn = { Settings.canDrawOverlays(this) },
             notificationsOn = { NotificationManagerCompat.from(this).areNotificationsEnabled() },
             switchTo = { channel -> shared.requestSwitch(channel) },
             open = { url -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
@@ -64,6 +67,17 @@ class MainActivity : ComponentActivity() {
 
     private fun allowOverlay() {
         runCatching { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }
+    }
+
+    /** Opens flockswitch's own accessibility page where Android has one, else the list. */
+    private fun openAccessibility() {
+        if (Build.VERSION.SDK_INT >= 31) {
+            val service = ComponentName(this, PointerService::class.java).flattenToString()
+            // Not in the public SDK; where it does not exist the list opens below.
+            val details = Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS").putExtra(Intent.EXTRA_COMPONENT_NAME, service)
+            if (runCatching { startActivity(details) }.isSuccess) return
+        }
+        runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
     }
 
     /** Plays the countdown once, for the settings. */

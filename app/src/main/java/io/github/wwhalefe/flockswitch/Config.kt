@@ -274,7 +274,7 @@ data class Config(
     /** Devices that move together with the trigger device: ["all"], [] for none, or a
      *  list of wireless product IDs / name fragments. */
     val follow: List<String> = listOf("all"),
-    /** Look for Logitech devices connected over Bluetooth too (experimental). */
+    /** Look for Logitech devices connected over Bluetooth too. */
     val bluetooth: Boolean = false,
     /** Start the background service when the phone or tablet starts. */
     val startAtBoot: Boolean = true,

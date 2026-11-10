@@ -16,8 +16,10 @@ android {
         applicationId = "io.github.wwhalefe.flockswitch"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.5.0"
+        versionCode = 9
+        versionName = "0.5.4"
+        // `-PplayStore` builds what goes to Google Play: no update check, no contact section.
+        buildConfigField("boolean", "PLAY_STORE", hasProperty("playStore").toString())
     }
 
     signingConfigs {
