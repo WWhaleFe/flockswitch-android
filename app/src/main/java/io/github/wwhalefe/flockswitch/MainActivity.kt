@@ -48,12 +48,27 @@ class MainActivity : ComponentActivity() {
             open = { url -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
             report = ::report,
             feel = { what, intensity -> shared.requestFeel(what, intensity) },
+            checkUpdate = { SelfUpdate.check(this) },
+            updateNow = { SelfUpdate.updateNow(this) },
         )
         setContent { FlockswitchApp(shared, actions) }
+        SelfUpdate.autoCheck(this)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        visible = true
+    }
+
+    override fun onStop() {
+        visible = false
+        super.onStop()
     }
 
     override fun onResume() {
         super.onResume()
+        // An update Android wanted confirmed while the app was in the background.
+        SelfUpdate.onForeground(this)
         // Ask for any receiver plugged in that may not be used yet; then (or if all is
         // allowed already) make sure the background service runs.
         allowUsb(again = false)
@@ -137,6 +152,11 @@ class MainActivity : ComponentActivity() {
     companion object {
         /** Receivers asked about since the app started. */
         private val asked = mutableSetOf<String>()
+
+        /** The settings screen is on screen, so a system prompt may be opened. */
+        @Volatile
+        var visible = false
+            private set
         const val REPORT_ADDRESS = "feedback.wwhale@gmail.com"
         const val ISSUES_PAGE = "https://github.com/WWhaleFe/flockswitch-android/issues/new"
     }

@@ -315,6 +315,9 @@ data class Config(
     val startAtBoot: Boolean = true,
     /** Look for a new version on GitHub at start and once a day. */
     val checkUpdates: Boolean = true,
+    /** When a new version is found, download it, check it against the release's
+     *  SHA256SUMS.txt and install it (GitHub build only; Android may still ask). */
+    val autoUpdate: Boolean = true,
     val buttons: Buttons = Buttons(),
     /** Switching at the screen edge. */
     val edges: Edges = Edges(),

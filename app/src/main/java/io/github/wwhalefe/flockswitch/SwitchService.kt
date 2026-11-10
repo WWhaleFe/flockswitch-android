@@ -91,6 +91,8 @@ class SwitchService : Service() {
             shared.status.map { it.pointerService }.distinctUntilChanged().collect { watcher.relayout(shared.config.value) }
         }
         registerReceiver(screenChanged, IntentFilter(Intent.ACTION_CONFIGURATION_CHANGED))
+        // GitHub build: look for a new version now and once a day (nothing in the Play build).
+        scope.launch { SelfUpdate.periodic(this@SwitchService) }
     }
 
     /** The master mouse came from another computer: show where the pointer is. */

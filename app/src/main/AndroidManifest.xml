@@ -12,7 +12,8 @@
     <!-- Logitech devices on Bluetooth (experimental). -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
-    <!-- Only to ask GitHub whether a newer version exists. -->
+    <!-- Only to ask GitHub whether a newer version exists and, in the GitHub build, to
+         download it. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Switching at the screen edge: thin invisible strips along the edges notice the
          mouse pointer, and the countdown is drawn over the screen. Asked for only when an
@@ -87,6 +88,8 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <!-- After an update the new version starts the background service again. -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 

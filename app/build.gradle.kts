@@ -8,6 +8,10 @@ plugins {
 // from the repository. Without it a release build is left unsigned.
 val keystore: String? = System.getenv("FLOCKSWITCH_KEYSTORE")
 
+// `-PplayStore` builds what goes to Google Play: no update check, no contact section, and
+// no self-update — neither its code (src/github) nor the install permission.
+val playStore = hasProperty("playStore")
+
 android {
     namespace = "io.github.wwhalefe.flockswitch"
     compileSdk = 37
@@ -16,10 +20,20 @@ android {
         applicationId = "io.github.wwhalefe.flockswitch"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "0.6.0"
-        // `-PplayStore` builds what goes to Google Play: no update check, no contact section.
-        buildConfigField("boolean", "PLAY_STORE", hasProperty("playStore").toString())
+        versionCode = 11
+        versionName = "0.7.0"
+        buildConfigField("boolean", "PLAY_STORE", playStore.toString())
+    }
+
+    sourceSets {
+        // The GitHub build updates itself (src/github: code, plus a manifest that adds
+        // REQUEST_INSTALL_PACKAGES and the installer's receiver); the Play build gets an
+        // empty stand-in (src/play) and nothing added to the manifest.
+        getByName("main").kotlin.directories.add(if (playStore) "src/play/java" else "src/github/java")
+        if (!playStore) {
+            getByName("debug").manifest.srcFile("src/github/AndroidManifest.xml")
+            getByName("release").manifest.srcFile("src/github/AndroidManifest.xml")
+        }
     }
 
     signingConfigs {

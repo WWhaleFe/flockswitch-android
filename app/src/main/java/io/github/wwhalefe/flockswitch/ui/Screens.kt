@@ -65,7 +65,6 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -123,16 +122,15 @@ import io.github.wwhalefe.flockswitch.R
 import io.github.wwhalefe.flockswitch.RELEASES_PAGE
 import io.github.wwhalefe.flockswitch.Shared
 import io.github.wwhalefe.flockswitch.Status
+import io.github.wwhalefe.flockswitch.UpdateFailure
 import io.github.wwhalefe.flockswitch.UpdateState
 import io.github.wwhalefe.flockswitch.Waveform
-import io.github.wwhalefe.flockswitch.checkForUpdate
 import io.github.wwhalefe.flockswitch.formatColor
 import io.github.wwhalefe.flockswitch.parseColor
 import io.github.wwhalefe.flockswitch.pick
 import io.github.wwhalefe.flockswitch.pointerReadable
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /** What the screen asks the activity to do. */
 class Actions(
@@ -151,6 +149,10 @@ class Actions(
     val report: () -> Unit,
     /** Plays a haptics choice on the master mouse at a strength (0 = as the mouse is set). */
     val feel: (HapticPreview, Int) -> Unit,
+    /** Asks GitHub for a new version (and installs it if that is turned on). */
+    val checkUpdate: () -> Unit,
+    /** Downloads, verifies and installs the new version, or shows Android's waiting prompt. */
+    val updateNow: () -> Unit,
 )
 
 private enum class Tab(@StringRes val title: Int, val glyph: String) {
@@ -239,7 +241,7 @@ fun FlockswitchApp(shared: Shared, actions: Actions) = theme {
                             Tab.Home -> HomeTab(cfg, status, actions)
                             Tab.Buttons -> ButtonsTab(cfg, status, update, actions)
                             Tab.Devices -> DevicesTab(cfg, status, update, shared)
-                            Tab.General -> GeneralTab(cfg, status, update, actions)
+                            Tab.General -> GeneralTab(cfg, status, shared.update, update, actions)
                         }
                     }
                 }
@@ -1087,32 +1089,48 @@ private fun PermissionsSection(s: Status, actions: Actions) {
     if (guide) AccessibilityGuide(s, actions) { guide = false }
 }
 
-/** The version, and looking for a new one on GitHub. */
+/** The version, and looking for (and installing) a new one from GitHub. */
 @Composable
-private fun UpdateSection(cfg: Config, update: (Config.() -> Config) -> Unit, actions: Actions) {
-    var updateState by remember { mutableStateOf<UpdateState>(UpdateState.Unknown) }
-    val scope = rememberCoroutineScope()
-    val check: () -> Unit = {
-        updateState = UpdateState.Checking
-        scope.launch { updateState = withContext(Dispatchers.IO) { checkForUpdate(BuildConfig.VERSION_NAME) } }
-    }
-    LaunchedEffect(Unit) { if (cfg.checkUpdates && updateState == UpdateState.Unknown) check() }
+private fun UpdateSection(cfg: Config, updates: StateFlow<UpdateState>, update: (Config.() -> Config) -> Unit, actions: Actions) {
+    val state by updates.collectAsStateWithLifecycle()
     Section(stringResource(R.string.section_update)) {
         RowLabel(stringResource(R.string.version, BuildConfig.VERSION_NAME))
         SwitchRow(stringResource(R.string.update_auto), cfg.checkUpdates) { on -> update { copy(checkUpdates = on) } }
         SectionDivider()
-        val text = when (val u = updateState) {
+        SwitchRow(stringResource(R.string.update_install_auto), cfg.autoUpdate, subtitle = stringResource(R.string.update_install_auto_hint)) { on ->
+            update { copy(autoUpdate = on) }
+        }
+        SectionDivider()
+        val text = when (val u = state) {
             UpdateState.Unknown -> null
             UpdateState.Checking -> stringResource(R.string.update_checking)
             UpdateState.UpToDate -> stringResource(R.string.update_up_to_date)
             UpdateState.Failed -> stringResource(R.string.update_failed)
             is UpdateState.Available -> stringResource(R.string.update_available, u.version)
+            is UpdateState.Downloading ->
+                if (u.percent == null) stringResource(R.string.update_downloading) else stringResource(R.string.update_downloading_percent, u.percent)
+            is UpdateState.Installing -> stringResource(R.string.update_installing)
+            is UpdateState.Confirming -> stringResource(R.string.update_confirming, u.version)
+            is UpdateState.InstallFailed -> stringResource(
+                when (u.why) {
+                    UpdateFailure.Download -> R.string.update_failed_download
+                    UpdateFailure.Checksum -> R.string.update_failed_checksum
+                    UpdateFailure.Install -> R.string.update_failed_install
+                    UpdateFailure.Cancelled -> R.string.update_cancelled
+                },
+                u.version,
+            )
         }
         text?.let { Hint(it) }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            AppButton(stringResource(R.string.update_check), check, enabled = updateState != UpdateState.Checking)
-            if (updateState is UpdateState.Available) {
-                AppButton(stringResource(R.string.update_page), { actions.open(RELEASES_PAGE) }, kind = ButtonKind.Filled)
+            AppButton(stringResource(R.string.update_check), actions.checkUpdate, enabled = !state.busy())
+            // A newer version is known: install it (again, after a failure or a "no").
+            if (state is UpdateState.Available || state is UpdateState.Confirming || state is UpdateState.InstallFailed) {
+                AppButton(stringResource(R.string.update_now), actions.updateNow, kind = ButtonKind.Filled)
+            }
+            // When installing here does not work, the APK can still be fetched by hand.
+            if (state is UpdateState.InstallFailed && (state as UpdateState.InstallFailed).why != UpdateFailure.Cancelled) {
+                AppButton(stringResource(R.string.update_page), { actions.open(RELEASES_PAGE) })
             }
         }
     }
@@ -1134,7 +1152,7 @@ private fun ReportSection(actions: Actions) {
 }
 
 @Composable
-private fun GeneralTab(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions) {
+private fun GeneralTab(cfg: Config, s: Status, updates: StateFlow<UpdateState>, update: (Config.() -> Config) -> Unit, actions: Actions) {
     PermissionsSection(s, actions)
 
     Section {
@@ -1161,7 +1179,7 @@ private fun GeneralTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
 
     // Google Play keeps the app up to date itself, and its listing has the contact details.
     if (!BuildConfig.PLAY_STORE) {
-        UpdateSection(cfg, update, actions)
+        UpdateSection(cfg, updates, update, actions)
         ReportSection(actions)
     }
 

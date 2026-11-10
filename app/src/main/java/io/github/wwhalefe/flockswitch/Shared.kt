@@ -108,6 +108,14 @@ class Shared(private val dir: File) {
 
     val pointer = PointerState()
 
+    /** Looking for, downloading and installing a new version (GitHub build only). */
+    private val _update = MutableStateFlow<UpdateState>(UpdateState.Unknown)
+    val update: StateFlow<UpdateState> = _update.asStateFlow()
+
+    fun setUpdate(state: UpdateState) {
+        _update.value = state
+    }
+
     private val switchRequest = AtomicInteger(0)
     private val hapticRequest = AtomicInteger(-1)
     private val feelRequest = java.util.concurrent.atomic.AtomicReference<FeelRequest?>(null)

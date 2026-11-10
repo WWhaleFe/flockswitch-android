@@ -4,13 +4,22 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.hardware.usb.UsbManager
+import java.io.File
 
-/** Starts the background service when the phone or tablet has started. */
+/** Starts the background service when the phone or tablet has started, and again after
+ *  flockswitch was updated (Android stops the old version as it replaces it). */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
         val cfg = context.shared.config.value
-        if (cfg.enabled && cfg.startAtBoot) SwitchService.start(context)
+        when (intent.action) {
+            Intent.ACTION_BOOT_COMPLETED -> if (cfg.enabled && cfg.startAtBoot) SwitchService.start(context)
+            Intent.ACTION_MY_PACKAGE_REPLACED -> {
+                Log.i("updated to ${BuildConfig.VERSION_NAME}")
+                // The downloaded APK of a self-update is not needed any more.
+                File(context.cacheDir, "update").deleteRecursively()
+                if (cfg.enabled) SwitchService.start(context)
+            }
+        }
     }
 }
 

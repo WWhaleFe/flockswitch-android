@@ -73,6 +73,19 @@
     <string name="update_available">Version %s is available</string>
     <string name="update_failed">Could not check</string>
     <string name="update_page">Release page</string>
+    <string name="update_install_auto">Install updates automatically</string>
+    <string name="update_install_auto_hint">When a new version is found, it is downloaded, checked (SHA256) and installed. If Android asks for confirmation, a notification lets you know.</string>
+    <string name="update_now">Update now</string>
+    <string name="update_downloading">Downloading…</string>
+    <string name="update_downloading_percent">Downloading… %d%%</string>
+    <string name="update_installing">Installing…</string>
+    <string name="update_confirming">Version %s is ready: confirm the install in Android\'s prompt</string>
+    <string name="update_failed_download">Could not download version %s</string>
+    <string name="update_failed_checksum">Version %s did not match its SHA256 checksum, so it was not installed</string>
+    <string name="update_failed_install">Could not install version %s</string>
+    <string name="update_cancelled">Installing version %s was cancelled</string>
+    <string name="update_channel">Updates</string>
+    <string name="update_ready">New version ready to install — tap to install</string>
 
     <string name="section_report">To the developer</string>
     <string name="report_desc">Bugs, errors, ideas — anything. Your mail app opens with the app version, device and recent log filled in.</string>
@@ -100,8 +113,8 @@
     <string name="haptics_edge_mode">Pattern</string>
     <string name="haptics_rising">Rising</string>
     <string name="haptics_even">Even</string>
-    <string name="haptics_feel">Feel</string>
-    <string name="haptics_hint">Only a Logitech mouse with a haptic motor (currently the MX Master 4) vibrates. Feel plays once at the chosen strength while that mouse is on this device. The strength goes to the mouse when applied; the mouse forgets it when it loses power, so it is applied again whenever the mouse is here. “Options+” leaves the Logi Options+ setting alone.</string>
+    <string name="haptics_feel">Test</string>
+    <string name="haptics_hint">Only a Logitech mouse with a haptic motor (currently the MX Master 4) vibrates. Test plays it once at the chosen strength while that mouse is on this device. The strength goes to the mouse when applied; the mouse forgets it when it loses power, so it is applied again whenever the mouse is here. “Options+” leaves the Logi Options+ setting alone.</string>
     <string name="haptics_intensity">Strength</string>
     <string name="haptics_follow">Options+</string>
 

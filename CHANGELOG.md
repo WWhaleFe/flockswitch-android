@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0 — 2026-11-10
+
+- Automatic updates (GitHub version): when a new version is found it is downloaded, checked against the release's `SHA256SUMS.txt` (never installed if it does not match) and installed. On Android 12 and later it goes in without a question where Android lets an app update itself; otherwise Android's install prompt opens, or, while the app is in the background, a notification says "New version ready to install — tap to install". Settings → General → Updates: **Install updates automatically** (on by default) beside **Check for a new version**, and **Update now** once a new version is available, with downloading, installing and failure shown. The check now also runs in the background service, as it starts and once a day. The Google Play build has none of this and does not ask for the install permission
+- After an update the background service starts again by itself
+- The haptics window's Feel button is now called **Test**
+
 ## 0.6.0 — 2026-11-10
 
 - Haptics window: each situation on one line (name, pulse, Feel, switch), and 'use haptics / strength' set apart from the situations with more room between rows

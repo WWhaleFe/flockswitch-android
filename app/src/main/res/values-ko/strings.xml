@@ -72,6 +72,19 @@
     <string name="update_available">새 버전 %s</string>
     <string name="update_failed">확인하지 못했습니다</string>
     <string name="update_page">릴리스 페이지</string>
+    <string name="update_install_auto">새 버전 자동 설치</string>
+    <string name="update_install_auto_hint">새 버전을 찾으면 내려받아 확인(SHA256)한 뒤 설치합니다. 안드로이드가 확인을 요구하면 알림으로 알려 드립니다.</string>
+    <string name="update_now">지금 업데이트</string>
+    <string name="update_downloading">내려받는 중…</string>
+    <string name="update_downloading_percent">내려받는 중… %d%%</string>
+    <string name="update_installing">설치 중…</string>
+    <string name="update_confirming">%s 버전 준비 완료: 안드로이드 설치 창에서 확인해 주세요</string>
+    <string name="update_failed_download">%s 버전을 내려받지 못했습니다</string>
+    <string name="update_failed_checksum">%s 버전의 SHA256 확인값이 맞지 않아 설치하지 않았습니다</string>
+    <string name="update_failed_install">%s 버전을 설치하지 못했습니다</string>
+    <string name="update_cancelled">%s 버전 설치를 취소했습니다</string>
+    <string name="update_channel">업데이트</string>
+    <string name="update_ready">새 버전 설치 준비 완료 — 탭하여 설치</string>
 
     <string name="section_report">개발자에게</string>
     <string name="report_desc">버그·오류·기능 제안 등 무엇이든 보내 주세요. 메일 앱이 열리면서 앱 버전, 기기 정보, 최근 기록이 본문에 미리 채워집니다.</string>
@@ -99,8 +112,8 @@
     <string name="haptics_edge_mode">방식</string>
     <string name="haptics_rising">점점 강하게</string>
     <string name="haptics_even">일정하게</string>
-    <string name="haptics_feel">느껴보기</string>
-    <string name="haptics_hint">진동 모터가 있는 Logitech 마우스(현재 MX Master 4)에서만 울립니다. 느껴보기는 그 마우스가 이 기기에 연결되어 있을 때, 고른 세기로 한 번 울립니다. 세기는 적용할 때 마우스에 반영되며, 마우스가 전원이 꺼지면 잊으므로 돌아올 때마다 다시 적용합니다. “Options+”는 Logi Options+의 설정을 그대로 둡니다.</string>
+    <string name="haptics_feel">진동 확인</string>
+    <string name="haptics_hint">진동 모터가 있는 Logitech 마우스(현재 MX Master 4)에서만 울립니다. 진동 확인은 그 마우스가 이 기기에 연결되어 있을 때, 고른 세기로 한 번 울립니다. 세기는 적용할 때 마우스에 반영되며, 마우스가 전원이 꺼지면 잊으므로 돌아올 때마다 다시 적용합니다. “Options+”는 Logi Options+의 설정을 그대로 둡니다.</string>
     <string name="haptics_intensity">진동 세기</string>
     <string name="haptics_follow">Options+</string>
 

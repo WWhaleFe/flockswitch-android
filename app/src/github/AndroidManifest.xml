@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only in the GitHub build (merged over src/main/AndroidManifest.xml unless the build is
+     made with -PplayStore, see app/build.gradle.kts). Google Play limits this permission
+     and does not allow an app to update itself, so the Play build has neither. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- To install a new version downloaded from GitHub (after checking its SHA-256). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application>
+        <!-- The installer's answer about an update: done, failed, or the user must confirm. -->
+        <receiver
+            android:name=".InstallResultReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

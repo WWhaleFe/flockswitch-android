@@ -206,9 +206,23 @@ class ConfigTest {
 
     @Test
     fun jsonRoundTrip() {
-        val c = Config(follow = listOf("B366"), bluetooth = true)
+        val c = Config(follow = listOf("B366"), bluetooth = true, checkUpdates = false, autoUpdate = false)
             .withButton(BUTTON_GESTURE, button(3).copy(moves = Moves(left = MoveSetting(true, listOf(2)))))
         assertEquals(c, Config.fromJson(c.toJson()))
+    }
+
+    @Test
+    fun updateSettings() {
+        // Both on by default, and for settings saved before 0.7.0 that lack autoUpdate.
+        assertTrue(Config().checkUpdates)
+        assertTrue(Config().autoUpdate)
+        assertTrue(Config.fromJson("""{"enabled": true, "checkUpdates": true}""").autoUpdate)
+        assertTrue(Config.fromJson("""{"checkUpdates": false}""").autoUpdate)
+        assertFalse(Config.fromJson("""{"checkUpdates": false}""").checkUpdates)
+        val off = Config(autoUpdate = false)
+        assertTrue(off.toJson().contains("\"autoUpdate\": false"))
+        assertFalse(Config.fromJson(off.toJson()).autoUpdate)
+        assertTrue(Config.fromJson(off.toJson()).checkUpdates)
     }
 
     @Test
@@ -255,5 +269,10 @@ class ConfigTest {
         assertTrue(isNewer("0.10.0", "0.9.1"))
         assertFalse(isNewer("0.1.0", "0.1.0"))
         assertFalse(isNewer("0.1", "0.1.0"))
+        assertFalse(isNewer("0.6.0", "0.7.0"))
+        assertTrue(isNewer("1.0", "0.9.9"))
+        assertTrue(isNewer("v0.7.1", "0.7.0"))
+        assertTrue(isNewer("0.8.0-beta", "0.7.0"))
+        assertFalse(isNewer("0.7.0-beta", "0.7.0"))
     }
 }
