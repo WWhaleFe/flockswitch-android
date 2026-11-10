@@ -86,6 +86,72 @@ class ConfigTest {
         assertEquals(27, Waveform.ALL.last())
     }
 
+    @Test
+    fun theArrivalPulseCarriesOverFromOlderSettings() {
+        // Before 0.6.0 one switch covered leaving and arriving.
+        val off = Config.fromJson("""{"haptics": {"onSwitch": false, "onEdge": true}}""").haptics
+        assertFalse(off.onSwitch || off.onArrive)
+        assertTrue(off.onEdge)
+        val on = Config.fromJson("""{"haptics": {"onSwitch": true}}""").haptics
+        assertTrue(on.onSwitch && on.onArrive)
+        assertTrue(Config.fromJson("""{"haptics": {"onEdge": false}}""").haptics.onArrive)
+        // Saved by this version: each kept as it is.
+        val h = Haptics(onSwitch = false, onArrive = true)
+        assertEquals(h, Config.fromJson(Config().copy(haptics = h).toJson()).haptics)
+        val other = Haptics(onSwitch = true, onArrive = false)
+        assertEquals(other, Config.fromJson(Config().copy(haptics = other).toJson()).haptics)
+        assertTrue(Haptics(onSwitch = false, onArrive = false, onEdge = true).anyOn())
+        assertFalse(Haptics(onSwitch = false, onArrive = false, onEdge = false).anyOn())
+    }
+
+    @Test
+    fun randomPulseIsAcceptedAndResolvedAmongTheOffered() {
+        val h = Haptics(switchWaveform = Waveform.RANDOM, arriveWaveform = Waveform.RANDOM)
+        val c = Config().copy(haptics = h)
+        assertTrue(c.problems().isEmpty())
+        assertEquals(h, Config.fromJson(c.toJson()).haptics)
+        assertFalse(Config().copy(haptics = Haptics(switchWaveform = 40)).problems().isEmpty())
+        // The MX Master 4: 0-14 and 27.
+        val mask = 0x08007FFF
+        val seen = (1..2000).mapNotNull { Waveform.resolve(Waveform.RANDOM, mask) }.toSet()
+        assertEquals(Waveform.ALL.toSet(), seen)
+        // The pick indexes the offered waveforms in order.
+        assertEquals(0, Waveform.resolve(Waveform.RANDOM, mask) { 0 })
+        assertEquals(27, Waveform.resolve(Waveform.RANDOM, mask) { it - 1 })
+        assertEquals(5, Waveform.resolve(Waveform.RANDOM, 0b10_0000) { 0 })
+        // Nothing offered: nothing to play.
+        assertNull(Waveform.resolve(Waveform.RANDOM, 0))
+        // A fixed waveform plays only if offered.
+        assertEquals(7, Waveform.resolve(7, mask))
+        assertNull(Waveform.resolve(20, mask))
+        assertNull(Waveform.resolve(40, -1))
+    }
+
+    @Test
+    fun effectSizesAreSavedAndChecked() {
+        assertEquals(100, Edges().animSize)
+        assertEquals(100, Locate().size)
+        assertEquals(listOf(75, 100, 125, 150), EFFECT_SIZES)
+        for (size in EFFECT_SIZES + listOf(50, 200)) {
+            val c = Config().copy(edges = Edges(animSize = size), locate = Locate(size = size))
+            assertTrue("$size", c.problems().isEmpty())
+            val back = Config.fromJson(c.toJson())
+            assertEquals(size, back.edges.animSize)
+            assertEquals(size, back.locate.size)
+        }
+        for (bad in listOf(0, 49, 201, 300, -100)) {
+            assertFalse("$bad", validEffectSize(bad))
+            assertFalse("$bad", Config().copy(edges = Edges(animSize = bad)).problems().isEmpty())
+            assertFalse("$bad", Config().copy(locate = Locate(size = bad)).problems().isEmpty())
+        }
+        // Settings from before sizes existed.
+        val old = Config.fromJson("{\"enabled\": true}")
+        assertEquals(100, old.edges.animSize)
+        assertEquals(100, old.locate.size)
+        assertEquals(1.25, effectScale(125), 1e-9)
+        assertEquals(1.0, effectScale(999), 1e-9)
+    }
+
     private fun button(vararg channels: Int) = ButtonSetting(on = true, channels = channels.toList())
 
     private fun press(b: ButtonSetting, current0: Int, count: Int) = b.channelAfter(Gesture.Press, current0, count)

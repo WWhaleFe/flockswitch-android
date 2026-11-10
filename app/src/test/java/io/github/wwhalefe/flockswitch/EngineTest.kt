@@ -171,6 +171,79 @@ class EngineTest {
         assertEquals(listOf("B042 strength 50", "B042 play 7"), receiver.events)
     }
 
+    private fun greet(engine: Engine) =
+        Engine::class.java.getDeclaredMethod("greetTrigger").apply { isAccessible = true }.invoke(engine)
+
+    @Test
+    fun theArrivalPulseHasItsOwnSwitch() {
+        val m = hapticMouse()
+        val (engine, receiver, shared) = setup(m = m)
+        shared.updateConfig { it.copy(haptics = it.haptics.copy(onSwitch = false, onArrive = true)) }
+        reload(engine)
+        receiver.events.clear()
+        engine.switchTo(3)
+        assertEquals(listOf("B366 -> 3", "B042 -> 3"), receiver.events) // no pulse on leaving
+        receiver.events.clear()
+        m.online = true // back on this device
+        greet(engine)
+        assertEquals(listOf("B042 play 3"), receiver.events) // but one on arriving
+
+        shared.updateConfig { it.copy(haptics = it.haptics.copy(onSwitch = true, onArrive = false)) }
+        reload(engine)
+        receiver.events.clear()
+        engine.switchTo(1)
+        assertEquals("B042 play 7", receiver.events.first())
+        receiver.events.clear()
+        m.online = true
+        greet(engine)
+        assertTrue(receiver.events.isEmpty())
+    }
+
+    @Test
+    fun feelPlaysAtTheChosenStrengthAndPutsTheMousesBack() {
+        val m = hapticMouse()
+        val (engine, receiver, _) = setup(m = m)
+        receiver.events.clear()
+        engine.feel(HapticPreview.Pulse(12), 100)
+        assertEquals(listOf("B042 strength 100", "B042 play 12", "B042 strength 60"), receiver.events)
+        assertEquals(60, m.hapticStrength)
+        // "Options+": as the mouse is set, nothing changed on it.
+        receiver.events.clear()
+        engine.feel(HapticPreview.Pulse(4), 0)
+        assertEquals(listOf("B042 play 4"), receiver.events)
+        // Random: one of the waveforms the mouse offers.
+        receiver.events.clear()
+        engine.feel(HapticPreview.Pulse(Waveform.RANDOM), 0)
+        val played = receiver.events.single().removePrefix("B042 play ").toInt()
+        assertTrue("$played", played in Waveform.ALL)
+    }
+
+    @Test
+    fun feelAtAnEdgePlaysASecondOfThePattern() {
+        val (engine, receiver, _) = setup(m = hapticMouse())
+        receiver.events.clear()
+        engine.feel(HapticPreview.Edge(rising = true), 50)
+        val rising = receiver.events.filter { "play" in it }.map { it.removePrefix("B042 play ").toInt() }
+        assertEquals("B042 strength 50", receiver.events.first())
+        assertEquals("B042 strength 60", receiver.events.last())
+        // Subtle, then damp, then sharp collisions as the second goes by.
+        assertEquals(listOf(4, 3, 2), rising.distinct())
+        receiver.events.clear()
+        engine.feel(HapticPreview.Edge(rising = false), 0)
+        val even = receiver.events.map { it.removePrefix("B042 play ").toInt() }
+        assertTrue(even.size in 5..8) // every 150 ms for a second
+        assertEquals(setOf(Haptics().edgeWaveform), even.toSet())
+    }
+
+    @Test
+    fun feelIsQuietWithoutAMotor() {
+        val (engine, receiver, _) = setup()
+        receiver.events.clear()
+        engine.feel(HapticPreview.Pulse(7), 100)
+        engine.feel(HapticPreview.Edge(rising = true), 100)
+        assertTrue(receiver.events.isEmpty())
+    }
+
     @Test
     fun theTileGoesOnlyWhereTheMouseCanGo() {
         // A mouse with two channels, on 2: like its button, the tile goes to 1 (not 3,

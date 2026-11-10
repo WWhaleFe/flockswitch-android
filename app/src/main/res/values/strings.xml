@@ -92,10 +92,16 @@
     <string name="edges_corner_hint">The corners do not count.</string>
     <string name="overlay_permission">To watch the screen edges flockswitch needs “Display over other apps”: thin invisible strips along the edges notice the pointer, and the countdown is drawn on top of what is on the screen. No input is taken.</string>
 
-    <string name="section_haptics">Haptics (MX Master 4)</string>
-    <string name="haptics_switch">Pulse when switching channels</string>
-    <string name="haptics_edge">Pulse while waiting at a screen edge</string>
-    <string name="haptics_hint">Only a Logitech mouse with a haptic motor (MX Master 4) vibrates. A strength you choose goes to the mouse when applied, with a pulse to judge it by; the mouse forgets it when it loses power, so it is applied again whenever the mouse is here. “Options+” leaves the Logi Options+ setting alone.</string>
+    <string name="section_haptics">Haptics (mice with a motor)</string>
+    <string name="haptics_switch">As the mouse leaves</string>
+    <string name="haptics_edge">While waiting at an edge</string>
+    <string name="haptics_arrive">When the mouse is back</string>
+    <string name="haptics_pulse">Pulse</string>
+    <string name="haptics_edge_mode">Pattern</string>
+    <string name="haptics_rising">Rising</string>
+    <string name="haptics_even">Even</string>
+    <string name="haptics_feel">Feel</string>
+    <string name="haptics_hint">Only a Logitech mouse with a haptic motor (currently the MX Master 4) vibrates. Feel plays once at the chosen strength while that mouse is on this device. The strength goes to the mouse when applied; the mouse forgets it when it loses power, so it is applied again whenever the mouse is here. “Options+” leaves the Logi Options+ setting alone.</string>
     <string name="haptics_intensity">Strength</string>
     <string name="haptics_follow">Options+</string>
 
@@ -104,11 +110,6 @@
     <string name="haptics_master">Use haptics</string>
     <string name="haptics_state_on">On</string>
     <string name="haptics_state_off">Off</string>
-    <string name="haptics_wave_switch">Waveform when switching</string>
-    <string name="haptics_wave_arrive">Waveform on arrival</string>
-    <string name="haptics_wave_edge">Waveform at an edge</string>
-    <string name="haptics_progressive">Stronger as the switch nears</string>
-    <string name="haptics_progressive_hint">While the pointer waits at an edge the pulses get quicker and stronger, with one more as it switches. This replaces the edge waveform while on.</string>
     <string-array name="waveform_names">
         <item>Sharp state change</item>
         <item>Damp state change</item>
@@ -159,6 +160,7 @@
     <string name="edge_anim_shrink">Shrink away instead</string>
 
     <string name="effect_color">Color</string>
+    <string name="effect_size">Size</string>
     <string name="color_other">Other color</string>
     <string name="locate_random">Random</string>
     <string name="section_locate">Find the cursor</string>
@@ -199,4 +201,7 @@
     <string name="perm_on">On</string>
     <string name="perm_set">Set up</string>
     <string name="edge_bars_service">The status and navigation bars cover the top and bottom edges, so those two need the accessibility service.</string>
+    <string name="haptics_leave_short">Leaving</string>
+    <string name="haptics_arrive_short">Back</string>
+    <string name="haptics_edge_short">At an edge</string>
 </resources>

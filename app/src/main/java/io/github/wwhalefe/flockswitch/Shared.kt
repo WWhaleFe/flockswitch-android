@@ -63,6 +63,22 @@ data class Status(
     val pointerService: Boolean = false,
 )
 
+/** What the haptics dialog asks to feel on the mouse. */
+sealed interface HapticPreview {
+    /** One pulse of this waveform (or [Waveform.RANDOM]). */
+    data class Pulse(val waveform: Int) : HapticPreview
+
+    /** A second of waiting at an edge: rising pulses, or even ones. */
+    data class Edge(val rising: Boolean) : HapticPreview
+}
+
+/** A preview asked for, at a strength (0 = as the mouse is set), and when. */
+data class FeelRequest(val what: HapticPreview, val intensity: Int, val atMs: Long)
+
+/** A Feel button press older than this is not played any more (the engine was busy, or
+ *  not running). */
+const val FEEL_STALE_MS = 3000L
+
 /** What the accessibility service sees of the keyboard. Main thread only. */
 class PointerState {
     /** Whether Control is held; null while the service is not reading keys. */
@@ -94,6 +110,7 @@ class Shared(private val dir: File) {
 
     private val switchRequest = AtomicInteger(0)
     private val hapticRequest = AtomicInteger(-1)
+    private val feelRequest = java.util.concurrent.atomic.AtomicReference<FeelRequest?>(null)
     private val pressRequest = AtomicBoolean(false)
     private val forgetRequest = AtomicBoolean(false)
 
@@ -132,6 +149,15 @@ class Shared(private val dir: File) {
     fun requestHaptic(waveform: Int) = hapticRequest.set(waveform)
 
     fun takeHapticRequest(): Int? = hapticRequest.getAndSet(-1).takeIf { it >= 0 }
+
+    /** Asks the engine to play [what] on the master mouse at [intensity] percent (0 = as
+     *  the mouse is set), putting the mouse's own strength back afterwards. */
+    fun requestFeel(what: HapticPreview, intensity: Int) =
+        feelRequest.set(FeelRequest(what, intensity, System.currentTimeMillis()))
+
+    /** The preview asked for, if any and still fresh; asked once. */
+    fun takeFeelRequest(): FeelRequest? =
+        feelRequest.getAndSet(null)?.takeIf { System.currentTimeMillis() - it.atMs in 0..FEEL_STALE_MS }
 
     /** Asks the engine to switch as a press of the wheel mode-shift button would. */
     fun requestPress() = pressRequest.set(true)

@@ -91,10 +91,16 @@
     <string name="edges_corner_hint">네 귀퉁이는 제외됩니다.</string>
     <string name="overlay_permission">화면 가장자리를 지켜보려면 “다른 앱 위에 표시” 권한이 필요합니다. 가장자리를 따라 보이지 않는 얇은 띠가 포인터를 감지하고, 전환 대기 효과를 화면 위에 그립니다. 입력은 가로채지 않습니다.</string>
 
-    <string name="section_haptics">진동 (MX Master 4)</string>
-    <string name="haptics_switch">채널을 전환할 때 진동</string>
-    <string name="haptics_edge">모서리에서 전환을 기다리는 동안 진동</string>
-    <string name="haptics_hint">진동 모터가 있는 Logitech 마우스(MX Master 4)에서만 울립니다. 세기를 고르면 적용할 때 마우스에 반영되고 한 번 울려서 확인할 수 있습니다. 마우스는 전원이 꺼지면 세기를 잊으므로 돌아올 때마다 다시 적용합니다. “Options+”는 Logi Options+의 설정을 그대로 둡니다.</string>
+    <string name="section_haptics">진동 (진동 모터가 있는 마우스)</string>
+    <string name="haptics_switch">마우스가 떠날 때</string>
+    <string name="haptics_edge">모서리에서 기다리는 동안</string>
+    <string name="haptics_arrive">마우스가 돌아왔을 때</string>
+    <string name="haptics_pulse">진동</string>
+    <string name="haptics_edge_mode">방식</string>
+    <string name="haptics_rising">점점 강하게</string>
+    <string name="haptics_even">일정하게</string>
+    <string name="haptics_feel">느껴보기</string>
+    <string name="haptics_hint">진동 모터가 있는 Logitech 마우스(현재 MX Master 4)에서만 울립니다. 느껴보기는 그 마우스가 이 기기에 연결되어 있을 때, 고른 세기로 한 번 울립니다. 세기는 적용할 때 마우스에 반영되며, 마우스가 전원이 꺼지면 잊으므로 돌아올 때마다 다시 적용합니다. “Options+”는 Logi Options+의 설정을 그대로 둡니다.</string>
     <string name="haptics_intensity">진동 세기</string>
     <string name="haptics_follow">Options+</string>
 
@@ -103,11 +109,6 @@
     <string name="haptics_master">진동 사용</string>
     <string name="haptics_state_on">켜짐</string>
     <string name="haptics_state_off">꺼짐</string>
-    <string name="haptics_wave_switch">전환할 때 파형</string>
-    <string name="haptics_wave_arrive">도착했을 때 파형</string>
-    <string name="haptics_wave_edge">모서리 대기 파형</string>
-    <string name="haptics_progressive">전환이 가까울수록 진동 강화</string>
-    <string name="haptics_progressive_hint">모서리에서 기다리는 동안 진동 간격이 짧아지고 세지며, 전환되는 순간 한 번 더 울립니다. 켜 두면 모서리 대기 파형 대신 이 패턴을 씁니다.</string>
     <string-array name="waveform_names">
         <item>날카로운 상태 변화</item>
         <item>부드러운 상태 변화</item>
@@ -158,6 +159,7 @@
     <string name="edge_anim_shrink">크기가 작아지며 사라지기</string>
 
     <string name="effect_color">색상</string>
+    <string name="effect_size">크기</string>
     <string name="color_other">다른 색상</string>
     <string name="locate_random">랜덤</string>
     <string name="section_locate">마우스 찾기</string>
@@ -198,4 +200,7 @@
     <string name="perm_on">켜짐</string>
     <string name="perm_set">설정</string>
     <string name="edge_bars_service">위쪽과 아래쪽 모서리는 상태 표시줄과 내비게이션 바에 가려져 있어, 접근성 서비스를 켜야 동작합니다.</string>
+    <string name="haptics_leave_short">떠날 때</string>
+    <string name="haptics_arrive_short">돌아왔을 때</string>
+    <string name="haptics_edge_short">모서리 대기</string>
 </resources>

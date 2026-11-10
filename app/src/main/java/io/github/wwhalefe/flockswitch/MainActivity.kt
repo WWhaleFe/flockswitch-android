@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
             switchTo = { channel -> shared.requestSwitch(channel) },
             open = { url -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
             report = ::report,
+            feel = { what, intensity -> shared.requestFeel(what, intensity) },
         )
         setContent { FlockswitchApp(shared, actions) }
     }

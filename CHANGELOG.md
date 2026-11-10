@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0 — 2026-11-10
+
+- Haptics window: each situation on one line (name, pulse, Feel, switch), and 'use haptics / strength' set apart from the situations with more room between rows
+- Haptics settings tidied: the pulse as the mouse leaves and the one when it is back are switched on and off on their own, each with its pulse beside it. Waiting at an edge offers **Rising / Even**; the edge waveform and the "stronger as the switch nears" switch are folded into that choice. Older settings keep what they had: the arrival pulse follows the old switching pulse
+- **Feel**: the haptics dialog plays the chosen pulse on the mouse at the chosen strength (for an edge, a second of the rising or even pulses), leaving the mouse's own strength as it was. Quiet when no mouse with a motor is here
+- The settings say plainly that only a Logitech mouse with a haptic motor (currently the MX Master 4) vibrates
+- Random pulse: choose **Random** for the leaving or arriving pulse and each one is a different pulse the mouse offers
+- Effect size: the edge countdown and the find-the-cursor highlight each have a size, 75 to 150 %
+- A more consistent settings screen: buttons, drop-downs and segment rows share one height, buttons a minimum width, row labels one style, dividers the same space above and below, dialog buttons equal widths, and the colour swatches one size
+
 ## 0.5.4 — 2026-11-10
 
 - Foldables: the screen-edge strips follow folding and unfolding, and choice segments become a drop-down where their text would not fit

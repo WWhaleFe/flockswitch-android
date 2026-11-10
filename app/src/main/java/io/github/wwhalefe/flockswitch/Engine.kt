@@ -347,19 +347,20 @@ class Engine(
         }
     }
 
-    /** Plays a haptic waveform on the master mouse, if it is here and has that waveform.
-     *  Quiet on a mouse without a motor. */
+    /** Plays a haptic waveform on the master mouse, if it is here and has that waveform;
+     *  [Waveform.RANDOM] plays one of those it offers. Quiet on a mouse without a motor. */
     private fun buzz(waveform: Int): Boolean {
         val d = trigger ?: return false
         val mask = triggerHaptics ?: return false
-        if (waveform !in 0..31 || (mask and (1 shl waveform)) == 0) {
+        val play = Waveform.resolve(waveform, mask)
+        if (play == null) {
             Log.d("haptics: ${d.label()} has no waveform $waveform")
             return false
         }
         if ((d.endpoint to d.index) !in online) return false
         val ep = endpoints.getOrNull(d.endpoint) ?: return false
         return try {
-            d.playHaptic(ep, waveform)
+            d.playHaptic(ep, play)
         } catch (e: IOException) {
             Log.d("haptics: ${e.message}")
             false
@@ -372,7 +373,40 @@ class Engine(
         val t = trigger ?: return
         if (!awayBySwitch || (t.endpoint to t.index) !in online) return
         awayBySwitch = false
-        if (cfg.haptics.onSwitch) buzz(cfg.haptics.arriveWaveform)
+        if (cfg.haptics.onArrive) buzz(cfg.haptics.arriveWaveform)
+    }
+
+    /** Plays what the haptics dialog asks to feel, at the strength chosen there (0 = as
+     *  the mouse is set); the mouse's own strength is put back afterwards. Quiet without
+     *  a mouse with a motor. */
+    internal fun feel(what: HapticPreview, intensity: Int) {
+        val d = trigger
+        if (d == null || triggerHaptics == null || (d.endpoint to d.index) !in online) {
+            Log.i("haptics preview: no mouse with a motor on this device")
+            return
+        }
+        val ep = endpoints.getOrNull(d.endpoint) ?: return
+        val before = if (intensity != 0) runCatching { d.hapticConfig(ep) }.getOrNull() else null
+        try {
+            before?.let { (flags, _) -> d.setHapticConfig(ep, flags or 0x01, intensity) }
+            when (what) {
+                is HapticPreview.Pulse -> buzz(what.waveform)
+                // A second of waiting at an edge, as the edge watcher plays it.
+                is HapticPreview.Edge -> {
+                    val pattern = cfg.haptics.copy(progressive = what.rising)
+                    val start = now()
+                    while (now() - start < 1000 && !stopped()) {
+                        val pulse = edgePulse(pattern, (now() - start) / 1000.0)
+                        buzz(pulse.waveform)
+                        Thread.sleep(pulse.gapMs)
+                    }
+                }
+            }
+            Thread.sleep(HAPTIC_SETTLE)
+        } finally {
+            before?.let { (flags, old) -> runCatching { d.setHapticConfig(ep, flags, old) } }
+        }
+        Log.i("haptics preview: $what at ${if (intensity == 0) "the mouse's strength" else "$intensity%"}")
     }
 
     /** Makes sure the buttons switched on are diverted to us, and that a button switched
@@ -650,6 +684,7 @@ class Engine(
                 guard("applying settings failed") { reloadConfig() }
                 shared.takeSwitchRequest()?.let { channel -> guard("switch failed") { onRequest(channel) } }
                 shared.takeHapticRequest()?.let { waveform -> guard("haptics failed") { buzz(waveform) } }
+                shared.takeFeelRequest()?.let { r -> guard("haptics preview failed") { feel(r.what, r.intensity) } }
                 if (shared.takePressRequest()) guard("switch failed") { onPressRequest() }
                 if (shared.takeForgetRequest()) {
                     catalog.retainAll { it.online }

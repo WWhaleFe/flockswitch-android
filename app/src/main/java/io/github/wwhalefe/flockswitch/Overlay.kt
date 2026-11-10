@@ -34,8 +34,12 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sin
 
-/** How far into the screen the countdown window reaches (dp). */
+/** How far into the screen the countdown window reaches (dp) at 100 %; a larger size
+ *  makes the window deeper to match. */
 private const val STRIP_DEPTH_DP = 240
+
+/** An effect size from the settings (percent) as a scale factor. */
+internal fun effectScale(percent: Int): Double = if (validEffectSize(percent)) percent / 100.0 else 1.0
 
 private const val LOCATE_MS = 1300L
 private const val LOCATE_FADE_S = 0.35
@@ -84,6 +88,9 @@ class EdgeFrame internal constructor(
     val t: Double,
     val direction: EdgeAnimDirection,
     val shrink: Boolean,
+    /** The chosen size: the canvas is already scaled by this around the anchor, so an
+     *  effect only needs it to reach a point on the window's own edge. */
+    val scale: Double,
     paint: Paint,
     rgb: Int,
 ) : OverlayFrame(c, paint, rgb)
@@ -101,6 +108,8 @@ class LocateFrame internal constructor(
     val t: Double,
     /** 1 until the fade-out, then down to 0. */
     val fade: Double,
+    /** The chosen size, as for [EdgeFrame.scale], around the centre. */
+    val scale: Double,
     paint: Paint,
     rgb: Int,
 ) : OverlayFrame(c, paint, rgb)
@@ -287,7 +296,8 @@ private fun edgeLaser(f: EdgeFrame) {
     val inset = 3.0
     val here = f.anchorX * f.alongX + f.anchorY * f.alongY
     val total = f.width * f.alongX + f.height * f.alongY
-    val ends = doubleArrayOf(-here, total - here)
+    // The beams start at the ends of the screen whatever the size.
+    val ends = doubleArrayOf(-here / f.scale, (total - here) / f.scale)
     val closing = f.p * f.p * (3 - 2 * f.p)
     val fade = 1 - smooth(0.95, 1.0, f.p)
     val frame = floor(f.t * 60).toInt()
@@ -483,7 +493,15 @@ private fun locateSpotlight(f: LocateFrame) {
     f.paint.color = (dim.coerceIn(0.0, 1.0) * 255).toInt() shl 24
     val shade = Path()
     shade.fillType = Path.FillType.EVEN_ODD
-    shade.addRect(0f, 0f, f.width.toFloat(), f.height.toFloat(), Path.Direction.CW)
+    // The whole screen, whatever the size: the canvas is scaled around the centre.
+    val s = f.scale
+    shade.addRect(
+        (center.x - center.x / s).toFloat(),
+        (center.y - center.y / s).toFloat(),
+        (center.x + (f.width - center.x) / s).toFloat(),
+        (center.y + (f.height - center.y) / s).toFloat(),
+        Path.Direction.CW,
+    )
     shade.addCircle(center.x.toFloat(), center.y.toFloat(), radius.toFloat(), Path.Direction.CW)
     f.c.drawPath(shade, f.paint)
     f.glow(18.0, f.fade)
@@ -508,6 +526,7 @@ private class CountdownView(
     private val style: EdgeRenderer,
     private val direction: EdgeAnimDirection,
     private val shrink: Boolean,
+    private val scale: Double,
     private val rgb: Int,
     private val startMs: Long,
     private val durationMs: Long,
@@ -544,6 +563,10 @@ private class CountdownView(
         // y-up points, as the effects are written.
         canvas.translate(0f, height.toFloat())
         canvas.scale(density, -density)
+        // The chosen size: everything grows or shrinks around the point at the edge.
+        val ax = frame.anchorX.toFloat()
+        val ay = frame.anchorY.toFloat()
+        canvas.scale(scale.toFloat(), scale.toFloat(), ax, ay)
         style(frame)
         canvas.restoreToCount(save)
         postInvalidateOnAnimation()
@@ -561,7 +584,7 @@ private class CountdownView(
         alongY: Double,
         p: Double,
         t: Double,
-    ) = EdgeFrame(canvas, w, h, ax, ay, inX, inY, alongX, alongY, p, t, direction, shrink, paint, rgb)
+    ) = EdgeFrame(canvas, w, h, ax, ay, inX, inY, alongX, alongY, p, t, direction, shrink, scale, paint, rgb)
 }
 
 /** The countdown on one edge of the screen. Main thread only. */
@@ -579,7 +602,9 @@ class EdgeOverlay(context: Context) {
         val render = edgeRenderers[edges.animStyle.resolved()] ?: return
         if (!Settings.canDrawOverlays(app)) return
         val bounds = screenBounds(wm)
-        val depth = (STRIP_DEPTH_DP * app.resources.displayMetrics.density).toInt()
+        val scale = effectScale(edges.animSize)
+        val depth = (STRIP_DEPTH_DP * maxOf(1.0, scale) * app.resources.displayMetrics.density).toInt()
+            .coerceAtMost(minOf(bounds.width(), bounds.height()))
         val params = WindowManager.LayoutParams(
             if (edge.vertical) depth else bounds.width(),
             if (edge.vertical) bounds.height() else depth,
@@ -612,6 +637,7 @@ class EdgeOverlay(context: Context) {
             render,
             edges.animDirection,
             edges.animShrink,
+            scale,
             effectColor(edges.animColor),
             SystemClock.uptimeMillis() - elapsedMs,
             durationMs,
@@ -660,6 +686,7 @@ private class LocateView(
     context: Context,
     private val render: LocateRenderer,
     private val rgb: Int,
+    private val scale: Double,
     private val x: Float,
     private val y: Float,
     private val startMs: Long,
@@ -682,11 +709,13 @@ private class LocateView(
         val fade = ((LOCATE_MS / 1000.0 - t) / LOCATE_FADE_S).coerceIn(0.0, 1.0)
         paint.reset()
         paint.isAntiAlias = true
-        val frame = LocateFrame(canvas, w, h, (x - location[0]) / density.toDouble(), h - (y - location[1]) / density.toDouble(), t, fade, paint, rgb)
+        val frame = LocateFrame(canvas, w, h, (x - location[0]) / density.toDouble(), h - (y - location[1]) / density.toDouble(), t, fade, scale, paint, rgb)
         val save = canvas.save()
         // y-up points, as the effects are written.
         canvas.translate(0f, height.toFloat())
         canvas.scale(density, -density)
+        // The chosen size, around the pointer. The window already covers the screen.
+        canvas.scale(scale.toFloat(), scale.toFloat(), frame.centerX.toFloat(), frame.centerY.toFloat())
         render(frame)
         canvas.restoreToCount(save)
         postInvalidateOnAnimation()
@@ -729,7 +758,7 @@ class LocateOverlay(private val context: Context, private val windowType: Int) {
                 context.getSystemService(InputManager::class.java)?.let { alpha = min(alpha, it.maximumObscuringOpacityForTouch) }
             }
         }
-        val v = LocateView(context, render, effectColor(locate.color), x, y, SystemClock.uptimeMillis())
+        val v = LocateView(context, render, effectColor(locate.color), effectScale(locate.size), x, y, SystemClock.uptimeMillis())
         try {
             wm.addView(v, params)
             view = v

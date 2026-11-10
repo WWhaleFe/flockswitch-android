@@ -6,6 +6,10 @@ package io.github.wwhalefe.flockswitch
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlin.math.abs
 
 /** Buttons that can switch, by HID++ control ID (REPROG_CONTROLS_V4). */
@@ -128,6 +132,13 @@ fun parseColor(text: String): Int? {
     return hex.toInt(16)
 }
 
+/** The sizes the settings offer for an effect, in percent (100 = as designed). Saved
+ *  settings may hold any size from 50 to 200, as the desktop versions' command line does. */
+val EFFECT_SIZES = listOf(75, 100, 125, 150)
+
+/** Whether [percent] is a size an effect can be drawn at. */
+fun validEffectSize(percent: Int) = percent in EFFECT_SIZES || percent in 50..200
+
 /** A colour (0xRRGGBB) as the settings write it. */
 fun formatColor(rgb: Int): String = "#%06X".format(rgb and 0xFFFFFF)
 
@@ -179,6 +190,8 @@ data class Edges(
     val animShrink: Boolean = false,
     /** "#RRGGBB". */
     val animColor: String = DEFAULT_EFFECT_COLOR,
+    /** Size of the countdown in percent. */
+    val animSize: Int = 100,
 ) {
     fun channel(e: Edge): Int = when (e) {
         Edge.Left -> left
@@ -205,17 +218,34 @@ object Waveform {
     const val SUBTLE_COLLISION = 4
     const val COMPLETED = 7
 
+    /** Not a waveform: a different one each time, among those the mouse offers. */
+    const val RANDOM = 255
+
     /** Every waveform the MX Master 4 offers, in the order the settings list them. */
     val ALL = listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 27)
+
+    /** The waveform to play for [waveform] on a mouse offering [mask] (bit N = waveform N):
+     *  itself, or for [RANDOM] one of those offered, chosen by [pick] (a number below its
+     *  argument). Null when there is nothing to play. */
+    fun resolve(waveform: Int, mask: Int, pick: (Int) -> Int = ::randomBelow): Int? {
+        if (waveform != RANDOM) return waveform.takeIf { it in 0..31 && mask and (1 shl it) != 0 }
+        val offered = (0..31).filter { mask and (1 shl it) != 0 }
+        return if (offered.isEmpty()) null else offered[pick(offered.size)]
+    }
 }
 
 /** Vibration on a mouse with a haptic motor (MX Master 4): a pulse when the mouse is
  *  switched away and when it comes back, and pulses while the pointer waits at a screen
  *  edge. Waveforms are the IDs of HID++ feature 0x19B0 (0-14 and 27 on the MX Master 4:
- *  7 = completed, 3 = damp collision, 4 = subtle collision). */
+ *  7 = completed, 3 = damp collision, 4 = subtle collision), or [Waveform.RANDOM]. */
 @Serializable
 data class Haptics(
+    /** A pulse as the mouse is switched away. */
     val onSwitch: Boolean = true,
+    /** A pulse when the mouse is back. Settings from before 0.6.0 had this under
+     *  [onSwitch]; [Config.fromJson] carries it over. */
+    val onArrive: Boolean = true,
+    /** Pulses while the pointer rests at a screen edge, waiting to switch. */
     val onEdge: Boolean = true,
     val switchWaveform: Int = 7,
     val arriveWaveform: Int = 3,
@@ -223,10 +253,13 @@ data class Haptics(
     /** Strength in percent (1-100), put on the mouse whenever it is here; 0 leaves the
      *  mouse as Logi Options+ set it. */
     val intensity: Int = 0,
-    /** The pulses at a screen edge get faster and stronger as the switch nears, instead
-     *  of repeating [edgeWaveform] evenly. */
+    /** The pulses at a screen edge get faster and stronger as the switch nears ("Rising"),
+     *  instead of repeating [edgeWaveform] evenly ("Even"). */
     val progressive: Boolean = true,
-)
+) {
+    /** Whether any of the three is on. */
+    fun anyOn() = onSwitch || onArrive || onEdge
+}
 
 /** How the pointer is shown. Each one is a drawing function in the table in Overlay.kt. */
 @Serializable
@@ -251,6 +284,8 @@ data class Locate(
     val style: LocateStyle = LocateStyle.Ring,
     /** "#RRGGBB". */
     val color: String = DEFAULT_EFFECT_COLOR,
+    /** Size of the highlight in percent. */
+    val size: Int = 100,
 )
 
 /** Each button that can switch has its own setting. */
@@ -324,7 +359,11 @@ data class Config(
         if (edges.dwellMs !in 100..5000) out += "edges: the time at the edge must be 100 to 5000 ms"
         if (parseColor(edges.animColor) == null) out += "edges: the colour must be like #FFCC00"
         if (parseColor(locate.color) == null) out += "locate: the colour must be like #FFCC00"
-        if (listOf(haptics.switchWaveform, haptics.arriveWaveform, haptics.edgeWaveform).any { it !in 0..31 }) out += "haptics: waveforms are numbered 0 to 31"
+        if (!validEffectSize(edges.animSize)) out += "edges: the size must be 50 to 200 percent"
+        if (!validEffectSize(locate.size)) out += "locate: the size must be 50 to 200 percent"
+        if (listOf(haptics.switchWaveform, haptics.arriveWaveform, haptics.edgeWaveform).any { it !in 0..31 && it != Waveform.RANDOM }) {
+            out += "haptics: waveforms are numbered 0 to 31, or random"
+        }
         if (haptics.intensity !in 0..100) out += "haptics: the strength must be 0 (as Options+ sets it) or 1-100 percent"
         return out
     }
@@ -362,9 +401,19 @@ data class Config(
         }
 
         /** Reads saved settings; unreadable or unusable ones give the defaults. */
-        fun fromJson(text: String): Config = runCatching { json.decodeFromString(serializer(), text) }
+        fun fromJson(text: String): Config = runCatching { json.decodeFromJsonElement(serializer(), migrate(json.parseToJsonElement(text))) }
             .getOrNull()
             ?.takeIf { it.problems().isEmpty() }
             ?: Config()
+
+        /** Settings from older versions, brought up to date. Before 0.6.0 one switch
+         *  (`onSwitch`) covered the pulse on leaving and the one on arriving. */
+        private fun migrate(root: JsonElement): JsonElement {
+            val obj = root as? JsonObject ?: return root
+            val h = obj["haptics"] as? JsonObject ?: return root
+            if ("onArrive" in h) return root
+            val leaving = (h["onSwitch"] as? JsonPrimitive)?.booleanOrNull ?: true
+            return JsonObject(obj + ("haptics" to JsonObject(h + ("onArrive" to JsonPrimitive(leaving)))))
+        }
     }
 }
