@@ -9,7 +9,6 @@
     <string name="tab_devices">장치</string>
     <string name="tab_general">일반</string>
 
-    <string name="status_running">동작 중</string>
     <string name="status_paused">꺼짐</string>
     <string name="status_searching">장치를 찾는 중…</string>
     <string name="status_no_receiver">Logitech 수신기를 연결하세요</string>
@@ -39,12 +38,10 @@
     <string name="not_on_mouse">이 마우스에는 없는 버튼</string>
     <string name="channels">이동할 채널</string>
     <string name="here_channel">채널 %d은 이 기기의 채널이라 고를 수 없습니다.</string>
-    <string name="gesture_press">누르기</string>
     <string name="gesture_up">위</string>
     <string name="gesture_down">아래</string>
     <string name="gesture_left">왼쪽</string>
     <string name="gesture_right">오른쪽</string>
-    <string name="gesture_on">이 방향으로 전환</string>
     <string name="gesture_hint">누른 채 마우스를 움직였다 떼면 그 방향 설정대로 전환합니다. 방향을 하나라도 켜면 버튼을 누르는 동안 포인터가 멈춥니다.</string>
     <string name="buttons_hint">설정은 기기마다 따로라서, 각 기기에서 버튼이 보낼 채널을 고르세요. 채널 번호는 모든 장치에서 같은 컴퓨터여야 합니다 (예: 1 = 윈도우 PC, 2 = 맥, 3 = 이 태블릿).</string>
     <string name="need_one_button">버튼을 하나 이상 켜 두세요. 전환을 멈추려면 \'마우스 버튼으로 전환\'을 끄세요.</string>
@@ -105,11 +102,6 @@
     <string name="overlay_permission">화면 가장자리를 지켜보려면 “다른 앱 위에 표시” 권한이 필요합니다. 가장자리를 따라 보이지 않는 얇은 띠가 포인터를 감지하고, 전환 대기 효과를 화면 위에 그립니다. 입력은 가로채지 않습니다.</string>
 
     <string name="section_haptics">진동 (진동 모터가 있는 마우스)</string>
-    <string name="haptics_switch">마우스가 떠날 때</string>
-    <string name="haptics_edge">모서리에서 기다리는 동안</string>
-    <string name="haptics_arrive">마우스가 돌아왔을 때</string>
-    <string name="haptics_pulse">진동</string>
-    <string name="haptics_edge_mode">방식</string>
     <string name="haptics_rising">점점 강하게</string>
     <string name="haptics_even">일정하게</string>
     <string name="haptics_feel">진동 확인</string>

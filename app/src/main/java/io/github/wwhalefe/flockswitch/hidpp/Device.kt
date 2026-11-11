@@ -1,5 +1,6 @@
 // HID++ 2.0 devices reachable through an endpoint, and the features flockswitch uses:
-// device name (0x0005), Change Host (0x1814) and Reprogrammable Controls v4 (0x1B04).
+// device name (0x0005), Change Host (0x1814), Reprogrammable Controls v4 (0x1B04) and
+// haptics (0x19B0).
 
 package io.github.wwhalefe.flockswitch.hidpp
 
@@ -227,10 +228,8 @@ fun candidateSlots(ep: Endpoint, pairings: List<Pairing>): List<Int> = when {
 /** Asks one slot for its identity and features. Returns null when nothing answers. */
 fun probeSlot(ep: Endpoint, endpoint: Int, index: Int, pairing: Pairing?): Device? {
     // Root feature lookup doubles as a ping; idle keyboards need the long timeout.
-    if (featureIndex(ep, index, FEATURE_ROOT, SLOW_TIMEOUT) == null) {
-        Log.d("slot $index: not online")
-        return null
-    }
+    // Quietly: paired slots whose device is asleep or away are asked again every 30 s.
+    if (featureIndex(ep, index, FEATURE_ROOT, SLOW_TIMEOUT) == null) return null
     val features = mutableMapOf<Int, Int>()
     for (f in listOf(FEATURE_NAME, FEATURE_CHANGE_HOST, FEATURE_REPROG_V4, FEATURE_HAPTIC)) {
         featureIndex(ep, index, f, SLOW_TIMEOUT)?.let { features[f] = it }

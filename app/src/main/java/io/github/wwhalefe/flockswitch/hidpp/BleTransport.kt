@@ -14,6 +14,7 @@ import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
 import android.os.Build
 import io.github.wwhalefe.flockswitch.Log
@@ -139,7 +140,7 @@ class BleTransport private constructor(
         }
         callback.written.clear()
         val started = if (Build.VERSION.SDK_INT >= 33) {
-            gatt.writeCharacteristic(characteristic, value, type) == BluetoothGatt.GATT_SUCCESS
+            gatt.writeCharacteristic(characteristic, value, type) == BluetoothStatusCodes.SUCCESS
         } else {
             @Suppress("DEPRECATION")
             characteristic.value = value
@@ -213,6 +214,18 @@ class BleTransport private constructor(
             val cb = Callback()
             @Suppress("DEPRECATION") // deprecated in API 37; the call every older version needs
             val gatt = device.connectGatt(context, false, cb, BluetoothDevice.TRANSPORT_LE) ?: return Opened.Failed
+            // A connection that is not handed on is closed, also when Android throws half
+            // way (the permission taken back, Bluetooth turned off): each one holds one of
+            // Android's few GATT client slots.
+            return try {
+                connect(device, gatt, cb)
+            } catch (e: Exception) {
+                gatt.close()
+                throw e
+            }
+        }
+
+        private fun connect(device: BluetoothDevice, gatt: BluetoothGatt, cb: Callback): Opened {
             fun fail(why: String, result: Opened = Opened.Failed): Opened {
                 Log.d("${device.address}: $why")
                 gatt.close()
@@ -243,7 +256,7 @@ class BleTransport private constructor(
             val cccd = c.getDescriptor(CCCD) ?: return fail("notifications cannot be turned on")
             val enable = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
             val started = if (Build.VERSION.SDK_INT >= 33) {
-                gatt.writeDescriptor(cccd, enable) == BluetoothGatt.GATT_SUCCESS
+                gatt.writeDescriptor(cccd, enable) == BluetoothStatusCodes.SUCCESS
             } else {
                 @Suppress("DEPRECATION")
                 cccd.value = enable

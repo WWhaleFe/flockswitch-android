@@ -53,15 +53,16 @@ class EdgeTest {
 
     @Test
     fun randomOnlyEverPicksARealEffect() {
-        val edge = (1..500).map { EdgeAnimStyle.Random.resolved() }.toSet()
+        val random = Edges(animStyle = EdgeAnimStyle.Random)
+        val edge = (1..500).map { random.countdown()!!.style }.toSet()
         assertFalse(EdgeAnimStyle.None in edge || EdgeAnimStyle.Random in edge)
         assertEquals("every real effect comes up", EdgeAnimStyle.entries.size - 2, edge.size)
         val locate = (1..500).map { LocateStyle.Random.resolved() }.toSet()
         assertFalse(LocateStyle.Random in locate)
         assertEquals(LocateStyle.entries.size - 1, locate.size)
         // Anything else stays what it is.
-        assertEquals(EdgeAnimStyle.None, EdgeAnimStyle.None.resolved())
-        assertEquals(EdgeAnimStyle.Bar, EdgeAnimStyle.Bar.resolved())
+        assertNull(Edges(animStyle = EdgeAnimStyle.None).countdown())
+        assertEquals(EdgeAnimStyle.Bar, Edges(animStyle = EdgeAnimStyle.Bar).countdown()!!.style)
         assertEquals(LocateStyle.Radar, LocateStyle.Radar.resolved())
         // Random has no direction or shrink of its own, so those controls hide.
         assertFalse(EdgeAnimStyle.Random.hasDirection || EdgeAnimStyle.Random.canShrink)

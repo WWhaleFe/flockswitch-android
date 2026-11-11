@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 
 class App : Application() {
     lateinit var shared: Shared
@@ -32,4 +34,17 @@ fun Context.requestUsbPermission(device: UsbDevice) {
     val flags = PendingIntent.FLAG_UPDATE_CURRENT or
         (if (android.os.Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
     usb.requestPermission(device, PendingIntent.getBroadcast(this, 0, intent, flags))
+}
+
+/** At most [limit] bytes of the stream: a file or download larger than expected is not
+ *  read in whole just to be refused. */
+fun InputStream.readAtMost(limit: Int): ByteArray {
+    val out = ByteArrayOutputStream()
+    val buf = ByteArray(8192)
+    while (out.size() < limit) {
+        val n = read(buf, 0, minOf(buf.size, limit - out.size()))
+        if (n < 0) break
+        out.write(buf, 0, n)
+    }
+    return out.toByteArray()
 }

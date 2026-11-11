@@ -362,7 +362,7 @@ class MainActivity : ComponentActivity() {
         val name = displayName(uri)
         val bytes = try {
             val input = contentResolver.openInputStream(uri) ?: throw IOException("no stream for $uri")
-            input.use { readAtMost(it, SettingsFile.MAX_BYTES + 1) }
+            input.use { it.readAtMost(SettingsFile.MAX_BYTES + 1) }
         } catch (e: Exception) {
             Log.w("cannot read the settings file $name: $e")
             return shared.setBackup(BackupState.Rejected(null))
@@ -410,17 +410,6 @@ class MainActivity : ComponentActivity() {
         }
     }.getOrNull() ?: uri.lastPathSegment ?: "?"
 
-    private fun readAtMost(input: java.io.InputStream, limit: Int): ByteArray {
-        val out = java.io.ByteArrayOutputStream()
-        val buf = ByteArray(8192)
-        while (out.size() < limit) {
-            val n = input.read(buf, 0, minOf(buf.size, limit - out.size()))
-            if (n < 0) break
-            out.write(buf, 0, n)
-        }
-        return out.toByteArray()
-    }
-
     private fun report() {
         val s = shared.status.value
         val body = buildString {
@@ -432,7 +421,7 @@ class MainActivity : ComponentActivity() {
             appendLine("master: ${s.trigger ?: "-"}, channel: ${s.channel ?: "-"}, receivers: ${s.receivers}")
             appendLine("devices: " + s.devices.joinToString { "${it.name} [${it.key}]" })
             appendLine()
-            Log.recent().takeLast(60).forEach { appendLine(it) }
+            Log.recent().forEach { appendLine(it) }
         }
         val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")).apply {
             putExtra(Intent.EXTRA_EMAIL, arrayOf(REPORT_ADDRESS))

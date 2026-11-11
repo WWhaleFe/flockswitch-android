@@ -14,6 +14,10 @@ This repository is the Android version. The others live in [flockswitch-mac](htt
 
 flockswitch was built and tested with the **MX Master 3** and **MX Master 4**. Other Logitech mice with the same buttons (HID++ 2.0 *Change Host* and reprogrammable controls) may work but have **not been tested yet**.
 
+## Tested on
+
+Checked on a real phone, a Samsung Galaxy Z Flip4: connecting through a Logitech USB receiver and over Bluetooth, and the 0.9.0 features (each countdown effect's own settings, Random, and settings backup with Manage).
+
 ## How it connects
 
 - **Logi Bolt or Unifying receiver on USB** (recommended): plug the receiver into the tablet or phone, through a USB-C or OTG adapter if needed. A receiver has three parts: keyboard, mouse and a settings channel (HID++). flockswitch takes only the settings channel, so typing and pointing keep working through Android as usual. Android asks once whether flockswitch may use the receiver; tick *Always open flockswitch* so it does not ask again.

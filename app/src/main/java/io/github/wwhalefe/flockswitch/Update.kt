@@ -6,12 +6,12 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 import java.security.MessageDigest
 
+// What both builds share about updates: the screen's state and the parsing and checking
+// rules (tested here). Going online is only in the GitHub build's SelfUpdate (src/github).
+
 const val RELEASES_PAGE = "https://github.com/WWhaleFe/flockswitch-android/releases/latest"
-private const val RELEASES_API = "https://api.github.com/repos/WWhaleFe/flockswitch-android/releases/latest"
 
 /** The checksum list published next to each APK (see .github/workflows/release.yml). */
 const val SUMS_NAME = "SHA256SUMS.txt"
@@ -53,29 +53,6 @@ fun parseRelease(body: String): Release {
     return Release(version, url(apkName(version)), url(SUMS_NAME))
 }
 
-/** Asks GitHub for the latest release. Blocking; call it off the main thread. */
-fun latestRelease(current: String): Release {
-    val conn = URL(RELEASES_API).openConnection() as HttpURLConnection
-    conn.connectTimeout = 10_000
-    conn.readTimeout = 10_000
-    conn.setRequestProperty("Accept", "application/vnd.github+json")
-    conn.setRequestProperty("User-Agent", "flockswitch-android/$current")
-    try {
-        return parseRelease(conn.inputStream.bufferedReader().use { it.readText() })
-    } finally {
-        conn.disconnect()
-    }
-}
-
-/** Asks GitHub whether a newer version exists. Blocking; call it off the main thread. */
-fun checkForUpdate(current: String): UpdateState = try {
-    val latest = latestRelease(current).version
-    if (isNewer(latest, current)) UpdateState.Available(latest) else UpdateState.UpToDate
-} catch (e: Exception) {
-    Log.i("update check failed: $e")
-    UpdateState.Failed
-}
-
 /** Reads `sha256sum` output: "<64 hex digits>  <file name>" per line (a `*` before the
  *  name marks binary mode). File name → lower-case digest; other lines are skipped. */
 fun parseSha256Sums(text: String): Map<String, String> {
@@ -102,12 +79,6 @@ fun sha256(file: File): String {
         }
     }
     return md.digest().joinToString("") { "%02x".format(it) }
-}
-
-/** Whether [file] is the [name] listed in the checksums [sums] (text of SHA256SUMS.txt). */
-fun matchesSums(file: File, name: String, sums: String): Boolean {
-    val want = parseSha256Sums(sums)[name] ?: return false
-    return sha256(file) == want
 }
 
 /** Compares dotted version numbers ("0.10.0" is newer than "0.9.1"). A part like "0-beta"

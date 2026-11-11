@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.0 — 2026-11-12
+
+- Slightly less memory in the background: the windows for the edge countdown and for find-the-cursor are set up the first time they are needed instead of when the service starts, and the recent log kept in memory for the mail to the developer holds only the 60 lines the mail carries (the Google Play version, which has no such mail, keeps none)
+- A Bluetooth connection that fails half way (for example when the permission is taken back or Bluetooth is turned off meanwhile) is always closed, so it no longer holds on to one of Android's few Bluetooth connection slots
+- A receiver slot whose device is asleep or away is no longer written to Android's system log every 30 seconds
+- Tidied up: unused texts and code removed, and the Google Play version no longer contains the GitHub version's update check. No change to features, settings or permissions
+
 ## 0.9.0 — 2026-11-10
 
 - Each edge countdown effect (ring, semicircle, bar, pulse wave, neon laser, particle vortex, cyber scan, liquid) keeps its own colour and size, and the ring, semicircle and bar their own direction (and the ring and semicircle their own *Shrink away*): choosing *Both ways* for the ring no longer changes the bar. The settings show and change the chosen effect's own values, and the preview plays it with them. Saved in config.json under `edges.effects`; settings from earlier versions (and Google backups of them) give every effect the look they had

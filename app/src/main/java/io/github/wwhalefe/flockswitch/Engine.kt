@@ -114,8 +114,6 @@ class Engine(
     private var seenEndpoints = listOf<String>()
     private var backoff = 1_000L
 
-    fun endpoint(i: Int) = endpoints[i]
-
     private fun isTrigger(endpoint: Int, slot: Int) = trigger?.let { it.endpoint == endpoint && it.index == slot } == true
 
     /** Re-opens all endpoints and reads every device. Used at start-up and when the set

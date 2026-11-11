@@ -10,7 +10,6 @@
     <string name="tab_devices">Devices</string>
     <string name="tab_general">General</string>
 
-    <string name="status_running">Running</string>
     <string name="status_paused">Paused</string>
     <string name="status_searching">Looking for devices…</string>
     <string name="status_no_receiver">Plug in a Logitech receiver</string>
@@ -40,12 +39,10 @@
     <string name="not_on_mouse">This mouse does not have this button</string>
     <string name="channels">Go to channel</string>
     <string name="here_channel">Channel %d is this device\'s, so it cannot be chosen.</string>
-    <string name="gesture_press">Press</string>
     <string name="gesture_up">Up</string>
     <string name="gesture_down">Down</string>
     <string name="gesture_left">Left</string>
     <string name="gesture_right">Right</string>
-    <string name="gesture_on">Switch with this move</string>
     <string name="gesture_hint">Hold the button, move the mouse and let go to switch as set for that direction. While any direction is on, the pointer stays still as long as the button is held.</string>
     <string name="buttons_hint">Settings are kept per computer: choose on each one where its button sends everything. The channel numbers must mean the same computer on every device (e.g. 1 = Windows PC, 2 = Mac, 3 = this tablet).</string>
     <string name="need_one_button">Keep at least one button on. To stop switching, turn off “Switch with mouse buttons”.</string>
@@ -106,11 +103,6 @@
     <string name="overlay_permission">To watch the screen edges flockswitch needs “Display over other apps”: thin invisible strips along the edges notice the pointer, and the countdown is drawn on top of what is on the screen. No input is taken.</string>
 
     <string name="section_haptics">Haptics (mice with a motor)</string>
-    <string name="haptics_switch">As the mouse leaves</string>
-    <string name="haptics_edge">While waiting at an edge</string>
-    <string name="haptics_arrive">When the mouse is back</string>
-    <string name="haptics_pulse">Pulse</string>
-    <string name="haptics_edge_mode">Pattern</string>
     <string name="haptics_rising">Rising</string>
     <string name="haptics_even">Even</string>
     <string name="haptics_feel">Test</string>

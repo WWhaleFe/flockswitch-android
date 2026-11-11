@@ -519,6 +519,47 @@ val locateRenderers: Map<LocateStyle, LocateRenderer> = mapOf(
 
 // The windows.
 
+/** What the countdown and the highlight windows have in common: they draw a frame and
+ *  ask for the next one until they are taken off the screen. */
+private abstract class EffectView(context: Context) : View(context) {
+    protected val density = resources.displayMetrics.density
+    protected val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    protected val location = IntArray(2)
+
+    init {
+        // Before Android 9 a hardware canvas draws no glow on anything but text.
+        if (Build.VERSION.SDK_INT < 28) setLayerType(LAYER_TYPE_SOFTWARE, null)
+    }
+}
+
+/** A window over the whole screen or a strip of it, for an effect: it takes no input and
+ *  lets touches pass through. Placed at the top left; the caller sets x and y. */
+private fun effectWindow(context: Context, width: Int, height: Int, type: Int, name: String) =
+    WindowManager.LayoutParams(
+        width,
+        height,
+        type,
+        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+        PixelFormat.TRANSLUCENT,
+    ).apply {
+        @Suppress("RtlHardcoded")
+        gravity = Gravity.TOP or Gravity.LEFT
+        title = name
+        if (Build.VERSION.SDK_INT >= 30) {
+            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        } else if (Build.VERSION.SDK_INT >= 28) {
+            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+        // Android 12+ blocks touches and clicks that pass through another app's window
+        // unless the window is at most this opaque. Accessibility overlays are exempt.
+        if (Build.VERSION.SDK_INT >= 31 && type == WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY) {
+            context.getSystemService(InputManager::class.java)?.let { alpha = min(alpha, it.maximumObscuringOpacityForTouch) }
+        }
+    }
+
 @SuppressLint("ViewConstructor")
 private class CountdownView(
     context: Context,
@@ -532,16 +573,7 @@ private class CountdownView(
     private val durationMs: Long,
     /** Where along the edge the pointer is, in screen pixels. */
     var along: Float,
-) : View(context) {
-    private val density = resources.displayMetrics.density
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val location = IntArray(2)
-
-    init {
-        // Before Android 9 a hardware canvas draws no glow on anything but text.
-        if (Build.VERSION.SDK_INT < 28) setLayerType(LAYER_TYPE_SOFTWARE, null)
-    }
-
+) : EffectView(context) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val w = width / density.toDouble()
@@ -608,31 +640,15 @@ class EdgeOverlay(context: Context) {
         val scale = effectScale(look.size)
         val depth = (STRIP_DEPTH_DP * maxOf(1.0, scale) * app.resources.displayMetrics.density).toInt()
             .coerceAtMost(minOf(bounds.width(), bounds.height()))
-        val params = WindowManager.LayoutParams(
+        val params = effectWindow(
+            app,
             if (edge.vertical) depth else bounds.width(),
             if (edge.vertical) bounds.height() else depth,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT,
+            "flockswitch countdown",
         ).apply {
-            @Suppress("RtlHardcoded")
-            gravity = Gravity.TOP or Gravity.LEFT
             x = if (edge == Edge.Right) bounds.width() - depth else 0
             y = if (edge == Edge.Bottom) bounds.height() - depth else 0
-            title = "flockswitch countdown"
-            if (Build.VERSION.SDK_INT >= 30) {
-                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-            } else if (Build.VERSION.SDK_INT >= 28) {
-                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-            }
-            // Android 12+ blocks touches and clicks that pass through another app's
-            // window unless the window is at most this opaque.
-            if (Build.VERSION.SDK_INT >= 31) {
-                app.getSystemService(InputManager::class.java)?.let { alpha = min(alpha, it.maximumObscuringOpacityForTouch) }
-            }
         }
         val v = CountdownView(
             app,
@@ -693,16 +709,7 @@ private class LocateView(
     private val x: Float,
     private val y: Float,
     private val startMs: Long,
-) : View(context) {
-    private val density = resources.displayMetrics.density
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val location = IntArray(2)
-
-    init {
-        // Before Android 9 a hardware canvas draws no glow on anything but text.
-        if (Build.VERSION.SDK_INT < 28) setLayerType(LAYER_TYPE_SOFTWARE, null)
-    }
-
+) : EffectView(context) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val w = width / density.toDouble()
@@ -738,29 +745,7 @@ class LocateOverlay(private val context: Context, private val windowType: Int) {
         end()
         val render = locateRenderers[locate.style.resolved()] ?: return
         val bounds = screenBounds(wm)
-        val params = WindowManager.LayoutParams(
-            bounds.width(),
-            bounds.height(),
-            windowType,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            @Suppress("RtlHardcoded")
-            gravity = Gravity.TOP or Gravity.LEFT
-            title = "flockswitch highlight"
-            if (Build.VERSION.SDK_INT >= 30) {
-                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-            } else if (Build.VERSION.SDK_INT >= 28) {
-                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-            }
-            // See EdgeOverlay; accessibility overlays are exempt.
-            if (Build.VERSION.SDK_INT >= 31 && windowType == WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY) {
-                context.getSystemService(InputManager::class.java)?.let { alpha = min(alpha, it.maximumObscuringOpacityForTouch) }
-            }
-        }
+        val params = effectWindow(context, bounds.width(), bounds.height(), windowType, "flockswitch highlight")
         val v = LocateView(context, render, effectColor(locate.color), effectScale(locate.size), x, y, SystemClock.uptimeMillis())
         try {
             wm.addView(v, params)

@@ -1,0 +1,3 @@
+• Uses less memory in the background: the on-screen effects are set up only when first shown, and no log is kept in memory.
+• A Bluetooth connection that fails half way is now always closed.
+• Tidied up inside. Features, settings and permissions are unchanged.

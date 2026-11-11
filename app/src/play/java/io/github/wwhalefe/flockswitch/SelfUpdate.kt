@@ -8,9 +8,6 @@ import android.app.Activity
 import android.content.Context
 
 object SelfUpdate {
-    /** Whether this build looks for, downloads and installs new versions itself. */
-    const val SUPPORTED = false
-
     @Suppress("UNUSED_PARAMETER")
     fun autoCheck(context: Context, minGapMs: Long = 0) = Unit
 

@@ -31,9 +31,7 @@ import java.net.URL
 import java.util.concurrent.atomic.AtomicBoolean
 
 object SelfUpdate {
-    /** Whether this build looks for, downloads and installs new versions itself. */
-    const val SUPPORTED = true
-
+    private const val RELEASES_API = "https://api.github.com/repos/WWhaleFe/flockswitch-android/releases/latest"
     private const val HOUR = 3_600_000L
     private const val DAY = 24 * HOUR
     /** An APK larger than this is not what the release workflow makes. */
@@ -133,7 +131,7 @@ object SelfUpdate {
         lastCheck = System.currentTimeMillis()
         app.shared.setUpdate(UpdateState.Checking)
         return try {
-            latestRelease(BuildConfig.VERSION_NAME).also { release = it }
+            latestRelease().also { release = it }
         } catch (e: Exception) {
             Log.i("update check failed: $e")
             app.shared.setUpdate(UpdateState.Failed)
@@ -330,6 +328,20 @@ object SelfUpdate {
         }
     }
 
+    /** Asks GitHub for the latest release. Blocking. */
+    private fun latestRelease(): Release {
+        val conn = URL(RELEASES_API).openConnection() as HttpURLConnection
+        conn.connectTimeout = 10_000
+        conn.readTimeout = 10_000
+        conn.setRequestProperty("Accept", "application/vnd.github+json")
+        conn.setRequestProperty("User-Agent", "flockswitch-android/${BuildConfig.VERSION_NAME}")
+        try {
+            return parseRelease(conn.inputStream.bufferedReader().use { it.readText() })
+        } finally {
+            conn.disconnect()
+        }
+    }
+
     private fun open(url: String): HttpURLConnection {
         require(url.startsWith("https://")) { "not https: $url" }
         val conn = URL(url).openConnection() as HttpURLConnection
@@ -347,7 +359,7 @@ object SelfUpdate {
     private fun fetchBytes(url: String, limit: Int): ByteArray {
         val conn = open(url)
         try {
-            val bytes = conn.inputStream.use { it.readNBytesCompat(limit + 1) }
+            val bytes = conn.inputStream.use { it.readAtMost(limit + 1) }
             if (bytes.size > limit) throw IOException("$url is too large")
             return bytes
         } finally {
@@ -387,17 +399,6 @@ object SelfUpdate {
             part.delete()
             conn.disconnect()
         }
-    }
-
-    private fun java.io.InputStream.readNBytesCompat(n: Int): ByteArray {
-        val out = java.io.ByteArrayOutputStream()
-        val buf = ByteArray(8192)
-        while (out.size() < n) {
-            val r = read(buf, 0, minOf(buf.size, n - out.size()))
-            if (r < 0) break
-            out.write(buf, 0, r)
-        }
-        return out.toByteArray()
     }
 }
 

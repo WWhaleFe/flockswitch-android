@@ -54,10 +54,12 @@ class UpdateTest {
             // SHA-256 of "abc".
             val abc = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
             assertEquals(abc, sha256(f))
-            assertTrue(matchesSums(f, "flockswitch-android-0.7.0.apk", "$abc  flockswitch-android-0.7.0.apk\n"))
-            assertFalse(matchesSums(f, "flockswitch-android-0.7.0.apk", "$apkDigest  flockswitch-android-0.7.0.apk\n"))
+            // As SelfUpdate checks a download: the digest listed for its name, or none.
+            fun matches(sums: String) = parseSha256Sums(sums)["flockswitch-android-0.7.0.apk"] == sha256(f)
+            assertTrue(matches("$abc  flockswitch-android-0.7.0.apk\n"))
+            assertFalse(matches("$apkDigest  flockswitch-android-0.7.0.apk\n"))
             // Not listed at all: never a match.
-            assertFalse(matchesSums(f, "flockswitch-android-0.7.0.apk", "$abc  flockswitch-android-0.6.0.apk\n"))
+            assertFalse(matches("$abc  flockswitch-android-0.6.0.apk\n"))
         } finally {
             f.delete()
         }

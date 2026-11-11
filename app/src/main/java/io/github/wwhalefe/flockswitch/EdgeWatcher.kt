@@ -68,8 +68,8 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
     private val wm = context.getSystemService(WindowManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
     private val views = mutableMapOf<Edge, View>()
-    /** The countdown drawn while a switch is waiting. */
-    private val overlay = EdgeOverlay(context)
+    /** The countdown drawn while a switch is waiting; made at the first wait. */
+    private val overlay by lazy { EdgeOverlay(context) }
     /** The settings the strips on screen were made for. */
     private var shown: Edges? = null
     /** The edge the pointer rests on, since when, and the look at it that repeats. */
@@ -117,7 +117,7 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
         for (edge in Edge.entries) {
             if (edges.channel(edge) == 0) continue
             val overBars = service != null && !edge.vertical
-            val host: Context = if (overBars) service!! else context
+            val host: Context = if (overBars) service else context
             val params = WindowManager.LayoutParams(
                 if (edge.vertical) thick else bounds.width() - 2 * margin,
                 if (edge.vertical) bounds.height() - 2 * margin else thick,
@@ -197,7 +197,7 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
     private fun hover(edge: Edge, edges: Edges, e: MotionEvent) {
         along = if (edge.vertical) e.rawY else e.rawX
         under = edge
-        overlay.follow(along)
+        if (counting) overlay.follow(along)
         // With "hold Control" the wait starts only with the key down; letting go calls
         // it off, and pressing again at the same edge starts over. The accessibility
         // service, when on, knows the key at once; otherwise the event says, as of now.

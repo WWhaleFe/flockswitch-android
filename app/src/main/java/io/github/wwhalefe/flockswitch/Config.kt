@@ -146,8 +146,8 @@ fun formatColor(rgb: Int): String = "#%06X".format(rgb and 0xFFFFFF)
 /** A number below [n], different each time. Good enough to choose an effect. */
 private fun randomBelow(n: Int) = kotlin.random.Random.nextInt(n)
 
-/** What is drawn near the pointer while it waits at a screen edge. Each one but None is
- *  a drawing function in the table in EdgeOverlay.kt. */
+/** What is drawn near the pointer while it waits at a screen edge. Each one but None and
+ *  Random is a drawing function in the table in Overlay.kt. */
 @Serializable
 enum class EdgeAnimStyle {
     None, Ring, Semicircle, Bar, Pulse, Laser, Vortex, Scan, Liquid,
@@ -155,11 +155,6 @@ enum class EdgeAnimStyle {
     /** A different effect each time, with random options too; see [Edges.countdown]. Has
      *  no drawing function or settings of its own. */
     Random;
-
-    /** For Random one of the others (never None). [Edges.countdown] is what the
-     *  countdown uses: it also picks the effect's options. */
-    fun resolved(): EdgeAnimStyle =
-        if (this == Random) entries.filter { it != None && it != Random }.let { it[randomBelow(it.size)] } else this
 
     /** Whether the effect drains in a direction the user can choose. */
     val hasDirection get() = this == Ring || this == Semicircle || this == Bar

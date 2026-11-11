@@ -41,7 +41,8 @@ fun isLocateShortcut(e: KeyEvent): Boolean =
 class PointerService : AccessibilityService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val handler = Handler(Looper.getMainLooper())
-    private val overlay by lazy { LocateOverlay(this, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY) }
+    /** Made at the first highlight: many users never turn find-the-cursor on. */
+    private var overlay: LocateOverlay? = null
     private var wantKeys = false
     /** A trigger is waiting for the mouse's next event. */
     private var waiting = false
@@ -88,7 +89,7 @@ class PointerService : AccessibilityService() {
     override fun onMotionEvent(event: MotionEvent) {
         if (!waiting || !event.isFromSource(InputDevice.SOURCE_MOUSE)) return
         stopWaiting()
-        overlay.show(shared.config.value.locate, event.rawX, event.rawY)
+        highlight(shared.config.value.locate, event.rawX, event.rawY)
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
@@ -102,7 +103,12 @@ class PointerService : AccessibilityService() {
     }
 
     /** Plays the highlight once, for the settings. */
-    fun preview(locate: Locate, x: Float, y: Float) = overlay.show(locate, x, y)
+    fun preview(locate: Locate, x: Float, y: Float) = highlight(locate, x, y)
+
+    private fun highlight(locate: Locate, x: Float, y: Float) {
+        val o = overlay ?: LocateOverlay(this, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY).also { overlay = it }
+        o.show(locate, x, y)
+    }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
 
@@ -112,7 +118,8 @@ class PointerService : AccessibilityService() {
         instance = null
         handler.removeCallbacks(giveUp)
         scope.cancel()
-        overlay.end()
+        overlay?.end()
+        overlay = null
         shared.pointer.setControl(null)
         shared.setStatus { it.copy(pointerService = false) }
         super.onDestroy()

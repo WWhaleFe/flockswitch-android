@@ -9,11 +9,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- Logitech devices on Bluetooth (experimental). -->
+    <!-- Logitech devices on Bluetooth (off until turned on in the settings). -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
-    <!-- Only to ask GitHub whether a newer version exists and, in the GitHub build, to
-         download it. -->
+    <!-- GitHub build only: to ask GitHub whether a newer version exists and download it.
+         The Google Play build takes it out (src/play/AndroidManifest.xml). -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Switching at the screen edge: thin invisible strips along the edges notice the
          mouse pointer, and the countdown is drawn over the screen. Asked for only when an
