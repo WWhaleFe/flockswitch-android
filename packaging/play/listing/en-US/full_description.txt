@@ -1,6 +1,6 @@
 Press one mouse button and your Logitech mouse and keyboard move to another computer together. This Android phone or tablet can be one of those computers.
 
-Logitech mice and keyboards remember one computer on each Easy-Switch channel (1, 2, 3), but you press the channel button on each device separately. flockswitch does it in one go, from a mouse button, a screen edge or a Quick Settings tile. No network between the devices.
+Logitech mice and keyboards remember one computer on each Easy-Switch channel (1, 2, 3), but you press the channel button on each device separately. flockswitch does it in one go, from a mouse button, a screen edge or a Quick Settings tile. No network between devices needed.
 
 ■ Who it is for
 • You use a computer and an Android tablet or phone with one keyboard and mouse
@@ -8,42 +8,43 @@ Logitech mice and keyboards remember one computer on each Easy-Switch channel (1
 • Security rules forbid networking your devices
 
 ■ How it works
-1. Pick a button of your MX Master mouse (wheel mode-shift, gesture or wheel click) and the channel it goes to.
-2. Press it: the grouped keyboard and devices move to that channel, then the mouse follows.
-3. flockswitch on the computer it lands on takes it from there.
+1. Pick a button: wheel mode-shift, gesture or wheel click on an MX Master mouse.
+2. Press it: the grouped keyboard and devices move to the chosen channel first.
+3. The mouse follows. flockswitch on the device it lands on takes the next switch.
 
 ■ Getting started
-1. Pair keyboard and mouse with each device on the same channel number, e.g. 1 = desktop, 2 = laptop, 3 = this tablet.
-2. Plug a Logi Bolt or Unifying receiver into USB (USB-C or OTG adapter if needed) and allow access. For Bluetooth, turn on "Bluetooth devices" on the General tab.
+1. Pair keyboard and mouse with each device on the same channel, e.g. 1 = desktop, 2 = laptop, 3 = this tablet.
+2. Plug a Logi Bolt or Unifying receiver into USB (USB-C/OTG adapter if needed) and allow access. For Bluetooth, turn on "Bluetooth devices" on the General tab and allow Nearby devices.
 3. Buttons tab: choose "Go to channel" for each button.
 4. Devices tab: choose the keyboard that moves along. Changes apply at once.
 5. Switching back works when flockswitch runs on the other computers too.
 
 ■ Where everything is
-[Home] Status, this device's channel, switching on/off, "Switch now"
-[Buttons] A channel per button, and per direction for the gesture button
-[Switch at the screen edge] Rest the pointer at an edge (0.3–2 s) to go to that side's channel, optionally only while Control is held. A countdown effect shows while you wait: ring, semicircle, bar, pulse wave, neon laser, particle vortex, cyber scan, liquid or random, each with its own colour, size and direction.
-[Devices] The master mouse and the devices that move along
-[General] Permissions, start at boot, Bluetooth devices, Find the cursor (pulse ring, radar or spotlight), haptics, settings backup (up to 10 files), reset
-[Haptics Settings] For a mouse with a haptic motor (currently the MX Master 4): strength, the pulse as the mouse leaves and returns (16 or random), rising or even at an edge, Test
-[Notification and tile] The notification shows the master mouse with buttons for the other channels; the Quick Settings tile switches like the wheel mode-shift button.
+[Home] Status, this device's channel, switching on/off. "Switch now" sends the mouse and its devices to a channel.
+[Buttons]
+• Wheel mode-shift, wheel click: turn on and pick a channel (this device's own is locked).
+• Gesture: press, and press-and-move up/down/left/right; a channel for each.
+• Switch at the screen edge: a channel per edge; wait 0.3, 0.5, 1 or 2 s; optionally only while Control is held. A countdown effect shows while you wait (ring, semicircle, bar, pulse wave, neon laser, particle vortex, cyber scan, liquid or random), each with its own colour, size and direction.
+[Devices] The master mouse (usually automatic) and the devices that move along: Logi Bolt, Unifying and Bluetooth, mixed.
+[General] Permissions, start at boot, Bluetooth devices, Find the cursor (pulse ring, radar, spotlight or random on Ctrl+Alt+L or when the mouse arrives, with colour and size), haptics, settings backup (save, load, rename, delete; up to 10 files), reset.
+[Haptics Settings] For a mouse with a haptic motor (currently MX Master 4): strength (follow Options+ or 25–100%), a pulse as the mouse leaves and returns (16 kinds or random), rising or even at an edge, Test.
+[Notification and tile] Buttons for the other channels; the Quick Settings tile switches like the wheel mode-shift button.
 
 ■ Requirements
-• Android 8.0 or later (Find the cursor: Android 14+)
+• Android 8.0+ (Find the cursor: Android 14+)
 • Logitech MX Master 3 or MX Master 4 (made and tested with these; other Logitech mice with the same features are untested)
 • USB host (OTG) and a Logi Bolt or Unifying receiver, or Bluetooth
 
-■ Permissions and privacy
+■ Privacy and safety
 • No internet permission, account, ads or analytics. Nothing is collected or sent; settings stay on this device.
-• USB: only the receiver's settings channel is used; typing and pointing keep working.
 • Nearby devices: only for Bluetooth devices. No location.
-• Display over other apps: only for the screen edges. Invisible strips notice the pointer and take no input.
-• Accessibility service (optional): only for the top and bottom edges, the Control option and Find the cursor. The app explains what it accesses and asks you to agree first. It does not read the screen; it only checks Control and Ctrl+Alt+L.
+• Display over other apps: only for screen edges. Invisible strips notice the pointer and take no input.
+• Accessibility service (optional): only for the top and bottom edges, the Control option and Find the cursor, after an in-app explanation and your consent. It does not read the screen; it only checks Control and Ctrl+Alt+L.
 
 ■ Troubleshooting
-• "Looking for devices…" stays: check the mouse is on this device's channel and receiver access is allowed on Home.
-• Nothing happens with the receiver: check the device supports USB host (OTG). If Android's own Logitech driver uses the receiver, flockswitch leaves it alone and says so on Home.
-• One channel cannot be chosen: it is this device's own.
+• "Looking for devices…" stays: check the mouse's channel and receiver access on Home.
+• The receiver does nothing: check the device supports USB host (OTG).
+• One channel can't be chosen: it is this device's own.
 
 ■ Contact
 feedback.wwhale@gmail.com
