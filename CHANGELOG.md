@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.0 - 2026-11-19
+
+- **Restore the wheel mode on return**: when the master mouse comes back, flockswitch puts its wheel back to the ratchet or free-spinning mode it had on this device. Android has no Logi Options+ to hold the wheel mode-shift button, so in the moments after the mouse arrived, before flockswitch had taken the button, a press made the mouse flip its wheel by itself, and the mouse took that mode back to the computer. The mode is remembered while flockswitch holds the button and kept in `wheel-mode.json`; only the wheel mode is written (SmartShift 0x2110 / 0x2111), not the SmartShift sensitivity. On by default, with a switch (and an **i**) under the wheel mode-shift button in Buttons; it acts only while that button switches. The computer versions (macOS 0.14.0, Windows 1.10.0, Linux 0.15.0) do the same, so the computer puts its own mode back too
+- **Buttons taken back sooner**: when the mouse links again through a receiver, its buttons are taken 0.25 s later instead of after 1.5 s; a divert the mouse does not confirm is tried again 2 s later instead of at the next 30-second check; and a mouse that does not answer no longer makes each of the other buttons wait out its own timeout
+
 ## 0.10.0 — 2026-11-12
 
 - Slightly less memory in the background: the windows for the edge countdown and for find-the-cursor are set up the first time they are needed instead of when the service starts, and the recent log kept in memory for the mail to the developer holds only the 60 lines the mail carries (the Google Play version, which has no such mail, keeps none)

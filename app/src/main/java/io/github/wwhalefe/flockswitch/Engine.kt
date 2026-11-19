@@ -17,6 +17,7 @@ import io.github.wwhalefe.flockswitch.hidpp.Pairing
 import io.github.wwhalefe.flockswitch.hidpp.REPORT_SHORT
 import io.github.wwhalefe.flockswitch.hidpp.Reporting
 import io.github.wwhalefe.flockswitch.hidpp.Transport
+import io.github.wwhalefe.flockswitch.hidpp.WHEEL_FREE
 import io.github.wwhalefe.flockswitch.hidpp.candidateSlots
 import io.github.wwhalefe.flockswitch.hidpp.enableLinkNotifications
 import io.github.wwhalefe.flockswitch.hidpp.probeSlot
@@ -55,6 +56,13 @@ private const val ENUMERATE_INTERVAL = 3_000L
 /** Rescans caused by an endpoint that keeps failing back off up to this long. */
 private const val MAX_BACKOFF = 60_000L
 
+/** The master mouse linked again: take its buttons this soon, before the slot is read
+ *  again. Until then a press does what the mouse does by itself (the mode-shift button
+ *  flips the wheel), and there is no Logi Options+ here to stop it. */
+private const val QUICK_DIVERT = 250L
+/** The mouse did not confirm a divert: try again this soon instead of at the next check. */
+private const val DIVERT_RETRY = 2_000L
+
 private fun now() = System.nanoTime() / 1_000_000
 
 class Engine(
@@ -89,6 +97,16 @@ class Engine(
     private var triggerHaptics: Int? = null
     /** The master mouse was switched away from here; a pulse greets it when it is back. */
     private var awayBySwitch = false
+    /** The wheel mode each master mouse has on this device, by device key. */
+    private val wheelModes = shared.loadWheelModes()
+    /** The master mouse linked again: its wheel mode is put back before it is read. */
+    private var wheelBack = false
+    /** When to try diverting the buttons again, sooner than the next health check. */
+    private var divertDue: Long? = null
+
+    private fun divertSoon(delay: Long) {
+        divertDue = now() + delay
+    }
 
     /** Trigger buttons held down right now (a press counts once until released). */
     private var held = setOf<Int>()
@@ -244,7 +262,12 @@ class Engine(
         if (sourceChanged) {
             scan()
         }
-        if (cfg.enabled) ensureDiverted() else Log.i("paused: the button is back to normal")
+        if (cfg.enabled) {
+            ensureDiverted()
+            syncWheelMode()
+        } else {
+            Log.i("paused: the button is back to normal")
+        }
         if (intensityChanged) applyHapticIntensity()
         if (newWaveform != null) {
             buzz(newWaveform)
@@ -374,6 +397,45 @@ class Engine(
         if (cfg.haptics.onArrive) buzz(cfg.haptics.arriveWaveform)
     }
 
+    /** Keeps this device's wheel mode (ratchet or free-spinning) on the master mouse, with
+     *  `keepWheelMode` and the wheel mode-shift button switching. While the button is
+     *  diverted a press cannot flip the wheel, so a change seen then was made on purpose
+     *  and is remembered. Before the button is taken, as in the moments after the mouse
+     *  arrives, a press flips the wheel; so when the mouse is back, the remembered mode
+     *  is put back first. */
+    private fun syncWheelMode() {
+        if (!cfg.enabled || !cfg.keepWheelMode || !cfg.button(BUTTON_WHEEL_MODE).on) return
+        val d = trigger ?: return
+        if ((d.endpoint to d.index) !in online) return
+        val ep = endpoints.getOrNull(d.endpoint) ?: return
+        if (ep.dead) return
+        try {
+            // Until the button is ours, a press may still flip the wheel.
+            if (d.controlReporting(ep, BUTTON_WHEEL_MODE)?.diverted != true) return
+            val now = d.wheelMode(ep) ?: return
+            val back = wheelBack
+            wheelBack = false
+            val kept = wheelModes[d.key()]
+            fun name(m: Int) = if (m == WHEEL_FREE) "free-spinning" else "ratchet"
+            when {
+                kept == now -> {}
+                kept != null && back -> if (d.setWheelMode(ep, kept)) {
+                    Log.i("wheel of ${d.label()} put back to ${name(kept)} (it came back ${name(now)})")
+                } else {
+                    Log.w("${d.label()} did not take its wheel mode; trying again")
+                    wheelBack = true
+                }
+                else -> {
+                    Log.i("wheel of ${d.label()} is ${name(now)} on this device")
+                    wheelModes[d.key()] = now
+                    shared.saveWheelModes(wheelModes)
+                }
+            }
+        } catch (e: IOException) {
+            Log.d("wheel mode: ${e.message}")
+        }
+    }
+
     /** Plays what the haptics dialog asks to feel, at the strength chosen there (0 = as
      *  the mouse is set); the mouse's own strength is put back afterwards. Quiet without
      *  a mouse with a motor. */
@@ -431,8 +493,10 @@ class Engine(
         for (cid in BUTTONS) {
             val wanted = cfg.button(cid).on
             if (!wanted && originalDivert.containsKey(cid)) continue // release() handles buttons we diverted ourselves
-            // null: the mouse lacks this button, or is not on this device right now.
-            val now = d.controlReporting(ep, cid) ?: continue
+            // null: the mouse lacks this button, or is not on this device right now. A button
+            // it has not answering: the others would not either (each one waits out its
+            // timeout). The next attempt takes them all.
+            val now = d.controlReporting(ep, cid) ?: if (cid in triggerButtons) break else continue
             if (!wanted) {
                 // Left diverted by an earlier run that used this button and was killed.
                 shared.savedOriginalDivert(d.key(), cid)?.let { restoreButton(d, cid, it) }
@@ -455,7 +519,8 @@ class Engine(
                     val how = if (want.rawXy) " with gestures" else ""
                     Log.i("${buttonName(cid)} button diverted$how on ${d.label()}")
                 } else {
-                    Log.w("${d.label()} did not confirm the button setting; retrying later")
+                    Log.w("${d.label()} did not confirm the button setting; retrying soon")
+                    divertSoon(DIVERT_RETRY)
                 }
             }
         }
@@ -492,6 +557,8 @@ class Engine(
      *  Followers go first so the mouse — the thing the user just pressed — leaves last.
      *  Stale pairing slots answer with an error and are skipped on their own. */
     fun switchTo(channel: Int) {
+        // The wheel mode as it leaves, to put back when it returns.
+        syncWheelMode()
         // A pulse on the mouse as it goes, felt before Change Host takes it away.
         if (cfg.haptics.onSwitch && buzz(cfg.haptics.switchWaveform)) Thread.sleep(HAPTIC_SETTLE)
         val t = trigger
@@ -591,6 +658,10 @@ class Engine(
             if (isTrigger(endpoint, slot)) {
                 held = emptySet()
                 gesture = null
+                if (up) {
+                    wheelBack = true
+                    divertSoon(QUICK_DIVERT)
+                }
             }
             if (up) {
                 pending[endpoint to slot] = (now() + SLOT_SETTLE) to SLOT_RETRIES
@@ -649,6 +720,7 @@ class Engine(
                 if (trigger == null || isTrigger(endpoint, slot)) ensureDiverted()
                 if (isTrigger(endpoint, slot)) {
                     readChannel()
+                    syncWheelMode()
                     applyHapticIntensity()
                     greetTrigger()
                 }
@@ -677,6 +749,7 @@ class Engine(
             scan()
             describe()
             ensureDiverted()
+            guard("wheel mode failed") { syncWheelMode() }
             var lastScan = now()
             while (!stopped()) {
                 guard("applying settings failed") { reloadConfig() }
@@ -703,8 +776,14 @@ class Engine(
                 if (rescan || (endpoints.isEmpty() && now() - lastScan > RESCAN_INTERVAL)) {
                     lastScan = now()
                     if (rescan) Log.i("devices changed, rescanning")
+                    val wasHere = trigger?.let { (it.endpoint to it.index) in online } == true
                     guard("rescan failed") { scan() }
-                    if (!stopped()) guard("divert failed") { ensureDiverted() }
+                    if (!stopped()) {
+                        guard("divert failed") { ensureDiverted() }
+                        // A Bluetooth mouse coming back shows up as a new endpoint.
+                        if (!wasHere) wheelBack = true
+                        syncWheelMode()
+                    }
                     backoff = if (endpoints.any { it.dead }) minOf(backoff * 5, MAX_BACKOFF) else 1_000L
                     continue
                 }
@@ -721,6 +800,10 @@ class Engine(
                     }
                 }
 
+                if (divertDue?.let { it <= now() } == true) {
+                    divertDue = null
+                    guard("divert failed") { ensureDiverted() }
+                }
                 guard("refresh failed") { processPending() }
                 if (now() - lastCheck > HEALTH_CHECK) {
                     lastCheck = now()
@@ -728,6 +811,7 @@ class Engine(
                         queueUnlisted()
                         ensureDiverted()
                     }
+                    syncWheelMode()
                 }
             }
         } finally {

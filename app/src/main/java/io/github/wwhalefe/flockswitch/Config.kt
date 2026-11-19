@@ -437,6 +437,10 @@ data class Config(
     /** When a new version is found, download it, check it against the release's
      *  SHA256SUMS.txt and install it (GitHub build only; Android may still ask). */
     val autoUpdate: Boolean = true,
+    /** When the master mouse comes back, put its wheel (ratchet or free-spinning) back
+     *  the way it was here. Only while the wheel mode-shift button switches: a press of
+     *  it on another device before flockswitch there takes the button flips the wheel. */
+    val keepWheelMode: Boolean = true,
     val buttons: Buttons = Buttons(),
     /** Switching at the screen edge. */
     val edges: Edges = Edges(),

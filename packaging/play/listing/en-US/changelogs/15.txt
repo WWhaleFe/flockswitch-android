@@ -1,0 +1,2 @@
+• When the mouse comes back to a computer, its wheel returns to the ratchet or free-spinning mode used there; a press of the wheel mode-shift button right after the mouse arrived here could flip it.
+• The mouse buttons are taken back faster after the mouse reconnects.

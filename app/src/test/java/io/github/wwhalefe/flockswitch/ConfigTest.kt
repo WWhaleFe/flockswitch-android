@@ -226,6 +226,15 @@ class ConfigTest {
     }
 
     @Test
+    fun keepWheelMode() {
+        // On by default, and for settings saved before it existed.
+        assertTrue(Config().keepWheelMode)
+        assertTrue(Config.fromJson("""{"enabled": true}""").keepWheelMode)
+        val off = Config(keepWheelMode = false)
+        assertFalse(Config.fromJson(off.toJson()).keepWheelMode)
+    }
+
+    @Test
     fun unreadableOrUnusableSettingsGiveTheDefaults() {
         assertEquals(Config(), Config.fromJson("not json"))
         val noButton = Config().withButton(BUTTON_WHEEL_MODE, ButtonSetting(on = false))

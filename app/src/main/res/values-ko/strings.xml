@@ -259,6 +259,9 @@
     <string name="backup_delete_failed_title">삭제하지 못했습니다</string>
     <string name="backup_delete_failed">이 저장 위치에서는 flockswitch가 %s 파일을 삭제할 수 없습니다. 대신 목록에서만 뺄 수 있으며, 파일은 그대로 남습니다.</string>
     <string name="backup_forget">목록에서 빼기</string>
+    <string name="keep_wheel_mode">돌아오면 휠 모드 되돌리기</string>
+    <string name="keep_wheel_mode_info">휠 모드 되돌리기 안내</string>
+    <string name="keep_wheel_mode_info_text">이 기기에서 쓰던 휠 모드(걸림·무한 회전)를 기억해 두었다가, 마우스가 돌아오면 그 모드로 되돌립니다.\n\n마우스가 막 도착했을 때는 flockswitch가 아직 버튼을 가져가기 전이라, 그때 이 버튼을 누르면 마우스가 스스로 휠 모드를 바꿉니다. 이 설정은 그렇게 바뀐 휠 모드를 돌아왔을 때 바로잡습니다.</string>
     <string name="backup_info">설정 백업 안내</string>
     <string name="backup_info_title">설정 백업</string>
     <string name="backup_info_text">• flockswitch가 저장한 설정 파일은 %1$d개까지 목록으로 관리합니다. 그만큼 저장되어 있으면 ‘관리’에서 지우거나 정리한 뒤 다시 저장하세요.\n• ‘관리’에는 최근에 저장한 것부터 보이며, 이름을 바꾸거나(.json 확장자는 유지) 기기에서 삭제할 수 있습니다. 다른 곳에서 삭제한 파일은 목록에서 빠집니다.\n• 설정 파일은 다른 안드로이드 휴대전화나 태블릿으로 복사해(케이블, 클라우드, 메일 등) 그 기기의 ‘불러오기’로 불러올 수 있습니다. 목록에 없는 파일도 ‘불러오기’로 열 수 있습니다.\n• 채널은 기기마다 다릅니다. 다른 기기에서 불러온 뒤에는 버튼 탭의 채널을 확인하세요.\n• 컴퓨터 버전은 설정을 다른 방식으로 저장하므로 그 파일은 여기서 불러올 수 없습니다.</string>

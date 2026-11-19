@@ -711,6 +711,20 @@ private fun ButtonsTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
                     update { withButton(cid, if (c == 0) b.copy(on = false) else b.copy(on = true, channels = listOf(c))) }
                 }
             }
+            if (cid == BUTTON_WHEEL_MODE && b.on) {
+                SectionDivider()
+                SwitchRow(
+                    stringResource(R.string.keep_wheel_mode),
+                    cfg.keepWheelMode,
+                    info = {
+                        InfoIcon(
+                            stringResource(R.string.keep_wheel_mode),
+                            stringResource(R.string.keep_wheel_mode_info_text),
+                            stringResource(R.string.keep_wheel_mode_info),
+                        )
+                    },
+                ) { on -> update { copy(keepWheelMode = on) } }
+            }
             if (cid == BUTTON_GESTURE) {
                 SectionDivider()
                 Hint(stringResource(R.string.gesture_hint))

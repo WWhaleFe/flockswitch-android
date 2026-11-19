@@ -1,6 +1,6 @@
 // HID++ 2.0 devices reachable through an endpoint, and the features flockswitch uses:
-// device name (0x0005), Change Host (0x1814), Reprogrammable Controls v4 (0x1B04) and
-// haptics (0x19B0).
+// device name (0x0005), Change Host (0x1814), Reprogrammable Controls v4 (0x1B04),
+// haptics (0x19B0) and SmartShift (0x2110 / 0x2111, the wheel's ratchet).
 
 package io.github.wwhalefe.flockswitch.hidpp
 
@@ -14,6 +14,14 @@ const val FEATURE_REPROG_V4 = 0x1B04
  *  reverse-engineered by Solaar, OpenLogi and others. Function 0 lists the waveforms
  *  the device has (bit N = waveform N; the MX Master 4 offers 0-14 and 27), 4 plays one. */
 const val FEATURE_HAPTIC = 0x19B0
+/** SmartShift wheel (MX Master 3): function 0 reads the wheel mode, 1 sets it. */
+const val FEATURE_SMART_SHIFT = 0x2110
+/** Enhanced SmartShift (MX Master 3S and 4): function 1 reads the wheel mode, 2 sets it. */
+const val FEATURE_SMART_SHIFT_ENHANCED = 0x2111
+
+/** Wheel modes of SmartShift: spinning freely, or clicking (ratchet). */
+const val WHEEL_FREE = 1
+const val WHEEL_RATCHET = 2
 
 /** Keyboards answer slowly when they wake from sleep; 0.6 s was measured to be too short. */
 const val SLOW_TIMEOUT = 2000L
@@ -133,6 +141,25 @@ data class Device(
         return true
     }
 
+    /** The SmartShift feature index and its read function; the write function is the next. */
+    private fun smartShift(): Pair<Int, Int>? =
+        feature(FEATURE_SMART_SHIFT_ENHANCED)?.let { it to 1 } ?: feature(FEATURE_SMART_SHIFT)?.let { it to 0 }
+
+    /** The wheel mode ([WHEEL_FREE] or [WHEEL_RATCHET]); null without SmartShift or when
+     *  the mouse is away. */
+    fun wheelMode(ep: Endpoint): Int? {
+        val (fi, read) = smartShift() ?: return null
+        val r = ep.request(index, fi, read, byteArrayOf(), FAST_TIMEOUT) as? Reply.Ok ?: return null
+        return r.data.u(0).takeIf { it == WHEEL_FREE || it == WHEEL_RATCHET }
+    }
+
+    /** Sets the wheel mode. The other values (SmartShift sensitivity, torque) are sent as
+     *  0, "leave as it is", so what Logi Options+ set for them stays. */
+    fun setWheelMode(ep: Endpoint, mode: Int): Boolean {
+        val (fi, read) = smartShift() ?: return false
+        return ep.request(index, fi, read + 1, byteArrayOf(mode.toByte(), 0, 0), FAST_TIMEOUT) is Reply.Ok
+    }
+
     /** Reads how a control reports right now; null when the device lacks it (or is away). */
     fun controlReporting(ep: Endpoint, cid: Int): Reporting? {
         val fi = feature(FEATURE_REPROG_V4) ?: return null
@@ -231,7 +258,14 @@ fun probeSlot(ep: Endpoint, endpoint: Int, index: Int, pairing: Pairing?): Devic
     // Quietly: paired slots whose device is asleep or away are asked again every 30 s.
     if (featureIndex(ep, index, FEATURE_ROOT, SLOW_TIMEOUT) == null) return null
     val features = mutableMapOf<Int, Int>()
-    for (f in listOf(FEATURE_NAME, FEATURE_CHANGE_HOST, FEATURE_REPROG_V4, FEATURE_HAPTIC)) {
+    for (f in listOf(
+        FEATURE_NAME,
+        FEATURE_CHANGE_HOST,
+        FEATURE_REPROG_V4,
+        FEATURE_HAPTIC,
+        FEATURE_SMART_SHIFT,
+        FEATURE_SMART_SHIFT_ENHANCED,
+    )) {
         featureIndex(ep, index, f, SLOW_TIMEOUT)?.let { features[f] = it }
     }
     val nameFi = features[FEATURE_NAME]

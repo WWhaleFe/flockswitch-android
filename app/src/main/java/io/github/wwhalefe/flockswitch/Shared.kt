@@ -131,6 +131,7 @@ class Shared(private val dir: File) {
     private val configFile = File(dir, "config.json")
     private val catalogFile = File(dir, "devices.json")
     private val buttonStateFile = File(dir, "button-state.json")
+    private val wheelModeFile = File(dir, "wheel-mode.json")
 
     private val _config = MutableStateFlow(load())
     val config: StateFlow<Config> = _config.asStateFlow()
@@ -288,5 +289,20 @@ class Shared(private val dir: File) {
     fun forgetOriginalDivert(device: String, cid: Int) {
         val states = buttonStates()
         if (states.remove(stateKey(device, cid)) != null) saveButtonStates(states)
+    }
+
+    // The wheel mode (SmartShift: 1 free-spinning, 2 ratchet) each master mouse had on
+    // this device, by device key; kept on disk so it is put back even after a restart.
+
+    private val wheelModeSerializer = MapSerializer(String.serializer(), Int.serializer())
+
+    fun loadWheelModes(): MutableMap<String, Int> = runCatching {
+        Config.json.decodeFromString(wheelModeSerializer, wheelModeFile.readText()).toMutableMap()
+    }.getOrElse { mutableMapOf() }
+
+    fun saveWheelModes(modes: Map<String, Int>) {
+        dir.mkdirs()
+        runCatching { wheelModeFile.writeText(Config.json.encodeToString(wheelModeSerializer, modes)) }
+            .onFailure { Log.w("cannot save the wheel mode: ${it.message}") }
     }
 }

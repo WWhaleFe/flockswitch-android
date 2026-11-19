@@ -260,6 +260,9 @@
     <string name="backup_delete_failed_title">Could not delete</string>
     <string name="backup_delete_failed">This storage does not let flockswitch delete %s. You can take it off the list instead; the file stays where it is.</string>
     <string name="backup_forget">Remove from list</string>
+    <string name="keep_wheel_mode">Restore the wheel mode on return</string>
+    <string name="keep_wheel_mode_info">About restoring the wheel mode</string>
+    <string name="keep_wheel_mode_info_text">Remembers the wheel mode used on this device (ratchet or free-spinning) and puts it back when the mouse returns.\n\nRight after the mouse arrives, flockswitch has not taken the button yet, so a press then makes the mouse change its wheel mode by itself. This setting puts that right when the mouse is back.</string>
     <string name="backup_info">About settings backup</string>
     <string name="backup_info_title">Settings backup</string>
     <string name="backup_info_text">• flockswitch keeps a list of up to %1$d settings files it saved. When there are that many, delete some or tidy up in Manage before saving again.\n• Manage lists them newest first: rename a file (it stays a .json file) or delete it from the device. A file deleted elsewhere drops off the list.\n• A settings file can be copied to another Android phone or tablet (by cable, cloud storage, mail…) and loaded there with Load. Load opens any settings file, also one not on the list.\n• Channels are per device: after loading on another device, check the channels on the Buttons tab.\n• The computer versions keep their settings differently; their files cannot be loaded here.</string>

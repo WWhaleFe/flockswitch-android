@@ -20,8 +20,8 @@ android {
         applicationId = "io.github.wwhalefe.flockswitch"
         minSdk = 26
         targetSdk = 36
-        versionCode = 14
-        versionName = "0.10.0"
+        versionCode = 15
+        versionName = "0.11.0"
         buildConfigField("boolean", "PLAY_STORE", playStore.toString())
     }
 
