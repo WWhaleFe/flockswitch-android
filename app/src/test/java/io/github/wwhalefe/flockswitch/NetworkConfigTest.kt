@@ -47,8 +47,8 @@ class NetworkConfigTest {
         val kept = loaded.keepingTrustOf(mine).network
         assertTrue(kept.on && kept.notice_accepted)
         assertEquals(n.peers, kept.peers)
-        assertEquals("file", kept.name)
-        assertEquals(47170, kept.port)
+        assertEquals("mine", kept.name)
+        assertEquals(47161, kept.port)
         assertTrue(root.keys.contains("share_clipboard"))
         assertTrue(n.share_clipboard)
         assertFalse(Config.fromJson(Config(network = n.copy(share_clipboard = false)).toJson()).network.share_clipboard)
