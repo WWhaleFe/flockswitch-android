@@ -24,6 +24,7 @@ android {
         versionCode = 16
         versionName = "2.1.0"
         buildConfigField("boolean", "PLAY_STORE", playStore.toString())
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     sourceSets {
@@ -81,6 +82,13 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
 
     testImplementation("junit:junit:4.13.2")
+
+    // The screenshot test for the store listing (src/androidTest).
+    androidTestImplementation(platform("androidx.compose:compose-bom:2026.09.00"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
 // Builds the shared Rust core (../netcore through flocknet-jni) into jniLibs with

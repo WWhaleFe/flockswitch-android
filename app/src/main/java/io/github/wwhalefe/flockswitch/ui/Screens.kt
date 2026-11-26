@@ -87,6 +87,7 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -217,7 +218,7 @@ private fun theme(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun FlockswitchApp(shared: Shared, actions: Actions) = theme {
+fun FlockswitchApp(shared: Shared, actions: Actions, demoNet: NetStatus? = null) = theme {
     val cfg by shared.config.collectAsStateWithLifecycle()
     val status by shared.status.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -243,6 +244,7 @@ fun FlockswitchApp(shared: Shared, actions: Actions) = theme {
                             NavigationBarItem(
                                 selected = tab == i,
                                 onClick = { tab = i },
+                                modifier = Modifier.testTag("tab$i"),
                                 icon = { Text(t.glyph, style = MaterialTheme.typography.titleLarge) },
                                 label = { Text(stringResource(t.title)) },
                             )
@@ -281,7 +283,7 @@ fun FlockswitchApp(shared: Shared, actions: Actions) = theme {
                     ) {
                         when (Tab.entries[tab]) {
                             Tab.Home -> HomeTab(cfg, status, actions)
-                            Tab.Network -> NetworkTab(cfg, status, update, actions)
+                            Tab.Network -> NetworkTab(cfg, status, update, actions, demoNet)
                             Tab.Logitech -> LogitechTab(cfg, status, update, actions, shared)
                             Tab.Effects -> EffectsTab(cfg, status, update, actions)
                             Tab.General -> GeneralTab(cfg, status, shared.update, shared.backup, shared.saved, shared::setBackup, update, actions)
@@ -1658,17 +1660,18 @@ private fun netRequest(key: String, value: Any): String? {
 }
 
 @Composable
-private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions) {
+private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions, demoNet: NetStatus? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val n = cfg.network
-    var net by remember { mutableStateOf(NetStatus()) }
+    var net by remember { mutableStateOf(demoNet ?: NetStatus()) }
     var error by remember { mutableStateOf<String?>(null) }
     var address by rememberSaveable { mutableStateOf("") }
     var guide by rememberSaveable { mutableStateOf(false) }
     var networkNotice by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(n.on) {
-        while (true) {
+        // A fixed status stands in for the service (the screenshot test).
+        while (demoNet == null) {
             if (NetBridge.available) {
                 net = withContext(Dispatchers.IO) { NetStatus.parse(runCatching { NetBridge.status() }.getOrDefault("")) }
             }
