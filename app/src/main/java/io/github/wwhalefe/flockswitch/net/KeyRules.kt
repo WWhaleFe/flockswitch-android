@@ -14,6 +14,10 @@ class KeyRuleEdits {
     private var known = emptyMap<String, DirRules>()
     private var pending = emptyMap<String, DirRules>()
     private var sent: Map<String, DirRules>? = null
+    private var sentAt = 0L
+    /** False until the master's settings arrived: [known] would be the factory defaults,
+     *  and sending them back would reset the master's rules for every computer. */
+    private var ready = true
     private val changes = Channel<Unit>(Channel.CONFLATED)
     private val display = MutableStateFlow(emptyMap<String, DirRules>())
     val rules = display.asStateFlow()
@@ -25,10 +29,18 @@ class KeyRuleEdits {
         withTimeoutOrNull(timeoutMs) { changes.receive() }
     }
 
-    fun observe(keys: Map<String, DirRules>) {
-        known = keys
+    /** [keys]: the status' rules. [following]: the master's settings have arrived, so
+     *  [keys] are the master's and not defaults. A sent batch the master did not echo
+     *  within [ECHO_TIMEOUT_MS] (an old master without key rules, or another computer
+     *  changed the same direction) is given up and the master's values show again. */
+    fun observe(keys: Map<String, DirRules>, following: Boolean = true, now: Long = nowMs()) {
+        ready = following
+        if (following) known = keys
         sent?.let { batch ->
-            if (batch.all { (key, value) -> keys[key] == value }) {
+            if (following && batch.all { (key, value) -> keys[key] == value }) {
+                pending = pending.filterNot { (key, value) -> batch[key] == value }
+                sent = null
+            } else if (now - sentAt > ECHO_TIMEOUT_MS) {
                 pending = pending.filterNot { (key, value) -> batch[key] == value }
                 sent = null
             }
@@ -42,15 +54,30 @@ class KeyRuleEdits {
         wake()
     }
 
-    fun next(): Map<String, DirRules>? {
-        if (sent != null) return null
+    fun next(now: Long = nowMs()): Map<String, DirRules>? {
+        if (!ready || sent != null) return null
         pending = pending.filterNot { (key, value) -> known[key] == value }
         if (pending.isEmpty()) return null
         sent = pending.toMap()
+        sentAt = now
         return known + pending
     }
 
     fun disconnected() { sent = null }
+
+    /** Forgets everything: another master (or none) is now the one the edits are for. */
+    fun reset() {
+        known = emptyMap()
+        pending = emptyMap()
+        sent = null
+        ready = false
+        display.value = emptyMap()
+    }
+
+    companion object {
+        const val ECHO_TIMEOUT_MS = 5000L
+        private fun nowMs() = System.nanoTime() / 1_000_000
+    }
 }
 
 /** Keep the existing acknowledgement cadence while connected or editing. */

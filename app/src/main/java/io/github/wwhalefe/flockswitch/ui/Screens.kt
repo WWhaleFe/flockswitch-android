@@ -149,6 +149,7 @@ import io.github.wwhalefe.flockswitch.net.DirRules
 import io.github.wwhalefe.flockswitch.net.KeyRules
 import io.github.wwhalefe.flockswitch.net.NetBridge
 import io.github.wwhalefe.flockswitch.net.NetStatus
+import io.github.wwhalefe.flockswitch.net.NetworkConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -1644,10 +1645,16 @@ private fun Tag(text: String) = Surface(shape = MaterialTheme.shapes.small, colo
     Text(text, Modifier.padding(horizontal = 10.dp, vertical = 6.dp), style = MaterialTheme.typography.labelLarge)
 }
 
-/** Sends one request (pair, accept, unpair, ...) to the network service. */
+/** How long the port field must rest before the new port is used. */
+private const val PORT_DEBOUNCE_MS = 700L
+
+/** Sends one request (pair, accept, unpair, ...) to the network service. It is queued on
+ *  the native thread: the main thread never waits for the native lock. Returns null. */
 private fun netRequest(key: String, value: Any): String? {
     if (!NetBridge.available) return null
-    return runCatching { NetBridge.request(org.json.JSONObject().put(key, value).toString()) }.exceptionOrNull()?.message
+    val json = org.json.JSONObject().put(key, value).toString()
+    NetBridge.post { NetBridge.request(json) }
+    return null
 }
 
 @Composable
@@ -1811,7 +1818,8 @@ private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
         }
     }
 
-    KeysSection(live && net.peers.any { p -> p.connected && n.peers.any { it.id == p.id } })
+    // Rules are the master's only once its settings have arrived (before that they are defaults).
+    KeysSection(live && net.following != null && net.peers.any { p -> p.connected && n.peers.any { it.id == p.id } })
 
     Section(stringResource(R.string.net_clipboard)) {
         SwitchRow(stringResource(R.string.net_clipboard_receive), n.share_clipboard, subtitle = stringResource(R.string.net_clipboard_help)) { on ->
@@ -1835,10 +1843,18 @@ private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
         OutlinedTextField(n.name, { value -> update { copy(network = network.copy(name = value)) } },
             label = { Text(stringResource(R.string.net_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         var port by remember(n.port) { mutableStateOf(n.port.toString()) }
-        OutlinedTextField(port, { value ->
-            port = value
-            value.toIntOrNull()?.takeIf { it in 1..65535 }?.let { p -> update { copy(network = network.copy(port = p)) } }
-        }, label = { Text(stringResource(R.string.net_port)) }, singleLine = true, isError = port.toIntOrNull() !in 1..65535)
+        val typedPort = port.toIntOrNull()
+        val portOk = typedPort != null && NetworkConfig.validPort(typedPort)
+        // Each digit typed would rebind the listener and restart mDNS: wait until typing stops.
+        LaunchedEffect(port) {
+            if (portOk && typedPort != n.port) {
+                delay(PORT_DEBOUNCE_MS)
+                update { copy(network = network.copy(port = typedPort)) }
+            }
+        }
+        OutlinedTextField(port, { value -> port = value.filter { it.isDigit() }.take(5) },
+            label = { Text(stringResource(R.string.net_port)) }, singleLine = true, isError = !portOk,
+            supportingText = if (portOk) null else ({ Text(stringResource(R.string.net_port_range)) }))
         if (net.me.id.isNotBlank()) Hint("ID: ${net.me.id}")
     }
 }

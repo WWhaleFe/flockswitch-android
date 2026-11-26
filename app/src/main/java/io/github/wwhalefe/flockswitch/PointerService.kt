@@ -48,6 +48,11 @@ class PointerService : AccessibilityService() {
         (remote ?: io.github.wwhalefe.flockswitch.net.RemoteInput(this).also { remote = it }).action(action)
     }
     fun resetNetworkInput() { remote?.reset() }
+    /** Tells the network service whether it can carry out input; its native lock is never taken here. */
+    private fun setNetReady(ok: Boolean, reason: String?) {
+        val bridge = io.github.wwhalefe.flockswitch.net.NetBridge
+        if (bridge.available) bridge.post { bridge.setReady(ok, reason) }
+    }
     private var wantKeys = false
     /** A trigger is waiting for the mouse's next event. */
     private var waiting = false
@@ -55,7 +60,7 @@ class PointerService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
-        if (io.github.wwhalefe.flockswitch.net.NetBridge.available) io.github.wwhalefe.flockswitch.net.NetBridge.setReady(true, null)
+        setNetReady(true, null)
         shared.setStatus { it.copy(pointerService = true) }
         scope.launch { shared.config.collect(::follow) }
     }
@@ -127,13 +132,13 @@ class PointerService : AccessibilityService() {
         resetNetworkInput()
         instance = null
         shared.setStatus { it.copy(pointerService = false) }
-        if (io.github.wwhalefe.flockswitch.net.NetBridge.available) io.github.wwhalefe.flockswitch.net.NetBridge.setReady(false, getString(R.string.net_accessibility))
+        setNetReady(false, getString(R.string.net_accessibility))
         return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
         resetNetworkInput()
-        if (io.github.wwhalefe.flockswitch.net.NetBridge.available) io.github.wwhalefe.flockswitch.net.NetBridge.setReady(false, getString(R.string.net_accessibility))
+        setNetReady(false, getString(R.string.net_accessibility))
         instance = null
         handler.removeCallbacks(giveUp)
         scope.cancel()
@@ -146,6 +151,7 @@ class PointerService : AccessibilityService() {
 
     companion object {
         /** The running service, while the user has it turned on. Main thread only. */
+        @Volatile
         var instance: PointerService? = null
             private set
     }

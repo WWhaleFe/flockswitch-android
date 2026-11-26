@@ -87,6 +87,46 @@ class KeyRulesTest {
         queue.observe(mapOf("windows>linux" to DirRules()))
         assertEquals(desired, queue.next()!!["mac>android"])
     }
+    @Test fun nothingIsSentBeforeTheMastersSettingsArrive() {
+        val queue = KeyRuleEdits()
+        val desired = KeyRules.defaultFor("mac").copy(capture = false)
+        queue.edit("mac>android", desired)
+        // Connected, but no MasterSettings yet: the status' keys are factory defaults.
+        queue.observe(emptyMap(), following = false)
+        assertNull(queue.next())
+        queue.observe(mapOf("windows>mac" to DirRules(capture = false)), following = true)
+        val sent = queue.next()!!
+        assertEquals(desired, sent["mac>android"])
+        assertEquals(DirRules(capture = false), sent["windows>mac"])
+    }
+
+    @Test fun anEchoThatNeverMatchesIsGivenUpSoLaterEditsGoOut() {
+        val queue = KeyRuleEdits()
+        val base = KeyRules.defaultFor("mac")
+        val first = base.copy(capture = false)
+        queue.observe(mapOf("mac>android" to base), true, now = 0)
+        queue.edit("mac>android", first)
+        assertNotNull(queue.next(now = 0))
+        // An old master never echoes: the batch blocks until the timeout, then the master's value shows.
+        queue.observe(mapOf("mac>android" to base), true, now = KeyRuleEdits.ECHO_TIMEOUT_MS)
+        assertNull(queue.next(now = KeyRuleEdits.ECHO_TIMEOUT_MS))
+        queue.observe(mapOf("mac>android" to base), true, now = KeyRuleEdits.ECHO_TIMEOUT_MS + 1)
+        assertEquals(base, queue.rules.value["mac>android"])
+        queue.edit("mac>android", base.copy(hangul_dst = "control_space"))
+        assertNotNull(queue.next(now = KeyRuleEdits.ECHO_TIMEOUT_MS + 2))
+    }
+
+    @Test fun resetDropsEditsMeantForAnotherMaster() {
+        val queue = KeyRuleEdits()
+        queue.observe(mapOf("mac>android" to KeyRules.defaultFor("mac")))
+        queue.edit("mac>android", KeyRules.defaultFor("mac").copy(capture = false))
+        queue.next()
+        queue.reset()
+        assertFalse(queue.hasPending)
+        assertTrue(queue.rules.value.isEmpty())
+        queue.observe(mapOf("mac>android" to KeyRules.defaultFor("mac")), following = true)
+        assertNull(queue.next())
+    }
     private val mac = "mac"
 
     @Test fun modeTablesMatchNetcore() {

@@ -9,6 +9,7 @@
 - **Update now** (GitHub version): when a newer version is known the update card shows *New version x.y.z* with **Update now**, which downloads it, checks its SHA256 and installs it at once
 - The JNI library is also built for **armeabi-v7a** (32-bit ARM phones and tablets), next to arm64-v8a and x86_64
 - Google Play version: it keeps the network permission only to reach computers you paired on your own network; it still has no update check and never contacts GitHub. The accessibility disclosure and the privacy policy now describe carrying out input from paired computers (see `packaging/play/PLAY_2_1.md`)
+- Fixes after review: a settings file or restored backup no longer brings the network switch, the accepted notice or paired computers (they belong to the install's own key); clipboard receiving off on this device is kept even when the master has it on, and copied files are removed instead of piling up; images are handled one at a time in order from the cache; key rule edits wait for the master's settings and are dropped on unpair; the native service is no longer waited for on the main thread; network-only mode starts after boot and update, and the background service stops when everything is off; the pointer follows the real screen on notch phones and after rotation; ports must be 1024-65535 (not 5353, 47851, 47852) and apply after typing stops; Android 13+ no longer asks for window content. On Android 13+ the Korean/English key still cannot switch the on-screen keyboard (see README)
 - Version 2.1.0 (versionCode 16)
 
 ## 0.11.0 - 2026-11-19

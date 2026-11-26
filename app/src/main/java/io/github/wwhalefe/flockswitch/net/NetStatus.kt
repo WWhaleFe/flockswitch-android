@@ -30,6 +30,8 @@ data class NetStatus(
     val layout: List<NetCell> = emptyList(),
     val reconnecting: Boolean = false,
     val keys: Map<String, DirRules> = emptyMap(),
+    /** The master's name once its settings arrived (null before, and while not connected). */
+    val following: String? = null,
 ) {
     /** The state of a paired computer, if the service knows it. */
     fun peer(id: String) = peers.firstOrNull { it.id == id }

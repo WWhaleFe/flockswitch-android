@@ -68,6 +68,8 @@ class SwitchService : Service() {
         shared.setStatus { it.copy(serviceBlocked = false) }
         network = io.github.wwhalefe.flockswitch.net.NetworkReceiver(this, shared)
         scope.launch { shared.config.map { it.network }.distinctUntilChanged().collect { network?.sync(it) } }
+        // Nothing left to do (buttons off, no network receiving): no notification and no engine loop.
+        scope.launch { shared.config.map { it.serviceNeeded() }.distinctUntilChanged().collect { if (!it) stopSelf() } }
         val stop = shared.newRun()
         val previous = engineThread
         thread = Thread({ loop(previous, stop) }, "flockswitch-engine").also {

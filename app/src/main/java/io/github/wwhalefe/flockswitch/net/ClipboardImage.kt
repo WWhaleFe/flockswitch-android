@@ -9,6 +9,8 @@ object ClipboardImage {
     /** The newest few stay so an app pasting a moment later can still read its image. */
     const val KEEP = 2
     const val SUBDIR = "clipboard"
+    /** Where the native side puts an image until [store] takes it (one file per image). */
+    const val STAGING_SUBDIR = "clipboard-staging"
 
     fun fits(size: Long) = size in 1..MAX_BYTES
 

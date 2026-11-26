@@ -8,7 +8,10 @@ use serde_json::{json, Value};
 use std::{
     collections::VecDeque,
     ptr::null_mut,
-    sync::{Arc, Condvar, Mutex, OnceLock},
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc, Condvar, Mutex, OnceLock,
+    },
     time::{Duration, Instant},
 };
 
@@ -57,8 +60,13 @@ impl Model {
 struct Android {
     model: Mutex<Model>,
     ready: Mutex<(bool, String)>,
-    /// App files directory: received images are staged here for the Kotlin side.
+    /// App files directory: received files land under it (and are dropped again).
     dir: Mutex<String>,
+    /// App cache folder for received images, handed to the Kotlin side one by one.
+    stage: Mutex<String>,
+    /// This device's own "receive the clipboard" switch. The master's value reaches
+    /// netcore's config and overrides the local one there, so it is kept apart here.
+    receive: AtomicBool,
 }
 struct Runtime {
     service: Option<Service>,
@@ -144,13 +152,25 @@ impl Platform for Android {
         push(self.model.lock().unwrap().action(ev));
     }
     fn set_clipboard_text(&self, text: &str) {
+        if !self.receive.load(Ordering::Relaxed) {
+            return;
+        }
         push(json!({"clipboard": {"text": text}}));
     }
     fn set_clipboard_image_png(&self, png: &[u8]) {
-        let dir = self.dir.lock().unwrap().clone();
-        if let Some(path) = stage_image(&dir, png) {
+        if !self.receive.load(Ordering::Relaxed) {
+            return;
+        }
+        let stage = self.stage.lock().unwrap().clone();
+        if let Some(path) = stage_image(&stage, png) {
             push(json!({"clipboard": {"image": path}}));
         }
+    }
+    /// Android has no place to put copied files (the screen says they are not received),
+    /// so what netcore saved is removed again instead of piling up in internal storage.
+    fn set_clipboard_files(&self, files: &[std::path::PathBuf]) {
+        let base = self.dir.lock().unwrap().clone();
+        remove_received(&base, files);
     }
     fn ready(&self) -> Result<(), String> {
         let r = self.ready.lock().unwrap();
@@ -163,22 +183,72 @@ impl Platform for Android {
 }
 /// The largest image put on the clipboard (the Kotlin side keeps the same cap).
 const MAX_IMAGE_BYTES: usize = 32 * 1024 * 1024;
-const STAGED_IMAGE: &str = "clipboard-incoming.png";
-/// Writes the PNG next to the settings (temp file, then rename) and returns its path.
-/// Too large or empty images, and a missing folder, are dropped.
+const STAGED_PREFIX: &str = "incoming-";
+static STAGED_COUNT: AtomicU64 = AtomicU64::new(0);
+/// Writes the PNG into the staging folder under a name of its own (temp file, then
+/// rename) and returns its path. Too large or empty images, and a missing folder, are
+/// dropped.
 fn stage_image(dir: &str, png: &[u8]) -> Option<String> {
     if dir.is_empty() || png.is_empty() || png.len() > MAX_IMAGE_BYTES {
         return None;
     }
     let dir = std::path::Path::new(dir);
-    let tmp = dir.join(format!("{STAGED_IMAGE}.tmp"));
-    let path = dir.join(STAGED_IMAGE);
+    std::fs::create_dir_all(dir).ok()?;
+    let n = STAGED_COUNT.fetch_add(1, Ordering::Relaxed);
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos());
+    let name = format!("{STAGED_PREFIX}{stamp}-{n}.png");
+    let tmp = dir.join(format!("{name}.tmp"));
+    let path = dir.join(name);
     std::fs::write(&tmp, png).ok()?;
     if std::fs::rename(&tmp, &path).is_err() {
         let _ = std::fs::remove_file(&tmp);
         return None;
     }
     Some(path.to_string_lossy().into_owned())
+}
+/// Removes every staged image (and half-written one) that nobody picked up.
+fn clear_stage(dir: &str) {
+    if dir.is_empty() {
+        return;
+    }
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for e in entries.flatten() {
+            if e.file_name().to_string_lossy().starts_with(STAGED_PREFIX) {
+                let _ = std::fs::remove_file(e.path());
+            }
+        }
+    }
+}
+/// Where netcore saves received files when the platform names no folder.
+fn received_root(base: &str) -> std::path::PathBuf {
+    std::path::Path::new(base).join("flockswitch").join("received")
+}
+/// Deletes received files (only inside the received folder) or, with none named, the
+/// whole folder; also the single staged image the first version kept in the base folder.
+fn remove_received(base: &str, files: &[std::path::PathBuf]) {
+    if base.is_empty() {
+        return;
+    }
+    let root = received_root(base);
+    for f in files {
+        if !f.starts_with(&root) || f == &root {
+            continue;
+        }
+        if f.is_dir() {
+            let _ = std::fs::remove_dir_all(f);
+        } else {
+            let _ = std::fs::remove_file(f);
+        }
+    }
+}
+fn clear_received(base: &str) {
+    if base.is_empty() {
+        return;
+    }
+    let _ = std::fs::remove_dir_all(received_root(base));
+    let _ = std::fs::remove_file(std::path::Path::new(base).join("clipboard-incoming.png"));
 }
 fn string(env: &mut JNIEnv, s: JString) -> String {
     env.get_string(&s).map(Into::into).unwrap_or_default()
@@ -210,12 +280,14 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_start(
     _: JObject,
     config: JString,
     base: JString,
+    stage: JString,
     name: JString,
     w: jint,
     h: jint,
 ) -> jstring {
     let config = string(&mut env, config);
     let base = string(&mut env, base);
+    let stage = string(&mut env, stage);
     let name = string(&mut env, name);
     let result = (|| -> anyhow::Result<()> {
         let mut c = android_config(&config, &base)?;
@@ -227,12 +299,17 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_start(
             s.stop();
         }
         queue().reset(None);
+        // Leftovers of an earlier run (images nobody took, files netcore saved).
+        clear_stage(&stage);
+        clear_received(&base);
         *r.platform.model.lock().unwrap() = Model {
             w,
             h,
             ..Default::default()
         };
         *r.platform.dir.lock().unwrap() = base.clone();
+        *r.platform.stage.lock().unwrap() = stage;
+        r.platform.receive.store(c.share_clipboard, Ordering::Relaxed);
         r.base = base;
         r.service = Some(Service::start(c, r.platform.clone(), android_hooks())?);
         Ok(())
@@ -249,6 +326,9 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_stop(
         s.stop();
     }
     queue().reset(Some(json!({"cursor":{"visible":false}})));
+    // The queue was emptied, so images staged for it will never be picked up.
+    clear_stage(&r.platform.stage.lock().unwrap());
+    clear_received(&r.platform.dir.lock().unwrap());
 }
 #[no_mangle]
 pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_setScreen(
@@ -262,7 +342,11 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_setScre
     m.w = w.max(1);
     m.h = h.max(1);
     let (x, y) = (m.x, m.y);
-    m.position(x, y);
+    let cursor = m.position(x, y);
+    // The overlay must follow the clamped position now, not at the next move.
+    if m.controlled {
+        push(cursor);
+    }
 }
 #[no_mangle]
 pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_setReady(
@@ -287,6 +371,7 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_updateC
     let text = string(&mut env, c);
     let r = runtime().lock().unwrap();
     if let (Ok(c), Some(s)) = (android_config(&text, &r.base), &r.service) {
+        r.platform.receive.store(c.share_clipboard, Ordering::Relaxed);
         let _ = s.update_config(c);
     }
 }
@@ -433,6 +518,15 @@ mod tests {
         let d = dir.to_str().unwrap();
         let path = stage_image(d, b"\x89PNG data").unwrap();
         assert_eq!(std::fs::read(&path).unwrap(), b"\x89PNG data");
+        // Every image gets a file of its own, so a second cannot overwrite the first.
+        let second = stage_image(d, b"second").unwrap();
+        assert_ne!(path, second);
+        assert_eq!(std::fs::read(&path).unwrap(), b"\x89PNG data");
+        std::fs::write(dir.join("keep.txt"), b"x").unwrap();
+        clear_stage(d);
+        assert!(!std::path::Path::new(&path).exists());
+        assert!(!std::path::Path::new(&second).exists());
+        assert!(dir.join("keep.txt").exists());
         assert!(stage_image(d, &[]).is_none());
         assert!(stage_image(d, &vec![0; MAX_IMAGE_BYTES + 1]).is_none());
         assert!(stage_image("", b"x").is_none());
@@ -580,6 +674,61 @@ mod tests {
         assert_eq!(
             m.action(&InputEvent::Scroll { dx: 0.5, dy: -1. }),
             json!({"type":"Scroll","dx":0.5,"dy":-1.})
+        );
+    }
+
+    #[test]
+    fn clipboard_is_dropped_when_this_device_does_not_receive() {
+        let _guard = GLOBAL_ACTIONS.lock().unwrap();
+        queue().reset(None);
+        let platform = Android::default();
+        platform.set_clipboard_text("hello");
+        platform.set_clipboard_image_png(b"png");
+        assert_eq!(queue().next(Duration::ZERO), None);
+        platform.receive.store(true, Ordering::Relaxed);
+        platform.set_clipboard_text("hello");
+        let action = queue().next(Duration::ZERO).unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&action).unwrap(),
+            json!({"clipboard":{"text":"hello"}})
+        );
+    }
+
+    #[test]
+    fn received_files_are_removed_but_only_inside_the_received_folder() {
+        let base = std::env::temp_dir().join(format!("flockswitch-recv-{}", std::process::id()));
+        let b = base.to_str().unwrap();
+        let root = received_root(b);
+        std::fs::create_dir_all(root.join("folder")).unwrap();
+        std::fs::write(root.join("a.txt"), b"a").unwrap();
+        std::fs::write(root.join("folder").join("b.txt"), b"b").unwrap();
+        let outside = base.join("outside.txt");
+        std::fs::write(&outside, b"x").unwrap();
+        remove_received(b, &[root.join("a.txt"), root.join("folder"), outside.clone()]);
+        assert!(!root.join("a.txt").exists());
+        assert!(!root.join("folder").exists());
+        assert!(outside.exists());
+        std::fs::write(root.join("c.txt"), b"c").unwrap();
+        clear_received(b);
+        assert!(!root.exists());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn rotating_a_controlled_screen_publishes_the_clamped_cursor() {
+        let _guard = GLOBAL_ACTIONS.lock().unwrap();
+        let mut m = Model {
+            w: 100,
+            h: 50,
+            ..Default::default()
+        };
+        m.control_warp(90., 40.);
+        m.w = 50;
+        m.h = 100;
+        let (x, y) = (m.x, m.y);
+        assert_eq!(
+            m.position(x, y),
+            json!({"cursor":{"x":49.,"y":40.,"visible":true}})
         );
     }
 }

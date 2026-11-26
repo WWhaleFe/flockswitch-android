@@ -20,14 +20,20 @@ import io.github.wwhalefe.flockswitch.*
 import org.json.JSONObject
 import kotlinx.coroutines.*
 import java.io.File
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** Owned by SwitchService. JNI waits never run on the main thread. */
+/** Owned by SwitchService. Everything that takes the native lock or waits for the service
+ *  runs in order on [NetBridge]'s own thread, never on the main thread; the fields below
+ *  that are not volatile belong to that thread. */
 class NetworkReceiver(private val context: Context, private val shared: Shared) {
     private val main = Handler(Looper.getMainLooper())
     private var multicast: WifiManager.MulticastLock? = null
     private var worker: Thread? = null
     private var active = AtomicBoolean(false)
+    /** Received images are stored and put on the clipboard one at a time, in arrival order. */
+    private var clips: ExecutorService? = null
     @Volatile private var current: NetworkConfig? = null
     private val gate = ReconnectGate()
     private var keyRulesJob: Job? = null
@@ -42,7 +48,10 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
     private val deviceName: String get() = Settings.Global.getString(context.contentResolver, "device_name") ?: Build.MODEL
     fun sync(config: NetworkConfig) {
         if (!NetBridge.available) return
-        if (!config.on || !config.notice_accepted) { stop(); return }
+        NetBridge.post { syncNow(config) }
+    }
+    private fun syncNow(config: NetworkConfig) {
+        if (!config.on || !config.notice_accepted) { stopNow(); return }
         if (current != null) {
             NetBridge.updateConfig(config.toCoreJson(deviceName))
             current = config
@@ -54,13 +63,15 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
                 .createMulticastLock("flockswitch-mdns").apply { setReferenceCounted(false); acquire() }
             val dm = screenMetrics(context)
             NetBridge.setReady(PointerService.instance != null, context.getString(R.string.net_accessibility))
-            val error = NetBridge.start(config.toCoreJson(deviceName), context.filesDir.absolutePath, deviceName, dm.widthPixels, dm.heightPixels)
+            val staging = File(context.cacheDir, ClipboardImage.STAGING_SUBDIR).absolutePath
+            val error = NetBridge.start(config.toCoreJson(deviceName), context.filesDir.absolutePath, staging, deviceName, dm.widthPixels, dm.heightPixels)
             NetBridge.startError = error
-            if (error != null) { Log.w("network: $error"); stop(); return }
+            if (error != null) { Log.w("network: $error"); stopNow(); return }
             current = config
             monitorNetwork()
             val running = AtomicBoolean(true)
             active = running
+            clips = Executors.newSingleThreadExecutor { r -> Thread(r, "flockswitch-clip-image") }
             worker = Thread({
                 while (running.get()) {
                     val action = NetBridge.nextAction(500) ?: continue
@@ -74,9 +85,10 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
                         try {
                             val status = withContext(Dispatchers.IO) { NetStatus.parse(NetBridge.status()) }
                             val edits = shared.keyRuleEdits
-                            edits.observe(status.keys)
+                            // Rules are only the master's once its settings arrived.
+                            edits.observe(status.keys, status.following != null)
                             connected = status.running && status.peers.any { p -> p.connected && current?.peers?.any { it.id == p.id } == true }
-                            if (connected) {
+                            if (connected && status.following != null) {
                                 edits.next()?.let { keys ->
                                     withContext(Dispatchers.IO) { NetBridge.sendKeyRules(KeyRules.toJson(keys)) }
                                 }
@@ -90,12 +102,15 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
                     }
                 } finally { shared.keyRuleEdits.disconnected() }
             }
-        } catch (e: Exception) { NetBridge.startError = e.message; Log.w("network: ${e.message}"); stop() }
+        } catch (e: Exception) { NetBridge.startError = e.message; Log.w("network: ${e.message}"); stopNow() }
     }
     fun screenChanged() {
         if (current == null) return
-        val dm = screenMetrics(context)
-        NetBridge.setScreen(dm.widthPixels, dm.heightPixels)
+        NetBridge.post {
+            if (current == null) return@post
+            val dm = screenMetrics(context)
+            NetBridge.setScreen(dm.widthPixels, dm.heightPixels)
+        }
     }
     private fun consume(text: String) = runCatching {
         val a = JSONObject(text)
@@ -107,8 +122,12 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
             a.has("paired") -> {
                 val p = Config.json.decodeFromString(NetworkPeer.serializer(), a.getJSONObject("paired").toString())
                 shared.updateConfig { it.copy(network = it.network.copy(peers = it.network.peers.filterNot { peer -> peer.id == p.id } + p)) }
+                shared.keyRuleEdits.reset()
             }
-            a.has("unpaired") -> shared.updateConfig { it.copy(network = it.network.copy(peers = it.network.peers.filterNot { p -> p.id == a.getString("unpaired") })) }
+            a.has("unpaired") -> {
+                shared.updateConfig { it.copy(network = it.network.copy(peers = it.network.peers.filterNot { p -> p.id == a.getString("unpaired") })) }
+                shared.keyRuleEdits.reset()
+            }
             a.has("switch") -> shared.requestSwitch(a.getInt("switch"))
             a.has("clipboard") -> {
                 val c = a.getJSONObject("clipboard")
@@ -124,29 +143,37 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
         val manager = context.getSystemService(ClipboardManager::class.java)
         manager.setPrimaryClip(ClipData.newPlainText("flockswitch", text))
     }
-    /** The staged PNG becomes a cache file behind a content:// URI; the file work is off the main thread. */
+    /** The staged PNG becomes a cache file behind a content:// URI. One worker takes the
+     *  images in the order they came, so a small later image cannot land first and a
+     *  later one never overwrites an earlier one's file. */
     private fun setClipboardImage(staged: File) {
-        if (!shared.config.value.network.share_clipboard) { staged.delete(); return }
-        Thread({
-            runCatching {
-                val dir = File(context.cacheDir, ClipboardImage.SUBDIR)
-                val file = ClipboardImage.store(staged, dir, System.currentTimeMillis()) ?: return@runCatching
-                val uri = FileProvider.getUriForFile(context, context.packageName + ".clipimages", file)
-                main.post {
-                    runCatching {
-                        val clip = ClipData.newUri(context.contentResolver, "flockswitch", uri)
-                        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
-                    }.onFailure { Log.w("clipboard image: ${it.message}") }
-                }
-            }.onFailure { Log.w("clipboard image: ${it.message}") }
-        }, "flockswitch-clip-image").start()
+        val queue = clips
+        val flag = active
+        if (!shared.config.value.network.share_clipboard || queue == null || !flag.get()) { staged.delete(); return }
+        try {
+            queue.execute {
+                runCatching {
+                    if (!flag.get()) { staged.delete(); return@runCatching }
+                    val dir = File(context.cacheDir, ClipboardImage.SUBDIR)
+                    val file = ClipboardImage.store(staged, dir, System.currentTimeMillis()) ?: return@runCatching
+                    val uri = FileProvider.getUriForFile(context, context.packageName + ".clipimages", file)
+                    main.post {
+                        if (!flag.get()) return@post
+                        runCatching {
+                            val clip = ClipData.newUri(context.contentResolver, "flockswitch", uri)
+                            context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
+                        }.onFailure { Log.w("clipboard image: ${it.message}") }
+                    }
+                }.onFailure { Log.w("clipboard image: ${it.message}") }
+            }
+        } catch (_: java.util.concurrent.RejectedExecutionException) { staged.delete() }
     }
     /** Redials the master now: after unlock, screen on and network changes. Not on the main
      *  thread: it takes the native lock. */
     fun reconnect() {
         if (current == null || !NetBridge.available || !gate.allow(System.currentTimeMillis())) return
         shared.keyRuleEdits.wake()
-        Thread({ runCatching { NetBridge.reconnect() } }, "flockswitch-reconnect").start()
+        NetBridge.post { NetBridge.reconnect() }
     }
     /** These system events only matter while the native receiver is running. */
     private fun monitorNetwork() {
@@ -173,6 +200,9 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
         }.onFailure { Log.w("network callback: ${it.message}") }
     }
     fun stop() {
+        NetBridge.post { stopNow() }
+    }
+    private fun stopNow() {
         current = null
         keyRulesJob?.cancel()
         keyRulesJob = null
@@ -183,11 +213,14 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
         networkChanged = null
         connectivity = null
         if (NetBridge.available) NetBridge.stop()
+        // Images not stored yet are gone with the native queue (it removed their files).
+        clips?.shutdownNow()
+        clips = null
         // Finish the old consumer before a new run can read the shared native queue.
         worker?.join(600)
         worker = null
         main.removeCallbacksAndMessages(active)
-        PointerService.instance?.resetNetworkInput()
+        main.post { PointerService.instance?.resetNetworkInput() }
         multicast?.let { if (it.isHeld) it.release() }
         multicast = null
     }

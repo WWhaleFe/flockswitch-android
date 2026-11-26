@@ -279,6 +279,7 @@
     <string name="net_me">이 기기</string>
     <string name="net_name">이름 (비우면 기기 이름)</string>
     <string name="net_port">포트</string>
+    <string name="net_port_range">1024~65535 중에서 5353, 47851, 47852는 쓸 수 없습니다</string>
     <string name="net_nearby">근처 컴퓨터</string>
     <string name="net_pair">짝 맺기</string>
     <string name="net_empty">같은 네트워크에서 flockswitch를 켠 컴퓨터가 여기에 나타납니다</string>

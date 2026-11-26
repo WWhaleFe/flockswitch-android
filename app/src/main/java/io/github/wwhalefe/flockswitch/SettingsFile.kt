@@ -68,9 +68,10 @@ object SettingsFile {
     /** Settings are a few kilobytes; anything much larger is not a settings file. */
     const val MAX_BYTES = 256 * 1024
 
-    /** The file's text: [cfg] with the header in front. */
+    /** The file's text: [cfg] with the header in front. The network switch, the accepted
+     *  notice and the paired computers stay out: they belong to this install's identity. */
     fun write(cfg: Config, header: ExportHeader): String {
-        val settings = Config.json.encodeToJsonElement(Config.serializer(), cfg).jsonObject
+        val settings = Config.json.encodeToJsonElement(Config.serializer(), cfg.withoutNetworkTrust()).jsonObject
         val head = Config.json.encodeToJsonElement(ExportHeader.serializer(), header)
         return Config.json.encodeToString(JsonObject.serializer(), JsonObject(mapOf(HEADER to head) + settings))
     }
@@ -93,8 +94,10 @@ object SettingsFile {
             ?.takeIf { it.app.equals(APP, ignoreCase = true) }
             ?: return ImportResult.Rejected(ImportRejection.NotSettings)
         if (!header.os.equals(OS, ignoreCase = true)) return ImportResult.Rejected(ImportRejection.OtherOs, header.os.ifBlank { "?" })
+        // Whatever the file says, receiving over the network starts off, not agreed to and
+        // paired with nobody: the notice and the code comparison are done on this device.
         val cfg = try {
-            Config.decode(JsonObject(obj - HEADER))
+            Config.decode(JsonObject(obj - HEADER)).withoutNetworkTrust()
         } catch (e: Exception) {
             return ImportResult.Rejected(ImportRejection.Unusable, e.message?.lineSequence()?.firstOrNull())
         }

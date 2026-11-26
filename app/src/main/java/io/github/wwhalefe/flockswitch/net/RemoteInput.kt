@@ -46,7 +46,14 @@ class RemoteInput(private val service: AccessibilityService) {
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
         PixelFormat.TRANSLUCENT,
-    ).apply { gravity = Gravity.TOP or Gravity.LEFT; if (Build.VERSION.SDK_INT >= 30) setFitInsetsTypes(0) }
+    ).apply {
+        gravity = Gravity.TOP or Gravity.LEFT
+        if (Build.VERSION.SDK_INT >= 30) setFitInsetsTypes(0)
+        // Clicks use the whole physical screen (cutout included), so the arrow must be laid
+        // out from the same origin; otherwise a landscape notch pushes it sideways.
+        if (Build.VERSION.SDK_INT >= 30) layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        else if (Build.VERSION.SDK_INT >= 28) layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+    }
     private var left = false
     private val buttons = java.util.ArrayDeque<Triple<Boolean, Float, Float>>()
     private var stroke: GestureDescription.StrokeDescription? = null
@@ -129,6 +136,13 @@ class RemoteInput(private val service: AccessibilityService) {
         }
         return if (capsLock) state or KeyEvent.META_CAPS_LOCK_ON else state
     }
+    /** Android 13+: keys go through the accessibility service's own input connection
+     *  ([AccessibilityService.InputMethod]). It has no composing text and no access to the
+     *  on-screen keyboard, so letters arrive as typed on a US keyboard, and Shift+Space,
+     *  Ctrl+Space and the language key reach the field as plain keys: they cannot switch
+     *  the on-screen keyboard's language or compose Hangul. A Hangul mode of our own
+     *  (committing and deleting syllables) was left out: it would fight the user's own
+     *  keyboard and break whenever the field's cursor moves. See the README. */
     private fun key(usage: Int, down: Boolean) {
         if (usage in 0xe0..0xe7) { if (down) modifiers.add(usage) else modifiers.remove(usage) }
         val code = hidKeyCode(usage) ?: return

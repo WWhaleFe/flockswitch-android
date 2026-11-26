@@ -280,6 +280,7 @@
     <string name="net_me">This device</string>
     <string name="net_name">Name (empty uses device name)</string>
     <string name="net_port">Port</string>
+    <string name="net_port_range">Use 1024 to 65535, not 5353, 47851 or 47852</string>
     <string name="net_nearby">Nearby computers</string>
     <string name="net_pair">Pair</string>
     <string name="net_empty">Computers running flockswitch on this network appear here.</string>

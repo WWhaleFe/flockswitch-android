@@ -465,6 +465,20 @@ data class Config(
         },
     )
 
+    /** Whether the background service has anything to do: the buttons, or receiving over the
+     *  network (which also needs the notice accepted). */
+    fun serviceNeeded(): Boolean = enabled || (network.on && network.notice_accepted)
+
+    /** The copy that may travel to another install: see [io.github.wwhalefe.flockswitch.net.NetworkConfig.withoutTrust].
+     *  If receiving over the network was the only thing on, a button is turned on instead
+     *  (the settings need one when the network is off). */
+    fun withoutNetworkTrust(): Config {
+        val plain = copy(network = network.withoutTrust())
+        return if (network.on && plain.triggers().isEmpty()) plain.copy(buttons = plain.buttons.copy(wheelMode = plain.buttons.wheelMode.let {
+            it.copy(on = true, channels = it.channels.ifEmpty { ButtonSetting().channels })
+        })) else plain
+    }
+
     /** Control IDs of the buttons that are switched on. */
     fun triggers(): List<Int> = BUTTONS.filter { button(it).on }
 
@@ -546,7 +560,13 @@ data class Config(
         fun decode(root: JsonElement): Config = json.decodeFromJsonElement(serializer(), migrate(root)).let {
             // Before 0.9.0 every effect shared one colour, size, direction and shrink:
             // each effect starts from those, so older settings keep their look.
-            it.copy(edges = it.edges.filled())
+            // A port that cannot be listened on (saved by an earlier version while typing)
+            // would make the whole file unusable: take the default instead.
+            it.copy(
+                edges = it.edges.filled(),
+                network = if (io.github.wwhalefe.flockswitch.net.NetworkConfig.validPort(it.network.port)) it.network
+                else it.network.copy(port = io.github.wwhalefe.flockswitch.net.NetworkConfig.DEFAULT_PORT),
+            )
         }
 
         /** Settings from older versions, brought up to date. Before 0.6.0 one switch
