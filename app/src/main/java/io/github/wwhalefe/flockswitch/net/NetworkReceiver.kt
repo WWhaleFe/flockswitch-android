@@ -86,7 +86,8 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
                             val status = withContext(Dispatchers.IO) { NetStatus.parse(NetBridge.status()) }
                             val edits = shared.keyRuleEdits
                             // Rules are only the master's once its settings arrived.
-                            edits.observe(status.keys, status.following != null)
+                            edits.observe(status.keys, status.following != null,
+                                masterTakes = status.masterTakesKeyRules(current?.peers?.map { it.id }?.toSet().orEmpty()))
                             connected = status.running && status.peers.any { p -> p.connected && current?.peers?.any { it.id == p.id } == true }
                             if (connected && status.following != null) {
                                 edits.next()?.let { keys ->

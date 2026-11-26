@@ -317,6 +317,7 @@
     <string name="net_address_invalid">Not an IP address or IP:port</string>
     <string name="net_keys_title">When switching OS (keyboard)</string>
     <string name="net_keys_from">From %s</string>
+    <string name="net_keys_old_master">The master is an older version and cannot change these</string>
     <string name="net_keys_offline">You can change these while connected to the master</string>
     <string name="net_keys_mods">Modifier keys</string>
     <string name="net_keys_mode">How modifier keys are matched</string>

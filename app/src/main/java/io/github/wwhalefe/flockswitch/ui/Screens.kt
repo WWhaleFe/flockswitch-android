@@ -1863,7 +1863,9 @@ private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
  *  rules are the master's: an edit goes to the master, which saves it and hands it to every
  *  computer, and the screen follows when the status brings it back. */
 @Composable
-private fun KeysSection(connected: Boolean) {
+private fun KeysSection(online: Boolean) {
+    val editableNow by LocalContext.current.shared.keyRuleEdits.editable.collectAsStateWithLifecycle()
+    val connected = online && editableNow
     var src by rememberSaveable { mutableStateOf("mac") }
     val edits = LocalContext.current.shared.keyRuleEdits
     val known by edits.rules.collectAsStateWithLifecycle()
@@ -1878,7 +1880,8 @@ private fun KeysSection(connected: Boolean) {
             KeyRules.SOURCES.map { it to stringResource(R.string.net_keys_from, sourceNames.getValue(it)) },
             src,
         ) { src = it }
-        if (!connected) Hint(stringResource(R.string.net_keys_offline))
+        if (!editableNow) Hint(stringResource(R.string.net_keys_old_master))
+        else if (!connected) Hint(stringResource(R.string.net_keys_offline))
         if (Build.VERSION.SDK_INT < 33) Hint(stringResource(R.string.net_keyboard_legacy))
         // Modifier keys.
         KeysHeading(stringResource(R.string.net_keys_mods))

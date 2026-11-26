@@ -21,6 +21,9 @@ class KeyRuleEdits {
     private val changes = Channel<Unit>(Channel.CONFLATED)
     private val display = MutableStateFlow(emptyMap<String, DirRules>())
     val rules = display.asStateFlow()
+    private val allowed = MutableStateFlow(true)
+    /** False while the followed master is a 2.0 one that cannot take key rule edits. */
+    val editable = allowed.asStateFlow()
     internal val hasPending: Boolean get() = sent != null || pending.any { (key, value) -> known[key] != value }
 
     internal fun wake() { changes.trySend(Unit) }
@@ -33,7 +36,13 @@ class KeyRuleEdits {
      *  [keys] are the master's and not defaults. A sent batch the master did not echo
      *  within [ECHO_TIMEOUT_MS] (an old master without key rules, or another computer
      *  changed the same direction) is given up and the master's values show again. */
-    fun observe(keys: Map<String, DirRules>, following: Boolean = true, now: Long = nowMs()) {
+    fun observe(keys: Map<String, DirRules>, following: Boolean = true, now: Long = nowMs(), masterTakes: Boolean = true) {
+        allowed.value = masterTakes
+        if (!masterTakes) {
+            // A 2.0 master never echoes: drop the queue now instead of waiting out the timeout.
+            pending = emptyMap()
+            sent = null
+        }
         ready = following
         if (following) known = keys
         sent?.let { batch ->
@@ -49,6 +58,7 @@ class KeyRuleEdits {
     }
 
     fun edit(key: String, rules: DirRules) {
+        if (!allowed.value) return
         pending = pending + (key to rules)
         display.value = known + pending
         wake()
@@ -71,6 +81,7 @@ class KeyRuleEdits {
         pending = emptyMap()
         sent = null
         ready = false
+        allowed.value = true
         display.value = emptyMap()
     }
 

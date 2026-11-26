@@ -9,7 +9,7 @@ use std::{
     collections::VecDeque,
     ptr::null_mut,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicU64, Ordering},
         Arc, Condvar, Mutex, OnceLock,
     },
     time::{Duration, Instant},
@@ -64,9 +64,6 @@ struct Android {
     dir: Mutex<String>,
     /// App cache folder for received images, handed to the Kotlin side one by one.
     stage: Mutex<String>,
-    /// This device's own "receive the clipboard" switch. The master's value reaches
-    /// netcore's config and overrides the local one there, so it is kept apart here.
-    receive: AtomicBool,
 }
 struct Runtime {
     service: Option<Service>,
@@ -152,15 +149,9 @@ impl Platform for Android {
         push(self.model.lock().unwrap().action(ev));
     }
     fn set_clipboard_text(&self, text: &str) {
-        if !self.receive.load(Ordering::Relaxed) {
-            return;
-        }
         push(json!({"clipboard": {"text": text}}));
     }
     fn set_clipboard_image_png(&self, png: &[u8]) {
-        if !self.receive.load(Ordering::Relaxed) {
-            return;
-        }
         let stage = self.stage.lock().unwrap().clone();
         if let Some(path) = stage_image(&stage, png) {
             push(json!({"clipboard": {"image": path}}));
@@ -263,6 +254,10 @@ fn android_config(text: &str, base: &str) -> serde_json::Result<NetConfig> {
     let mut c: NetConfig = serde_json::from_str(text)?;
     c.role = flock_net::Role::Sub;
     c.config_dir = base.into();
+    // The app's switch is this device's own: netcore keeps it apart from the master's
+    // sharing setting, which the master's settings overwrite.
+    c.receive_clipboard = c.share_clipboard;
+    c.share_clipboard = true;
     Ok(c)
 }
 fn android_hooks() -> Hooks {
@@ -309,7 +304,6 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_start(
         };
         *r.platform.dir.lock().unwrap() = base.clone();
         *r.platform.stage.lock().unwrap() = stage;
-        r.platform.receive.store(c.share_clipboard, Ordering::Relaxed);
         r.base = base;
         r.service = Some(Service::start(c, r.platform.clone(), android_hooks())?);
         Ok(())
@@ -371,7 +365,6 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_updateC
     let text = string(&mut env, c);
     let r = runtime().lock().unwrap();
     if let (Ok(c), Some(s)) = (android_config(&text, &r.base), &r.service) {
-        r.platform.receive.store(c.share_clipboard, Ordering::Relaxed);
         let _ = s.update_config(c);
     }
 }
@@ -678,20 +671,15 @@ mod tests {
     }
 
     #[test]
-    fn clipboard_is_dropped_when_this_device_does_not_receive() {
-        let _guard = GLOBAL_ACTIONS.lock().unwrap();
-        queue().reset(None);
-        let platform = Android::default();
-        platform.set_clipboard_text("hello");
-        platform.set_clipboard_image_png(b"png");
-        assert_eq!(queue().next(Duration::ZERO), None);
-        platform.receive.store(true, Ordering::Relaxed);
-        platform.set_clipboard_text("hello");
-        let action = queue().next(Duration::ZERO).unwrap();
-        assert_eq!(
-            serde_json::from_str::<Value>(&action).unwrap(),
-            json!({"clipboard":{"text":"hello"}})
-        );
+    fn app_receive_switch_becomes_netcores_local_flag() {
+        let off = android_config(r#"{"share_clipboard":false}"#, "/tmp/android").unwrap();
+        assert!(!off.receive_clipboard && !off.receives_clipboard());
+        let on = android_config(r#"{"share_clipboard":true}"#, "/tmp/android").unwrap();
+        assert!(on.receive_clipboard && on.receives_clipboard());
+        // A master that shares nothing still wins over the local switch.
+        let mut c = on;
+        flock_net::MasterSettings { share_clipboard: false, ..Default::default() }.apply_to(&mut c);
+        assert!(c.receive_clipboard && !c.receives_clipboard());
     }
 
     #[test]

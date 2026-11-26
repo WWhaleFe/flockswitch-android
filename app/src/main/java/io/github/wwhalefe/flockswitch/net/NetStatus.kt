@@ -6,13 +6,18 @@ import kotlinx.serialization.Serializable
 // What `NetBridge.status()` returns (netcore's `Status`), as far as the screen uses it.
 
 @Serializable
-data class NetMe(val id: String = "", val name: String = "", val port: Int = 0, val error: String? = null)
+data class NetMe(val id: String = "", val name: String = "", val port: Int = 0, val error: String? = null, val can_send: Boolean = true)
 
 @Serializable
 data class NetFound(val id: String = "", val name: String = "", val os: String = "", val addr: String = "", val paired: Boolean = false)
 
 @Serializable
-data class NetPeerState(val id: String = "", val connected: Boolean = false, val rtt_ms: Double? = null)
+data class NetPeerState(
+    val id: String = "", val connected: Boolean = false, val rtt_ms: Double? = null,
+    val name: String = "", val os: String = "",
+    /** The peer takes key rule edits (a 2.1 master); false for a 2.0 master. */
+    val keyrules: Boolean = false,
+)
 
 @Serializable
 data class NetPairing(val peer_name: String = "", val code: String = "", val stage: String = "", val reason: String? = null)
@@ -33,6 +38,11 @@ data class NetStatus(
     /** The master's name once its settings arrived (null before, and while not connected). */
     val following: String? = null,
 ) {
+    /** Whether the connected master among [ids] takes key rule edits; true while none is
+     *  connected (nothing is known yet, so nothing is given up). */
+    fun masterTakesKeyRules(ids: Set<String>): Boolean =
+        peers.firstOrNull { it.connected && it.id in ids }?.keyrules ?: true
+
     /** The state of a paired computer, if the service knows it. */
     fun peer(id: String) = peers.firstOrNull { it.id == id }
 

@@ -316,6 +316,7 @@
     <string name="net_address_invalid">IP 주소 또는 IP:포트 형식이 아닙니다</string>
     <string name="net_keys_title">OS 전환 시 (키보드)</string>
     <string name="net_keys_from">%s에서</string>
+    <string name="net_keys_old_master">마스터가 이전 버전이라 바꿀 수 없습니다</string>
     <string name="net_keys_offline">마스터와 연결되면 바꿀 수 있습니다</string>
     <string name="net_keys_mods">보조키</string>
     <string name="net_keys_mode">보조키 맞추는 기준</string>

@@ -116,6 +116,30 @@ class KeyRulesTest {
         assertNotNull(queue.next(now = KeyRuleEdits.ECHO_TIMEOUT_MS + 2))
     }
 
+    @Test fun anOldMasterDropsTheQueueAtOnceAndBlocksEdits() {
+        val queue = KeyRuleEdits()
+        val base = KeyRules.defaultFor("mac")
+        queue.observe(mapOf("mac>android" to base), true, now = 0)
+        queue.edit("mac>android", base.copy(capture = false))
+        assertNotNull(queue.next(now = 0))
+        queue.observe(mapOf("mac>android" to base), true, now = 1, masterTakes = false)
+        assertFalse(queue.hasPending)
+        assertFalse(queue.editable.value)
+        assertEquals(base, queue.rules.value["mac>android"])
+        queue.edit("mac>android", base.copy(capture = false))
+        assertNull(queue.next(now = 2))
+        queue.observe(mapOf("mac>android" to base), true, now = 3, masterTakes = true)
+        assertTrue(queue.editable.value)
+    }
+
+    @Test fun statusSaysWhetherTheConnectedMasterTakesKeyRules() {
+        val status = NetStatus.parse(
+            """{"running":true,"me":{"id":"me","can_send":false},"peers":[{"id":"m","connected":true,"keyrules":false,"name":"M","os":"mac"}]}""")
+        assertFalse(status.me.can_send)
+        assertFalse(status.masterTakesKeyRules(setOf("m")))
+        assertTrue(status.masterTakesKeyRules(setOf("other")))
+    }
+
     @Test fun resetDropsEditsMeantForAnotherMaster() {
         val queue = KeyRuleEdits()
         queue.observe(mapOf("mac>android" to KeyRules.defaultFor("mac")))
