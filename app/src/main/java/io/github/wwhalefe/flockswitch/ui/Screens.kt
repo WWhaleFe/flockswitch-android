@@ -380,8 +380,8 @@ private fun Notice(text: String, button: String? = null, onClick: () -> Unit = {
 }
 
 @Composable
-private fun Hint(text: String) =
-    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun Hint(text: String, modifier: Modifier = Modifier) =
+    Text(text, modifier, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
 private enum class ButtonKind { Filled, Outlined, Text }
 
@@ -1247,11 +1247,9 @@ private fun AccessibilityGuide(s: Status, actions: Actions, onClose: () -> Unit)
 /** One system permission: on, or a button that leads to it. */
 @Composable
 private fun PermissionRow(title: String, hint: String, on: Boolean, onSet: () -> Unit) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(LabelGap)) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.weight(1f)) {
-            RowLabel(title)
-            Hint(hint)
-        }
+        RowLabel(title, Modifier.weight(1f))
         if (on) {
             // As wide as the button would be, so both rows line up.
             Box(Modifier.widthIn(min = ButtonMinWidth).heightIn(min = ControlHeight), contentAlignment = Alignment.Center) {
@@ -1260,6 +1258,8 @@ private fun PermissionRow(title: String, hint: String, on: Boolean, onSet: () ->
         } else {
             AppButton(stringResource(R.string.perm_set), onSet, kind = ButtonKind.Filled)
         }
+    }
+    Hint(hint)
     }
 }
 
@@ -1320,16 +1320,16 @@ private fun UpdateSection(cfg: Config, updates: StateFlow<UpdateState>, update: 
             is UpdateState.Installing -> u.version
             else -> null
         }
+        Column(verticalArrangement = Arrangement.spacedBy(LabelGap)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f)) {
-                RowLabel(if (newer != null) stringResource(R.string.update_new_version, newer) else stringResource(R.string.version, BuildConfig.VERSION_NAME))
-                text?.let { Hint(it) }
-            }
+            RowLabel(if (newer != null) stringResource(R.string.update_new_version, newer) else stringResource(R.string.version, BuildConfig.VERSION_NAME), Modifier.weight(1f))
             if (newer != null) {
                 AppButton(stringResource(R.string.update_now), actions.updateNow, kind = ButtonKind.Filled, enabled = !state.busy())
             } else {
                 AppButton(stringResource(R.string.update_check), actions.checkUpdate, enabled = !state.busy())
             }
+        }
+        text?.let { Hint(it) }
         }
         // When installing here does not work, the APK can still be fetched by hand.
         if (state is UpdateState.InstallFailed && (state as UpdateState.InstallFailed).why != UpdateFailure.Cancelled) {
@@ -1693,12 +1693,12 @@ private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
             }
         }
         SectionDivider()
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(LabelGap)) {
-                RowLabel(stringResource(R.string.net_role))
-                Hint(stringResource(R.string.net_role_note))
+        Column(verticalArrangement = Arrangement.spacedBy(LabelGap)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                RowLabel(stringResource(R.string.net_role), Modifier.weight(1f))
+                Tag(stringResource(R.string.net_role_value))
             }
-            Tag(stringResource(R.string.net_role_value))
+            Hint(stringResource(R.string.net_role_note))
         }
         if (!NetBridge.available) Hint(stringResource(R.string.net_missing_library))
         net.me.error?.takeIf { it.isNotBlank() }?.let { Hint(it) }
@@ -1758,7 +1758,7 @@ private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
                 if (side == null) stringResource(R.string.net_master_side_unknown)
                 else stringResource(
                     R.string.net_master_side,
-                    stringResource(when (side) { "left" -> R.string.net_left; "right" -> R.string.net_right; "top" -> R.string.net_top; else -> R.string.net_bottom }),
+                    stringResource(when (side) { "left" -> R.string.net_side_left; "right" -> R.string.net_side_right; "top" -> R.string.net_side_top; else -> R.string.net_side_bottom }),
                 ),
             )
             LabeledControl(stringResource(R.string.net_channel), hint = stringResource(R.string.net_channel_hint)) {
@@ -1833,9 +1833,8 @@ private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
     // The input is reproduced by the accessibility service.
     Card(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Hint(stringResource(R.string.net_accessibility_need))
+            Hint(stringResource(R.string.net_accessibility_need), Modifier.weight(1f))
             if (!s.pointerService) {
-                Spacer(Modifier.weight(1f))
                 AppButton(stringResource(R.string.perm_set), { guide = true })
             }
         }

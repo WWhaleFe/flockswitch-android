@@ -17,6 +17,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.wwhalefe.flockswitch.net.DirRules
 import io.github.wwhalefe.flockswitch.net.NetCell
@@ -119,7 +121,20 @@ class ScreenshotTest {
         return target.createConfigurationContext(config).getString(res)
     }
 
+    /** Closes an ANR or other system dialog ("Wait", "Close app", "OK") so it never lands in a shot. */
+    private fun dismissSystemDialogs() {
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        repeat(3) {
+            val button = listOf("Wait", "Close app", "대기", "앱 닫기")
+                .firstNotNullOfOrNull { device.findObject(By.text(it).pkg("android")) ?: device.findObject(By.text(it).pkg("com.android.systemui")) }
+                ?: return
+            button.click()
+            device.waitForIdle()
+        }
+    }
+
     private fun snap(lang: String, index: Int, name: String) {
+        dismissSystemDialogs()
         rule.waitForIdle()
         Thread.sleep(500)
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()

@@ -290,6 +290,10 @@
     <string name="net_right">오른쪽</string>
     <string name="net_top">위</string>
     <string name="net_bottom">아래</string>
+    <string name="net_side_left">왼쪽</string>
+    <string name="net_side_right">오른쪽</string>
+    <string name="net_side_top">위</string>
+    <string name="net_side_bottom">아래</string>
     <string name="net_channel">로지텍 채널</string>
     <string name="net_unpair">해제</string>
     <string name="perm_nearby">근처 기기</string>
@@ -306,7 +310,7 @@
     <string name="net_no_master">아직 짝 맺은 마스터가 없습니다. 아래에서 컴퓨터를 짝 맺어 주세요</string>
     <string name="net_master_up">마스터 · 연결됨 · %s ms</string>
     <string name="net_master_down">마스터 · 끊김</string>
-    <string name="net_master_side">마스터는 이 화면의 %s에 있습니다(마스터에서 정함)</string>
+    <string name="net_master_side">마스터는 이 화면의 %s에 있습니다 (마스터에서 정함)</string>
     <string name="net_master_side_unknown">마스터의 위치는 마스터에서 정합니다</string>
     <string name="net_channel_hint">그 컴퓨터에서 쓰는 이 마우스·키보드의 채널입니다. 조작이 그 컴퓨터로 넘어가면 이 채널로 바꿉니다</string>
     <string name="net_auto_reconnect">화면을 켜거나 잠금을 풀 때, 네트워크가 바뀔 때 자동으로 다시 연결합니다</string>

@@ -291,6 +291,10 @@
     <string name="net_right">Right</string>
     <string name="net_top">Top</string>
     <string name="net_bottom">Bottom</string>
+    <string name="net_side_left">to the left of</string>
+    <string name="net_side_right">to the right of</string>
+    <string name="net_side_top">above</string>
+    <string name="net_side_bottom">below</string>
     <string name="net_channel">Logitech channel</string>
     <string name="net_unpair">Unpair</string>
     <string name="perm_nearby">Nearby devices</string>
@@ -307,7 +311,7 @@
     <string name="net_no_master">No master is paired yet. Pair a computer below</string>
     <string name="net_master_up">Master · connected · %s ms</string>
     <string name="net_master_down">Master · disconnected</string>
-    <string name="net_master_side">The master is %s of this screen (set on the master)</string>
+    <string name="net_master_side">The master is %s this screen (set on the master)</string>
     <string name="net_master_side_unknown">Where the master sits is set on the master</string>
     <string name="net_channel_hint">The channel this mouse and keyboard use on that computer. They switch to it when control moves there</string>
     <string name="net_auto_reconnect">It reconnects by itself when the screen turns on, the phone is unlocked or the network changes</string>
