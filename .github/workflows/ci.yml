@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, v2.1]
   pull_request:
 
 permissions:
@@ -19,4 +19,15 @@ jobs:
           java-version: 17
       - name: Android platform 37
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" > /dev/null
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - name: cargo-ndk (builds the network library, flocknet-jni)
+        run: cargo install cargo-ndk --locked
+      - name: Use the runner's NDK
+        run: echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
       - run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
+      - name: The APK carries the network library for every ABI
+        run: |
+          apk=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+          for abi in arm64-v8a armeabi-v7a x86_64; do unzip -l "$apk" | grep -q "lib/$abi/libflocknet.so" || { echo "missing lib/$abi/libflocknet.so"; exit 1; }; done
