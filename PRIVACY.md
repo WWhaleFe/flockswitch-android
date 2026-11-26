@@ -22,6 +22,8 @@ It keeps these files in its private app storage, which other apps cannot read:
 | `flockswitch/` (network key files) | This device's network identity (a key pair made on the device) and the keys of the computers you paired, so only they can connect |
 | `devices.json` | Logitech devices seen on this device: product ID, name (e.g. "MX Master 4"), kind (mouse, keyboard) and whether it can be the master mouse - so the settings can list them while they are on another computer |
 | `button-state.json` | How each mouse button was set before flockswitch used it, so it can be put back |
+| `cache/clipboard/` | The last 2 images copied on a paired computer, kept only until newer ones replace them (cache: Android may also clear it) |
+| `cache/clipboard-staging/` | An image while it is being received; removed when it is done or fails |
 | App preferences | The settings files you saved with **Save** (their location, name and time), so **Manage** can list them |
 
 No serial numbers, Bluetooth addresses, account details, names, locations, contacts, or anything you type are stored.
@@ -89,7 +91,7 @@ flockswitch는 개인정보를 수집하지 않으며 사용자에 관한 어떤
 
 flockswitch는 이 기기에 USB로 꽂은 Logitech 수신기나 블루투스로 연결된 Logitech 장치와 Logitech HID++ 프로토콜로 통신합니다. Easy-Switch 채널을 읽고 바꾸며, 사용자가 켠 마우스 버튼을 사용하고, 진동 모터가 있는 마우스에 진동을 보냅니다. 다른 장치와는 통신하지 않습니다.
 
-**네트워크(2.1.0 이상).** **네트워크로 마우스·키보드 받기**가 켜져 있으면 flockswitch는 같은 네트워크에서 대기하며 컴퓨터가 찾을 수 있게 자신을 알리고(mDNS), 짝 맺은 컴퓨터(같은 네트워크에서 찾았거나 IP 주소로 추가한 컴퓨터)에 연결합니다. 짝을 맺을 때는 두 기기에 표시되는 6자리 숫자를 비교하며, 그 뒤의 연결은 암호화(TLS)되고 짝 맺은 컴퓨터의 키만 받아들입니다. 이 연결로 컴퓨터의 마우스 움직임·클릭·스크롤·키 입력, 컴퓨터의 설정(키 규칙 등), 그 컴퓨터에서 복사한 글을 받고, 이 기기의 이름과 화면 크기, 그리고 이 기기에서 바꾼 경우 키 규칙을 돌려보냅니다. 이 기기의 클립보드는 읽지도 보내지도 않습니다. 받기 스위치는 사용자가 켜기 전까지 꺼져 있습니다.
+**네트워크(2.1.0 이상).** **네트워크로 마우스·키보드 받기**가 켜져 있으면 flockswitch는 같은 네트워크에서 대기하며 컴퓨터가 찾을 수 있게 자신을 알리고(mDNS), 짝 맺은 컴퓨터(같은 네트워크에서 찾았거나 IP 주소로 추가한 컴퓨터)에 연결합니다. 짝을 맺을 때는 두 기기에 표시되는 6자리 숫자를 비교하며, 그 뒤의 연결은 암호화(TLS)되고 짝 맺은 컴퓨터의 키만 받아들입니다. 이 연결로 컴퓨터의 마우스 움직임·클릭·스크롤·키 입력, 컴퓨터의 설정(키 규칙 등), 그 컴퓨터에서 복사한 글과 이미지(이미지는 새 이미지로 바뀔 때까지 앱 캐시에 최근 2장만 보관)를 받고, 이 기기의 이름과 화면 크기, 그리고 이 기기에서 바꾼 경우 키 규칙을 돌려보냅니다. 이 기기의 클립보드는 읽지도 보내지도 않습니다. 받기 스위치는 사용자가 켜기 전까지 꺼져 있습니다.
 
 다음 파일을 다른 앱이 읽을 수 없는 앱 전용 저장 공간에 보관합니다.
 
@@ -99,6 +101,8 @@ flockswitch는 이 기기에 USB로 꽂은 Logitech 수신기나 블루투스로
 | `flockswitch/` (네트워크 키 파일) | 이 기기의 네트워크 신원(기기에서 만든 키 쌍)과 짝 맺은 컴퓨터의 키 - 그 컴퓨터만 연결할 수 있게 하기 위함 |
 | `devices.json` | 이 기기에서 본 Logitech 장치의 제품 ID, 이름(예: "MX Master 4"), 종류(마우스·키보드), 마스터 마우스가 될 수 있는지 - 장치가 다른 컴퓨터에 가 있어도 설정에 표시하기 위함 |
 | `button-state.json` | flockswitch가 쓰기 전 각 마우스 버튼의 원래 상태 - 되돌려 놓기 위함 |
+| `cache/clipboard/` | 짝 맺은 컴퓨터에서 복사한 최근 이미지 2장 - 새 이미지로 바뀔 때까지만 보관(캐시이므로 Android가 지울 수도 있음) |
+| `cache/clipboard-staging/` | 받는 중인 이미지 - 받기가 끝나거나 실패하면 지움 |
 | 앱 환경설정 | **저장**으로 저장한 설정 파일의 위치·이름·시각 - **관리**에서 목록을 보여 주기 위함 |
 
 일련번호, 블루투스 주소, 계정 정보, 이름, 위치, 연락처, 사용자가 입력한 내용은 저장하지 않습니다.

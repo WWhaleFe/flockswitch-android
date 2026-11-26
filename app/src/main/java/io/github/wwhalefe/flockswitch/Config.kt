@@ -479,6 +479,13 @@ data class Config(
         })) else plain
     }
 
+    /** This (loaded from a settings file) with the switch, the accepted notice and the paired
+     *  computers of [current] kept: they belong to this install, the other network values
+     *  (name, port, ...) come from the file. */
+    fun keepingTrustOf(current: Config): Config = copy(network = network.copy(
+        on = current.network.on, notice_accepted = current.network.notice_accepted, peers = current.network.peers,
+    ))
+
     /** Control IDs of the buttons that are switched on. */
     fun triggers(): List<Int> = BUTTONS.filter { button(it).on }
 

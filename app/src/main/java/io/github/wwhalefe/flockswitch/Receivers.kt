@@ -29,7 +29,7 @@ class UsbPermissionReceiver : BroadcastReceiver() {
         if (intent.action != ACTION_USB_PERMISSION) return
         if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
             Log.i("USB permission granted")
-            SwitchService.start(context)
+            if (context.shared.config.value.serviceNeeded()) SwitchService.start(context)
         } else {
             Log.w("USB permission refused")
         }

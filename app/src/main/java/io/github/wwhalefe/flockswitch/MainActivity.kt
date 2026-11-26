@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
     private var locatePreview: LocateOverlay? = null
     private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
     private val askNearby = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted && (shared.config.value.enabled || shared.config.value.network.on)) SwitchService.start(this)
+        if (granted && shared.config.value.serviceNeeded()) SwitchService.start(this)
     }
     /** The system's file picker: where to save the settings, and which file to load. */
     private val saveFile = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
@@ -101,7 +101,7 @@ class MainActivity : ComponentActivity() {
         // Ask for any receiver plugged in that may not be used yet; then (or if all is
         // allowed already) make sure the background service runs.
         allowUsb(again = false)
-        if (shared.config.value.enabled || shared.config.value.network.on) SwitchService.start(this)
+        if (shared.config.value.serviceNeeded()) SwitchService.start(this)
         // Files deleted elsewhere drop off the list of saved settings.
         refreshSaved()
     }
@@ -146,7 +146,7 @@ class MainActivity : ComponentActivity() {
 
     private fun setEnabled(on: Boolean) {
         shared.updateConfig { it.copy(enabled = on) }
-        if (on || shared.config.value.network.on) SwitchService.start(this) else SwitchService.stop(this)
+        if (shared.config.value.serviceNeeded()) SwitchService.start(this) else SwitchService.stop(this)
     }
 
     /** Asks for access to the receivers plugged in. On its own (when the screen opens)
@@ -380,7 +380,7 @@ class MainActivity : ComponentActivity() {
 
     /** Puts every loaded setting in place, and starts or stops what they turn on or off. */
     private fun applySettings(cfg: Config, name: String) {
-        if (!shared.updateConfig { cfg }) return shared.setBackup(BackupState.Rejected(ImportRejection.Unusable))
+        if (!shared.updateConfig { cfg.keepingTrustOf(it) }) return shared.setBackup(BackupState.Rejected(ImportRejection.Unusable))
         Log.i("settings loaded from $name")
         setEnabled(cfg.enabled)
         if (cfg.bluetooth && Build.VERSION.SDK_INT >= 31 && !granted(Manifest.permission.BLUETOOTH_CONNECT)) {
