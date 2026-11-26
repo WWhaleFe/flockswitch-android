@@ -6,14 +6,24 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Main-thread queue. Only one snapshot may be awaiting the master's status echo. */
 class KeyRuleEdits {
     private var known = emptyMap<String, DirRules>()
     private var pending = emptyMap<String, DirRules>()
     private var sent: Map<String, DirRules>? = null
+    private val changes = Channel<Unit>(Channel.CONFLATED)
     private val display = MutableStateFlow(emptyMap<String, DirRules>())
     val rules = display.asStateFlow()
+    internal val hasPending: Boolean get() = sent != null || pending.any { (key, value) -> known[key] != value }
+
+    internal fun wake() { changes.trySend(Unit) }
+
+    internal suspend fun awaitChange(timeoutMs: Long) {
+        withTimeoutOrNull(timeoutMs) { changes.receive() }
+    }
 
     fun observe(keys: Map<String, DirRules>) {
         known = keys
@@ -29,6 +39,7 @@ class KeyRuleEdits {
     fun edit(key: String, rules: DirRules) {
         pending = pending + (key to rules)
         display.value = known + pending
+        wake()
     }
 
     fun next(): Map<String, DirRules>? {
@@ -41,6 +52,10 @@ class KeyRuleEdits {
 
     fun disconnected() { sent = null }
 }
+
+/** Keep the existing acknowledgement cadence while connected or editing. */
+internal fun keyRulesPollMs(connected: Boolean, pending: Boolean): Long =
+    if (connected || pending) 200L else 1000L
 
 /** Key rules of one direction ("mac>android"), in the shape netcore's `DirRules` has in
  *  JSON. Android only edits the directions that end here; the master saves them and hands

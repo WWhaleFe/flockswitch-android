@@ -11,9 +11,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.hardware.usb.UsbManager
-import android.net.ConnectivityManager
-import android.net.LinkProperties
-import android.net.Network
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -41,24 +38,6 @@ class SwitchService : Service() {
         override fun onReceive(context: Context, intent: Intent) {
             edges?.relayout(shared.config.value)
             network?.screenChanged()
-        }
-    }
-
-    /** The phone was unlocked or its screen came on: the Wi-Fi link may have slept. */
-    private val wake = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == Intent.ACTION_USER_PRESENT || intent.action == Intent.ACTION_SCREEN_ON) network?.reconnect()
-        }
-    }
-    private var connectivity: ConnectivityManager? = null
-    private val networkChanged = object : ConnectivityManager.NetworkCallback() {
-        // The callback reports the current network once on registering: that is not a change.
-        @Volatile private var seen = false
-        override fun onAvailable(network: Network) = changed()
-        override fun onLinkPropertiesChanged(network: Network, properties: LinkProperties) = changed()
-        private fun changed() {
-            if (!seen) { seen = true; return }
-            network?.reconnect()
         }
     }
 
@@ -116,14 +95,6 @@ class SwitchService : Service() {
             shared.status.map { it.pointerService }.distinctUntilChanged().collect { watcher.relayout(shared.config.value) }
         }
         registerReceiver(screenChanged, IntentFilter(Intent.ACTION_CONFIGURATION_CHANGED))
-        // The network receiver redials its master on unlock, screen on and network changes.
-        registerReceiver(wake, IntentFilter().apply {
-            addAction(Intent.ACTION_USER_PRESENT)
-            addAction(Intent.ACTION_SCREEN_ON)
-        })
-        connectivity = getSystemService(ConnectivityManager::class.java)?.also {
-            runCatching { it.registerDefaultNetworkCallback(networkChanged) }.onFailure { e -> Log.w("network callback: ${e.message}") }
-        }
         // GitHub build: look for a new version now and once a day (nothing in the Play build).
         scope.launch { SelfUpdate.periodic(this@SwitchService) }
     }
@@ -191,10 +162,7 @@ class SwitchService : Service() {
         network?.stop()
         network = null
         if (edges != null) runCatching { unregisterReceiver(screenChanged) }
-        runCatching { unregisterReceiver(wake) }
-        connectivity?.let { runCatching { it.unregisterNetworkCallback(networkChanged) } }
-        connectivity = null
-        edges?.hide()
+        edges?.close()
         edges = null
         // The engine hands the buttons back on its way out, on its own thread; the next
         // run waits for it (see loop).

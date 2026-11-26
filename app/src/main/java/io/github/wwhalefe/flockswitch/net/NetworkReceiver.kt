@@ -2,11 +2,18 @@ package io.github.wwhalefe.flockswitch.net
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.LinkProperties
+import android.net.Network
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import io.github.wwhalefe.flockswitch.*
 import org.json.JSONObject
@@ -22,6 +29,14 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
     @Volatile private var current: NetworkConfig? = null
     private val gate = ReconnectGate()
     private var keyRulesJob: Job? = null
+    private var connectivity: ConnectivityManager? = null
+    private var networkChanged: ConnectivityManager.NetworkCallback? = null
+    private var wakeRegistered = false
+    private val wake = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == Intent.ACTION_USER_PRESENT || intent.action == Intent.ACTION_SCREEN_ON) reconnect()
+        }
+    }
     private val deviceName: String get() = Settings.Global.getString(context.contentResolver, "device_name") ?: Build.MODEL
     fun sync(config: NetworkConfig) {
         if (!NetBridge.available) return
@@ -29,6 +44,7 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
         if (current != null) {
             NetBridge.updateConfig(config.toCoreJson(deviceName))
             current = config
+            shared.keyRuleEdits.wake()
             return
         }
         try {
@@ -40,22 +56,25 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
             NetBridge.startError = error
             if (error != null) { Log.w("network: $error"); stop(); return }
             current = config
+            monitorNetwork()
             val running = AtomicBoolean(true)
             active = running
             worker = Thread({
                 while (running.get()) {
                     val action = NetBridge.nextAction(500) ?: continue
-                    main.post { if (running.get()) consume(action) }
+                    main.postAtTime({ if (running.get()) consume(action) }, running, SystemClock.uptimeMillis())
                 }
             }, "flockswitch-actions").also { it.start() }
             keyRulesJob = CoroutineScope(Dispatchers.Main).launch {
                 try {
                     while (isActive) {
+                        var connected = false
                         try {
                             val status = withContext(Dispatchers.IO) { NetStatus.parse(NetBridge.status()) }
                             val edits = shared.keyRuleEdits
                             edits.observe(status.keys)
-                            if (status.running && status.peers.any { p -> p.connected && current?.peers?.any { it.id == p.id } == true }) {
+                            connected = status.running && status.peers.any { p -> p.connected && current?.peers?.any { it.id == p.id } == true }
+                            if (connected) {
                                 edits.next()?.let { keys ->
                                     withContext(Dispatchers.IO) { NetBridge.sendKeyRules(KeyRules.toJson(keys)) }
                                 }
@@ -65,7 +84,7 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
                             shared.keyRuleEdits.disconnected()
                             Log.w("network key rules: ${e.message}")
                         }
-                        delay(200)
+                        shared.keyRuleEdits.awaitChange(keyRulesPollMs(connected, shared.keyRuleEdits.hasPending))
                     }
                 } finally { shared.keyRuleEdits.disconnected() }
             }
@@ -103,20 +122,51 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
      *  thread: it takes the native lock. */
     fun reconnect() {
         if (current == null || !NetBridge.available || !gate.allow(System.currentTimeMillis())) return
+        shared.keyRuleEdits.wake()
         Thread({ runCatching { NetBridge.reconnect() } }, "flockswitch-reconnect").start()
     }
+    /** These system events only matter while the native receiver is running. */
+    private fun monitorNetwork() {
+        context.registerReceiver(wake, IntentFilter().apply {
+            addAction(Intent.ACTION_USER_PRESENT)
+            addAction(Intent.ACTION_SCREEN_ON)
+        })
+        wakeRegistered = true
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            @Volatile private var seen = false
+            override fun onAvailable(network: Network) = changed()
+            override fun onLinkPropertiesChanged(network: Network, properties: LinkProperties) = changed()
+            private fun changed() {
+                if (!seen) { seen = true; return }
+                reconnect()
+            }
+        }
+        runCatching {
+            context.getSystemService(ConnectivityManager::class.java)?.let {
+                it.registerDefaultNetworkCallback(callback)
+                connectivity = it
+                networkChanged = callback
+            }
+        }.onFailure { Log.w("network callback: ${it.message}") }
+    }
     fun stop() {
+        current = null
         keyRulesJob?.cancel()
         keyRulesJob = null
         active.set(false)
+        if (wakeRegistered) runCatching { context.unregisterReceiver(wake) }
+        wakeRegistered = false
+        networkChanged?.let { callback -> runCatching { connectivity?.unregisterNetworkCallback(callback) } }
+        networkChanged = null
+        connectivity = null
         if (NetBridge.available) NetBridge.stop()
         // Finish the old consumer before a new run can read the shared native queue.
         worker?.join(600)
         worker = null
+        main.removeCallbacksAndMessages(active)
         PointerService.instance?.resetNetworkInput()
         multicast?.let { if (it.isHeld) it.release() }
         multicast = null
-        current = null
     }
 }
 

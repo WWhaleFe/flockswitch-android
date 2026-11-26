@@ -5,6 +5,11 @@ import io.github.wwhalefe.flockswitch.net.KeyRules
 import io.github.wwhalefe.flockswitch.net.NetStatus
 import io.github.wwhalefe.flockswitch.net.ReconnectGate
 import io.github.wwhalefe.flockswitch.net.KeyRuleEdits
+import io.github.wwhalefe.flockswitch.net.keyRulesPollMs
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.int
@@ -15,6 +20,42 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class KeyRulesTest {
+    @Test fun idlePollingBacksOffAndKeepsConnectedAndPendingEditsResponsive() {
+        assertEquals(1000L, keyRulesPollMs(connected = false, pending = false))
+        assertEquals(200L, keyRulesPollMs(connected = true, pending = false))
+        assertEquals(200L, keyRulesPollMs(connected = false, pending = true))
+        assertEquals(200L, keyRulesPollMs(connected = true, pending = true))
+    }
+
+    @Test fun anEditWakesIdlePollingAndStaysPendingUntilAcknowledged() = runBlocking {
+        val queue = KeyRuleEdits()
+        val base = KeyRules.defaultFor("mac")
+        val changed = base.copy(capture = false)
+        queue.observe(mapOf("mac>android" to base))
+        assertFalse(queue.hasPending)
+        val waiting = async(start = CoroutineStart.UNDISPATCHED) {
+            withTimeout(1000) { queue.awaitChange(5000) }
+        }
+        queue.edit("mac>android", changed)
+        waiting.await()
+        assertTrue(queue.hasPending)
+        val sent = queue.next()!!
+        assertTrue(queue.hasPending)
+        queue.observe(sent)
+        assertFalse(queue.hasPending)
+        assertEquals(changed, queue.rules.value["mac>android"])
+    }
+
+    @Test fun configurationAndReconnectCanWakeIdlePolling() = runBlocking {
+        val queue = KeyRuleEdits()
+        val waiting = async(start = CoroutineStart.UNDISPATCHED) {
+            withTimeout(1000) { queue.awaitChange(5000) }
+        }
+        queue.wake()
+        waiting.await()
+        assertFalse(queue.hasPending)
+    }
+
     @Test fun rapidEditsWaitForAcknowledgementAndPreserveOtherDirections() {
         val base = KeyRules.defaultFor("mac")
         val first = base.copy(mod_mode = "position")

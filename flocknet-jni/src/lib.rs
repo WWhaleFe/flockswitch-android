@@ -9,7 +9,7 @@ use std::{
     collections::VecDeque,
     ptr::null_mut,
     sync::{Arc, Condvar, Mutex, OnceLock},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 #[derive(Default)]
@@ -52,7 +52,57 @@ struct Runtime {
     controlled: bool,
 }
 static RUNTIME: OnceLock<Mutex<Runtime>> = OnceLock::new();
-static ACTIONS: OnceLock<(Mutex<VecDeque<String>>, Condvar)> = OnceLock::new();
+static ACTIONS: OnceLock<Actions> = OnceLock::new();
+const RETAINED_ACTIONS: usize = 32;
+
+#[derive(Default)]
+struct Actions {
+    pending: Mutex<VecDeque<String>>,
+    ready: Condvar,
+}
+
+// Input wakes the consumer immediately. Only a visible remote cursor needs frequent
+// checks for a loss of control, since netcore has no control-state callback.
+fn action_wait(controlled: bool, remaining: Duration) -> Duration {
+    remaining.min(Duration::from_millis(if controlled { 20 } else { 500 }))
+}
+
+impl Actions {
+    fn push(&self, value: Value) {
+        self.pending.lock().unwrap().push_back(value.to_string());
+        self.ready.notify_one();
+    }
+
+    fn reset(&self, value: Option<Value>) {
+        // Drop both queued payloads and the allocation retained after a burst.
+        *self.pending.lock().unwrap() = value.into_iter().map(|v| v.to_string()).collect();
+        self.ready.notify_one();
+    }
+
+    fn next(&self, timeout: Duration, mut observe: impl FnMut() -> bool) -> Option<String> {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let controlled = observe();
+            let mut pending = self.pending.lock().unwrap();
+            if let Some(action) = pending.pop_front() {
+                if pending.is_empty() && pending.capacity() > RETAINED_ACTIONS {
+                    pending.shrink_to(RETAINED_ACTIONS);
+                }
+                return Some(action);
+            }
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return None;
+            }
+            pending = self
+                .ready
+                .wait_timeout(pending, action_wait(controlled, left))
+                .unwrap()
+                .0;
+            drop(pending);
+        }
+    }
+}
 fn runtime() -> &'static Mutex<Runtime> {
     RUNTIME.get_or_init(|| {
         Mutex::new(Runtime {
@@ -63,13 +113,11 @@ fn runtime() -> &'static Mutex<Runtime> {
         })
     })
 }
-fn queue() -> &'static (Mutex<VecDeque<String>>, Condvar) {
-    ACTIONS.get_or_init(|| (Mutex::new(VecDeque::new()), Condvar::new()))
+fn queue() -> &'static Actions {
+    ACTIONS.get_or_init(Actions::default)
 }
 fn push(v: Value) {
-    let (q, cv) = queue();
-    q.lock().unwrap().push_back(v.to_string());
-    cv.notify_one();
+    queue().push(v);
 }
 fn observe(r: &mut Runtime) {
     let controlled = r
@@ -161,7 +209,7 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_start(
         if let Some(s) = r.service.take() {
             s.stop();
         }
-        queue().0.lock().unwrap().clear();
+        queue().reset(None);
         *r.platform.model.lock().unwrap() = Model {
             w,
             h,
@@ -183,8 +231,8 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_stop(
     if let Some(s) = r.service.take() {
         s.stop();
     }
-    observe(&mut r);
-    push(json!({"cursor":{"visible":false}}));
+    r.controlled = false;
+    queue().reset(Some(json!({"cursor":{"visible":false}})));
 }
 #[no_mangle]
 pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_setScreen(
@@ -285,29 +333,95 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_nextAct
     _: JObject,
     ms: jint,
 ) -> jstring {
-    // Poll control state even when no input or settings window is active.
-    let deadline = std::time::Instant::now() + Duration::from_millis(ms.clamp(0, 5000) as u64);
-    loop {
-        observe(&mut runtime().lock().unwrap());
-        let (q, cv) = queue();
-        let mut q = q.lock().unwrap();
-        if let Some(s) = q.pop_front() {
-            return java(&env, Some(s));
-        }
-        let left = deadline.saturating_duration_since(std::time::Instant::now());
-        if left.is_zero() {
-            return null_mut();
-        }
-        q = cv
-            .wait_timeout(q, left.min(Duration::from_millis(20)))
-            .unwrap()
-            .0;
-        drop(q);
-    }
+    let action = queue().next(Duration::from_millis(ms.clamp(0, 5000) as u64), || {
+        let mut r = runtime().lock().unwrap();
+        observe(&mut r);
+        r.controlled
+    });
+    java(&env, action)
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn idle_wait_backs_off_but_control_and_deadline_keep_their_latency() {
+        let second = Duration::from_secs(1);
+        assert_eq!(action_wait(false, second), Duration::from_millis(500));
+        assert_eq!(action_wait(true, second), Duration::from_millis(20));
+        for controlled in [false, true] {
+            assert_eq!(action_wait(controlled, Duration::ZERO), Duration::ZERO);
+            assert_eq!(
+                action_wait(controlled, Duration::from_millis(3)),
+                Duration::from_millis(3)
+            );
+        }
+    }
+
+    #[test]
+    fn actions_preserve_order_and_stop_releases_the_backlog() {
+        let actions = Actions::default();
+        for i in 0..1024 {
+            actions.push(json!({"clipboard":{"text":format!("payload-{i}")}}));
+        }
+        for i in 0..2 {
+            let action = actions.next(Duration::ZERO, || false).unwrap();
+            assert_eq!(
+                serde_json::from_str::<Value>(&action).unwrap()["clipboard"]["text"],
+                format!("payload-{i}")
+            );
+        }
+        let hide = json!({"cursor":{"visible":false}});
+        actions.reset(Some(hide.clone()));
+        assert_eq!(actions.pending.lock().unwrap().len(), 1);
+        assert!(actions.pending.lock().unwrap().capacity() < 1024);
+        assert_eq!(
+            actions.next(Duration::ZERO, || false),
+            Some(hide.to_string())
+        );
+        actions.reset(None);
+        assert_eq!(actions.pending.lock().unwrap().capacity(), 0);
+        assert_eq!(actions.next(Duration::ZERO, || false), None);
+    }
+
+    #[test]
+    fn drained_bursts_retain_at_most_thirty_two_slots() {
+        let actions = Actions::default();
+        for i in 0..1024 {
+            actions.push(json!({"type":"Key","usage":i,"down":true}));
+        }
+        assert!(actions.pending.lock().unwrap().capacity() >= 1024);
+        for i in 0..1024 {
+            let action = actions.next(Duration::ZERO, || true).unwrap();
+            assert_eq!(serde_json::from_str::<Value>(&action).unwrap()["usage"], i);
+        }
+        let pending = actions.pending.lock().unwrap();
+        assert!(pending.is_empty());
+        assert!(pending.capacity() <= RETAINED_ACTIONS);
+    }
+
+    #[test]
+    fn input_and_stop_wake_an_idle_consumer() {
+        for stop in [false, true] {
+            let actions = Actions::default();
+            let (tx, rx) = std::sync::mpsc::channel();
+            std::thread::scope(|scope| {
+                let waiter = scope.spawn(|| {
+                    actions.next(Duration::from_secs(5), || {
+                        let _ = tx.send(());
+                        false
+                    })
+                });
+                rx.recv_timeout(Duration::from_secs(1)).unwrap();
+                let value = json!({"cursor":{"visible":!stop}});
+                if stop {
+                    actions.reset(Some(value.clone()));
+                } else {
+                    actions.push(value.clone());
+                }
+                assert_eq!(waiter.join().unwrap(), Some(value.to_string()));
+            });
+        }
+    }
     #[test]
     fn android_config_always_receives_and_preserves_consent() {
         for role in ["master", "sub"] {
@@ -334,7 +448,7 @@ mod tests {
             ..Default::default()
         };
         (android_hooks().on_peer_changed)(p.clone());
-        let mut q = queue().0.lock().unwrap();
+        let mut q = queue().pending.lock().unwrap();
         let action: Value = serde_json::from_str(&q.pop_front().unwrap()).unwrap();
         assert_eq!(action, json!({"peer_changed":p}));
     }
