@@ -57,6 +57,8 @@ impl Model {
 struct Android {
     model: Mutex<Model>,
     ready: Mutex<(bool, String)>,
+    /// App files directory: received images are staged here for the Kotlin side.
+    dir: Mutex<String>,
 }
 struct Runtime {
     service: Option<Service>,
@@ -144,6 +146,12 @@ impl Platform for Android {
     fn set_clipboard_text(&self, text: &str) {
         push(json!({"clipboard": {"text": text}}));
     }
+    fn set_clipboard_image_png(&self, png: &[u8]) {
+        let dir = self.dir.lock().unwrap().clone();
+        if let Some(path) = stage_image(&dir, png) {
+            push(json!({"clipboard": {"image": path}}));
+        }
+    }
     fn ready(&self) -> Result<(), String> {
         let r = self.ready.lock().unwrap();
         if r.0 {
@@ -152,6 +160,25 @@ impl Platform for Android {
             Err(r.1.clone())
         }
     }
+}
+/// The largest image put on the clipboard (the Kotlin side keeps the same cap).
+const MAX_IMAGE_BYTES: usize = 32 * 1024 * 1024;
+const STAGED_IMAGE: &str = "clipboard-incoming.png";
+/// Writes the PNG next to the settings (temp file, then rename) and returns its path.
+/// Too large or empty images, and a missing folder, are dropped.
+fn stage_image(dir: &str, png: &[u8]) -> Option<String> {
+    if dir.is_empty() || png.is_empty() || png.len() > MAX_IMAGE_BYTES {
+        return None;
+    }
+    let dir = std::path::Path::new(dir);
+    let tmp = dir.join(format!("{STAGED_IMAGE}.tmp"));
+    let path = dir.join(STAGED_IMAGE);
+    std::fs::write(&tmp, png).ok()?;
+    if std::fs::rename(&tmp, &path).is_err() {
+        let _ = std::fs::remove_file(&tmp);
+        return None;
+    }
+    Some(path.to_string_lossy().into_owned())
 }
 fn string(env: &mut JNIEnv, s: JString) -> String {
     env.get_string(&s).map(Into::into).unwrap_or_default()
@@ -205,6 +232,7 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_start(
             h,
             ..Default::default()
         };
+        *r.platform.dir.lock().unwrap() = base.clone();
         r.base = base;
         r.service = Some(Service::start(c, r.platform.clone(), android_hooks())?);
         Ok(())
@@ -396,6 +424,20 @@ mod tests {
             assert_eq!(serde_json::from_str::<Value>(&action).unwrap(), expected);
         }
         assert_eq!(queue().next(Duration::ZERO), None);
+    }
+
+    #[test]
+    fn staged_images_respect_the_size_guard() {
+        let dir = std::env::temp_dir().join(format!("flockswitch-stage-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let d = dir.to_str().unwrap();
+        let path = stage_image(d, b"\x89PNG data").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"\x89PNG data");
+        assert!(stage_image(d, &[]).is_none());
+        assert!(stage_image(d, &vec![0; MAX_IMAGE_BYTES + 1]).is_none());
+        assert!(stage_image("", b"x").is_none());
+        assert!(stage_image("/nonexistent-flockswitch-dir", b"x").is_none());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

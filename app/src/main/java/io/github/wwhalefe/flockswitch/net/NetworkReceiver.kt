@@ -15,9 +15,11 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
+import androidx.core.content.FileProvider
 import io.github.wwhalefe.flockswitch.*
 import org.json.JSONObject
 import kotlinx.coroutines.*
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Owned by SwitchService. JNI waits never run on the main thread. */
@@ -108,7 +110,11 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
             }
             a.has("unpaired") -> shared.updateConfig { it.copy(network = it.network.copy(peers = it.network.peers.filterNot { p -> p.id == a.getString("unpaired") })) }
             a.has("switch") -> shared.requestSwitch(a.getInt("switch"))
-            a.has("clipboard") -> if (shared.config.value.network.share_clipboard) setClipboard(a.getJSONObject("clipboard").optString("text"))
+            a.has("clipboard") -> {
+                val c = a.getJSONObject("clipboard")
+                val image = c.optString("image")
+                if (image.isNotEmpty()) setClipboardImage(File(image)) else if (shared.config.value.network.share_clipboard) setClipboard(c.optString("text"))
+            }
             else -> PointerService.instance?.networkAction(a)
         }
     }.onFailure { Log.w("network action: ${it.message}") }
@@ -117,6 +123,23 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
         if (text.isEmpty() || text.length > MAX_CLIPBOARD_CHARS) return
         val manager = context.getSystemService(ClipboardManager::class.java)
         manager.setPrimaryClip(ClipData.newPlainText("flockswitch", text))
+    }
+    /** The staged PNG becomes a cache file behind a content:// URI; the file work is off the main thread. */
+    private fun setClipboardImage(staged: File) {
+        if (!shared.config.value.network.share_clipboard) { staged.delete(); return }
+        Thread({
+            runCatching {
+                val dir = File(context.cacheDir, ClipboardImage.SUBDIR)
+                val file = ClipboardImage.store(staged, dir, System.currentTimeMillis()) ?: return@runCatching
+                val uri = FileProvider.getUriForFile(context, context.packageName + ".clipimages", file)
+                main.post {
+                    runCatching {
+                        val clip = ClipData.newUri(context.contentResolver, "flockswitch", uri)
+                        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
+                    }.onFailure { Log.w("clipboard image: ${it.message}") }
+                }
+            }.onFailure { Log.w("clipboard image: ${it.message}") }
+        }, "flockswitch-clip-image").start()
     }
     /** Redials the master now: after unlock, screen on and network changes. Not on the main
      *  thread: it takes the native lock. */

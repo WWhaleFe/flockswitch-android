@@ -342,10 +342,10 @@
     <string name="hangul_right_alt">오른쪽 Alt</string>
     <string name="net_clipboard">클립보드</string>
     <string name="net_clipboard_receive">클립보드 받기</string>
-    <string name="net_clipboard_help">컴퓨터에서 복사한 글을 이 기기에서 붙여 넣습니다. 이미지와 파일은 받지 않습니다</string>
+    <string name="net_clipboard_help">컴퓨터에서 복사한 글과 이미지를 이 기기에서 붙여 넣습니다. 파일은 받지 않습니다</string>
     <string name="net_accessibility_need">입력을 재현하려면 접근성 서비스가 필요합니다</string>
     <string name="net_notice_title">내 컴퓨터의 입력 받기</string>
-    <string name="net_notice_text">짝 맺은 컴퓨터가 이 기기를 조작하고 클립보드의 글을 바꿀 수 있습니다. 신뢰하는 컴퓨터만 연결하고 두 화면의 코드를 확인하세요. Android나 사용하는 앱에 따라 입력이 제한될 수 있습니다. 동의하고 받기를 켤까요?</string>
+    <string name="net_notice_text">짝 맺은 컴퓨터가 이 기기를 조작하고 클립보드의 글과 이미지를 바꿀 수 있습니다. 신뢰하는 컴퓨터만 연결하고 두 화면의 코드를 확인하세요. Android나 사용하는 앱에 따라 입력이 제한될 수 있습니다. 동의하고 받기를 켤까요?</string>
     <string name="net_keyboard_legacy">Android 8~12L: 지원하는 입력칸에서 영문·숫자·편집·커서 이동을 쓸 수 있습니다. 비밀번호 입력, 일반 앱 단축키, IME 한/영 전환은 지원하지 않습니다. 화면 키보드를 이용하세요.</string>
     <string name="net_keyboard_unavailable">이 입력칸이나 키는 지원하지 않습니다. 비밀번호·한/영 전환은 화면 키보드를 이용하세요.</string>
 </resources>

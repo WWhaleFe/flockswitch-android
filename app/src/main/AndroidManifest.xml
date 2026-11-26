@@ -95,6 +95,17 @@
             </intent-filter>
         </receiver>
 
+        <!-- Only cache/clipboard/: images received from the computer, shared by content:// URI. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.clipimages"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/clipboard_paths" />
+        </provider>
+
         <receiver
             android:name=".UsbPermissionReceiver"
             android:exported="false" />

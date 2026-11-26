@@ -343,10 +343,10 @@
     <string name="hangul_right_alt">Right Alt</string>
     <string name="net_clipboard">Clipboard</string>
     <string name="net_clipboard_receive">Receive the clipboard</string>
-    <string name="net_clipboard_help">Text copied on the computer can be pasted on this device. Images and files are not received</string>
+    <string name="net_clipboard_help">Text and images copied on the computer can be pasted on this device. Files are not received</string>
     <string name="net_accessibility_need">The accessibility service is needed to reproduce input</string>
     <string name="net_notice_title">Receive input from your computers</string>
-    <string name="net_notice_text">A paired computer can control this device and replace its clipboard text. Pair only computers you trust and compare the code on both screens. Input may be limited by Android or the app in use. Do you agree to enable receiving?</string>
+    <string name="net_notice_text">A paired computer can control this device and replace its clipboard text and images. Pair only computers you trust and compare the code on both screens. Input may be limited by Android or the app in use. Do you agree to enable receiving?</string>
     <string name="net_keyboard_legacy">Android 8–12L: letters, numbers, editing and cursor movement work in supported text fields. Password fields, general app shortcuts and Korean/English IME switching are unavailable. Use the on-screen keyboard for those.</string>
     <string name="net_keyboard_unavailable">This field or key is unsupported. Use the on-screen keyboard for passwords and language switching.</string>
 </resources>
