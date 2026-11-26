@@ -183,7 +183,7 @@
     <string name="locate_service_needed">Find the cursor needs the accessibility service.</string>
     <string name="locate_needs_android14">Android gives apps the mouse pointer\'s position only from Android 14 on. On this version only the preview can be shown.</string>
     <string name="pointer_service_label">flockswitch keyboard and pointer</string>
-    <string name="pointer_service_description">Used only for flockswitch settings you turn on. Sees the keyboard to know whether Control is held and to catch Ctrl+Alt+L; every other key passes through untouched and nothing is stored or sent. Reads the mouse pointer\'s position once, at the next movement after you ask to find the cursor.</string>
+    <string name="pointer_service_description">Receive cursor, touch gestures and navigation from paired computers. On Android 13 or later, enter keyboard input into the focused editor. Input is not recorded. Also supports local Control key and find cursor settings.</string>
 
     <string name="reset_button">Reset settings…</string>
     <string name="reset_explain">Puts every setting back to how it started.</string>
@@ -266,4 +266,42 @@
     <string name="backup_info">About settings backup</string>
     <string name="backup_info_title">Settings backup</string>
     <string name="backup_info_text">• flockswitch keeps a list of up to %1$d settings files it saved. When there are that many, delete some or tidy up in Manage before saving again.\n• Manage lists them newest first: rename a file (it stays a .json file) or delete it from the device. A file deleted elsewhere drops off the list.\n• A settings file can be copied to another Android phone or tablet (by cable, cloud storage, mail…) and loaded there with Load. Load opens any settings file, also one not on the list.\n• Channels are per device: after loading on another device, check the channels on the Buttons tab.\n• The computer versions keep their settings differently; their files cannot be loaded here.</string>
+
+    <string name="net_title">Network</string>
+    <string name="net_receive">Receive mouse and keyboard over the network</string>
+    <string name="net_explain">Control this device with a flockswitch computer’s mouse and keyboard on the same network.</string>
+    <string name="net_receive_only">Android receives only. Keyboard input requires Android 13 or later.</string>
+    <string name="net_accessibility">Enable accessibility service</string>
+    <string name="net_missing_library">Network support is unavailable in this installation. Please reinstall the app.</string>
+    <string name="net_pairing">Pairing</string>
+    <string name="net_done">Paired</string>
+    <string name="net_failed">Pairing failed. Try again.</string>
+    <string name="net_peer_accepted">The other computer confirmed. Confirm here too.</string>
+    <string name="net_compare">Confirm if both devices show the same code. Then wait for the other computer.</string>
+    <string name="net_confirm">Confirm</string>
+    <string name="net_cancel">Cancel</string>
+    <string name="net_me">This device</string>
+    <string name="net_name">Name (empty uses device name)</string>
+    <string name="net_port">Port</string>
+    <string name="net_nearby">Nearby computers</string>
+    <string name="net_pair">Pair</string>
+    <string name="net_empty">Computers running flockswitch on this network appear here.</string>
+    <string name="net_disabled">Enable network receiving to find nearby computers.</string>
+    <string name="net_address">IP address or IP:port</string>
+    <string name="net_add_ip">Add by IP</string>
+    <string name="net_peers">Paired computers</string>
+    <string name="net_no_peers">No paired computers yet.</string>
+    <string name="net_connected">Connected</string>
+    <string name="net_offline">Offline</string>
+    <string name="net_position">Position</string>
+    <string name="net_position_info">The side of this device where the computer is placed.</string>
+    <string name="net_left">Left</string>
+    <string name="net_right">Right</string>
+    <string name="net_top">Top</string>
+    <string name="net_bottom">Bottom</string>
+    <string name="net_channel">Logitech channel</string>
+    <string name="net_unpair">Unpair</string>
+    <string name="net_options">Options</string>
+    <string name="net_swap">Swap Cmd and Ctrl between Mac and other systems</string>
+    <string name="net_delay">Edge crossing delay (ms)</string>
 </resources>

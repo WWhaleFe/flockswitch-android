@@ -420,6 +420,7 @@ data class Buttons(
 
 @Serializable
 data class Config(
+    val network: io.github.wwhalefe.flockswitch.net.NetworkConfig = io.github.wwhalefe.flockswitch.net.NetworkConfig(),
     /** Master switch. When false the buttons are left alone. */
     val enabled: Boolean = true,
     /** Which device carries the trigger buttons: "auto" (first mouse that has them),
@@ -480,7 +481,7 @@ data class Config(
                 if (b.on && m.on && m.channels.isEmpty()) out += "$name: turn on at least one channel"
             }
         }
-        if (triggers().isEmpty()) out += "turn on at least one button"
+        if (!network.on && triggers().isEmpty()) out += "turn on at least one button"
         if (Edge.entries.any { edges.channel(it) !in 0..3 }) out += "edges: the channel must be 1, 2, 3 or 0"
         if (edges.dwellMs !in 100..5000) out += "edges: the time at the edge must be 100 to 5000 ms"
         if (parseColor(edges.animColor) == null) out += "edges: the colour must be like #FFCC00"
@@ -496,6 +497,7 @@ data class Config(
             out += "haptics: waveforms are numbered 0 to 31, or random"
         }
         if (haptics.intensity !in 0..100) out += "haptics: the strength must be 0 (as Options+ sets it) or 1-100 percent"
+        out += network.problems()
         return out
     }
 

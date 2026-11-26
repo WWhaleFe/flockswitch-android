@@ -7,4 +7,4 @@
     android:canRetrieveWindowContent="false"
     android:description="@string/pointer_service_description"
     android:notificationTimeout="1000"
-    android:packageNames="io.github.wwhalefe.flockswitch" />
+    android:canPerformGestures="true" />

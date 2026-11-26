@@ -182,7 +182,7 @@
     <string name="locate_service_needed">마우스 찾기를 쓰려면 접근성 서비스를 켜 주세요.</string>
     <string name="locate_needs_android14">안드로이드 14부터 앱에 마우스 포인터 위치를 알려 줍니다. 이 버전에서는 미리 보기만 표시할 수 있습니다.</string>
     <string name="pointer_service_label">flockswitch 키보드와 포인터</string>
-    <string name="pointer_service_description">켜 둔 flockswitch 설정에만 쓰입니다. Control을 누르고 있는지 확인하고 Ctrl+Alt+L을 받기 위해 키보드를 봅니다. 다른 키는 그대로 통과하며 저장하거나 보내지 않습니다. 마우스 찾기를 요청한 뒤 다음 움직임에서 포인터 위치를 한 번 읽습니다.</string>
+    <string name="pointer_service_description">짝 맺은 컴퓨터의 커서, 터치 제스처와 탐색 동작을 받습니다. Android 13 이상에서 현재 입력칸에 키 입력을 전달합니다. 입력을 기록하지 않습니다. 로컬 Control 키 확인과 커서 찾기 설정도 지원합니다.</string>
 
     <string name="reset_button">설정 초기화…</string>
     <string name="reset_explain">모든 설정을 처음 상태로 되돌립니다.</string>
@@ -265,4 +265,42 @@
     <string name="backup_info">설정 백업 안내</string>
     <string name="backup_info_title">설정 백업</string>
     <string name="backup_info_text">• flockswitch가 저장한 설정 파일은 %1$d개까지 목록으로 관리합니다. 그만큼 저장되어 있으면 ‘관리’에서 지우거나 정리한 뒤 다시 저장하세요.\n• ‘관리’에는 최근에 저장한 것부터 보이며, 이름을 바꾸거나(.json 확장자는 유지) 기기에서 삭제할 수 있습니다. 다른 곳에서 삭제한 파일은 목록에서 빠집니다.\n• 설정 파일은 다른 안드로이드 휴대전화나 태블릿으로 복사해(케이블, 클라우드, 메일 등) 그 기기의 ‘불러오기’로 불러올 수 있습니다. 목록에 없는 파일도 ‘불러오기’로 열 수 있습니다.\n• 채널은 기기마다 다릅니다. 다른 기기에서 불러온 뒤에는 버튼 탭의 채널을 확인하세요.\n• 컴퓨터 버전은 설정을 다른 방식으로 저장하므로 그 파일은 여기서 불러올 수 없습니다.</string>
+
+    <string name="net_title">네트워크</string>
+    <string name="net_receive">네트워크로 마우스·키보드 받기</string>
+    <string name="net_explain">같은 네트워크의 flockswitch 컴퓨터의 마우스·키보드로 이 기기를 조작합니다</string>
+    <string name="net_receive_only">Android 는 받기만 됩니다. 키 입력은 Android 13 이상</string>
+    <string name="net_accessibility">접근성 서비스 켜기</string>
+    <string name="net_missing_library">이 설치본에서 네트워크를 사용할 수 없습니다. 앱을 다시 설치해 주세요</string>
+    <string name="net_pairing">짝 맺는 중</string>
+    <string name="net_done">짝을 맺었습니다</string>
+    <string name="net_failed">짝을 맺지 못했습니다. 다시 시도해 주세요</string>
+    <string name="net_peer_accepted">상대가 확인했습니다. 이 기기에서도 확인해 주세요</string>
+    <string name="net_compare">두 기기에 같은 숫자가 보이면 확인을 누르세요. 상대 컴퓨터의 확인을 기다립니다</string>
+    <string name="net_confirm">확인</string>
+    <string name="net_cancel">취소</string>
+    <string name="net_me">이 기기</string>
+    <string name="net_name">이름 (비우면 기기 이름)</string>
+    <string name="net_port">포트</string>
+    <string name="net_nearby">근처 컴퓨터</string>
+    <string name="net_pair">짝 맺기</string>
+    <string name="net_empty">같은 네트워크에서 flockswitch를 켠 컴퓨터가 여기에 나타납니다</string>
+    <string name="net_disabled">네트워크 수신을 켜면 근처 컴퓨터를 찾습니다</string>
+    <string name="net_address">IP 주소 또는 IP:포트</string>
+    <string name="net_add_ip">IP로 추가</string>
+    <string name="net_peers">짝 맺은 컴퓨터</string>
+    <string name="net_no_peers">아직 짝 맺은 컴퓨터가 없습니다</string>
+    <string name="net_connected">연결됨</string>
+    <string name="net_offline">오프라인</string>
+    <string name="net_position">위치</string>
+    <string name="net_position_info">그 컴퓨터가 이 기기 화면의 어느 쪽에 있는지 설정합니다</string>
+    <string name="net_left">왼쪽</string>
+    <string name="net_right">오른쪽</string>
+    <string name="net_top">위</string>
+    <string name="net_bottom">아래</string>
+    <string name="net_channel">로지텍 채널</string>
+    <string name="net_unpair">해제</string>
+    <string name="net_options">옵션</string>
+    <string name="net_swap">Mac과 다른 시스템 사이에서 Cmd와 Ctrl 바꾸기</string>
+    <string name="net_delay">가장자리 전환 대기 (ms)</string>
 </resources>

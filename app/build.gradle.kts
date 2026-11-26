@@ -19,6 +19,7 @@ android {
     defaultConfig {
         applicationId = "io.github.wwhalefe.flockswitch"
         minSdk = 26
+        // Target 37 requires the ACCESS_LOCAL_NETWORK runtime permission.
         targetSdk = 36
         versionCode = 15
         versionName = "0.11.0"
@@ -81,3 +82,24 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
 }
+
+// Builds the shared Rust core (../netcore through flocknet-jni) into jniLibs with
+// cargo-ndk. Where cargo-ndk is missing, the jniLibs already there are used.
+val rustPath = listOf(
+    "${System.getProperty("user.home")}/.cargo/bin",
+    "${System.getProperty("user.home")}/.rustup/toolchains/stable-aarch64-apple-darwin/bin",
+    "/opt/homebrew/bin",
+    System.getenv("PATH") ?: "",
+).joinToString(":")
+val buildRustLibs by tasks.registering(Exec::class) {
+    workingDir(rootProject.file("flocknet-jni"))
+    environment("PATH", rustPath)
+    environment("ANDROID_NDK_HOME", System.getenv("ANDROID_NDK_HOME") ?: "/opt/homebrew/share/android-commandlinetools/ndk/28.2.13676358")
+    commandLine("sh", "-c", "cargo ndk -t arm64-v8a -t x86_64 -o ../app/src/main/jniLibs build --release")
+    onlyIf {
+        rustPath.split(":").any { File(it, "cargo-ndk").canExecute() }.also {
+            if (!it) logger.warn("cargo-ndk unavailable; using existing jniLibs")
+        }
+    }
+}
+tasks.named("preBuild") { dependsOn(buildRustLibs) }

@@ -43,6 +43,11 @@ class PointerService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     /** Made at the first highlight: many users never turn find-the-cursor on. */
     private var overlay: LocateOverlay? = null
+    private var remote: io.github.wwhalefe.flockswitch.net.RemoteInput? = null
+    fun networkAction(action: org.json.JSONObject) {
+        (remote ?: io.github.wwhalefe.flockswitch.net.RemoteInput(this).also { remote = it }).action(action)
+    }
+    fun resetNetworkInput() { remote?.reset() }
     private var wantKeys = false
     /** A trigger is waiting for the mouse's next event. */
     private var waiting = false
@@ -50,6 +55,7 @@ class PointerService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        if (io.github.wwhalefe.flockswitch.net.NetBridge.available) io.github.wwhalefe.flockswitch.net.NetBridge.setReady(true, null)
         shared.setStatus { it.copy(pointerService = true) }
         scope.launch { shared.config.collect(::follow) }
     }
@@ -66,6 +72,7 @@ class PointerService : AccessibilityService() {
         val info = serviceInfo ?: return
         val filter = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
         info.flags = if (wantKeys) info.flags or filter else info.flags and filter.inv()
+        if (Build.VERSION.SDK_INT >= 33) info.flags = info.flags or AccessibilityServiceInfo.FLAG_INPUT_METHOD_EDITOR
         if (Build.VERSION.SDK_INT >= 34) info.motionEventSources = if (waiting) InputDevice.SOURCE_MOUSE else 0
         serviceInfo = info
     }
@@ -112,9 +119,21 @@ class PointerService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
 
-    override fun onInterrupt() {}
+    override fun onInterrupt() {
+        resetNetworkInput()
+    }
+
+    override fun onUnbind(intent: android.content.Intent?): Boolean {
+        resetNetworkInput()
+        instance = null
+        shared.setStatus { it.copy(pointerService = false) }
+        if (io.github.wwhalefe.flockswitch.net.NetBridge.available) io.github.wwhalefe.flockswitch.net.NetBridge.setReady(false, getString(R.string.net_accessibility))
+        return super.onUnbind(intent)
+    }
 
     override fun onDestroy() {
+        resetNetworkInput()
+        if (io.github.wwhalefe.flockswitch.net.NetBridge.available) io.github.wwhalefe.flockswitch.net.NetBridge.setReady(false, getString(R.string.net_accessibility))
         instance = null
         handler.removeCallbacks(giveUp)
         scope.cancel()

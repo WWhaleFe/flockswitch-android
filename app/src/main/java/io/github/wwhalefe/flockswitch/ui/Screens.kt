@@ -187,6 +187,7 @@ private enum class Tab(@StringRes val title: Int, val glyph: String) {
     Home(R.string.tab_home, "⇄"),
     Buttons(R.string.tab_buttons, "◉"),
     Devices(R.string.tab_devices, "⌨"),
+    Network(R.string.net_title, "◎"),
     General(R.string.tab_general, "⚙"),
 }
 
@@ -269,6 +270,7 @@ fun FlockswitchApp(shared: Shared, actions: Actions) = theme {
                             Tab.Home -> HomeTab(cfg, status, actions)
                             Tab.Buttons -> ButtonsTab(cfg, status, update, actions)
                             Tab.Devices -> DevicesTab(cfg, status, update, shared)
+                            Tab.Network -> NetworkTab(cfg, status, update, actions)
                             Tab.General -> GeneralTab(cfg, status, shared.update, shared.backup, shared.saved, shared::setBackup, update, actions)
                         }
                     }
@@ -1586,4 +1588,149 @@ private fun GeneralTab(
         ) { Text(stringResource(R.string.reset_explain)) }
     }
     Spacer(Modifier.height(8.dp))
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions) {
+    val context = LocalContext.current
+    val n = cfg.network
+    var status by remember { mutableStateOf(org.json.JSONObject()) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var address by rememberSaveable { mutableStateOf("") }
+    androidx.compose.runtime.LaunchedEffect(n.on) {
+        while (true) {
+            if (io.github.wwhalefe.flockswitch.net.NetBridge.available) {
+                status = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    runCatching { org.json.JSONObject(io.github.wwhalefe.flockswitch.net.NetBridge.status()) }.getOrDefault(org.json.JSONObject())
+                }
+            }
+            kotlinx.coroutines.delay(500)
+        }
+    }
+    fun request(key: String, value: Any) {
+        if (io.github.wwhalefe.flockswitch.net.NetBridge.available)
+            runCatching { io.github.wwhalefe.flockswitch.net.NetBridge.request(org.json.JSONObject().put(key, value).toString()) }
+                .onFailure { error = it.message }
+        if (key == "unpair") update { copy(network = network.copy(peers = network.peers.filterNot { it.id == value })) }
+    }
+    Section(stringResource(R.string.net_title)) {
+        SwitchRow(stringResource(R.string.net_receive), n.on) { on ->
+            update { copy(network = network.copy(on = on)) }
+            if (on) io.github.wwhalefe.flockswitch.SwitchService.start(context)
+        }
+        Hint(stringResource(R.string.net_explain))
+        Hint(stringResource(R.string.net_receive_only))
+        if (!io.github.wwhalefe.flockswitch.net.NetBridge.available) Hint(stringResource(R.string.net_missing_library))
+        if (!s.pointerService) AppButton(stringResource(R.string.net_accessibility), actions.openAccessibility)
+        status.optJSONObject("me")?.optString("error")?.takeIf { it.isNotBlank() && it != "null" }?.let { Hint(it) }
+        if (n.on) io.github.wwhalefe.flockswitch.net.NetBridge.startError?.let { Hint(it) }
+        error?.let { Hint(it) }
+    }
+    val pairing = status.optJSONObject("pairing")
+    if (n.on && pairing != null) Section(stringResource(R.string.net_pairing)) {
+        Text(pairing.optString("peer_name"))
+        Text(pairing.optString("code"), style = MaterialTheme.typography.displayMedium)
+        val stage = pairing.optString("stage")
+        Hint(stringResource(when (stage) {
+            "done" -> R.string.net_done
+            "failed" -> R.string.net_failed
+            "peer_accepted" -> R.string.net_peer_accepted
+            else -> R.string.net_compare
+        }))
+        if (stage != "done" && stage != "failed") Row {
+            AppButton(stringResource(R.string.net_confirm), { request("accept", true) })
+            AppButton(stringResource(R.string.net_cancel), { request("accept", false) })
+        }
+    }
+    Section(stringResource(R.string.net_me)) {
+        OutlinedTextField(n.name, { value -> update { copy(network = network.copy(name = value)) } },
+            label = { Text(stringResource(R.string.net_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        var port by remember(n.port) { mutableStateOf(n.port.toString()) }
+        OutlinedTextField(port, { value ->
+            port = value
+            value.toIntOrNull()?.takeIf { it in 1..65535 }?.let { p -> update { copy(network = network.copy(port = p)) } }
+        }, label = { Text(stringResource(R.string.net_port)) }, singleLine = true, isError = port.toIntOrNull() !in 1..65535)
+        status.optJSONObject("me")?.optString("id")?.let { Hint("ID: $it") }
+    }
+    Section(stringResource(R.string.net_nearby)) {
+        val found = status.optJSONArray("discovered")
+        var count = 0
+        if (n.on && status.optBoolean("running")) for (i in 0 until (found?.length() ?: 0)) {
+            val peer = found!!.getJSONObject(i)
+            if (peer.optBoolean("paired") || n.peers.any { it.id == peer.optString("id") }) continue
+            count++
+            Text(peer.optString("name"))
+            Hint(peer.optString("os") + " · " + peer.optString("addr"))
+            AppButton(stringResource(R.string.net_pair), { request("pair", peer.getString("id")) })
+        }
+        if (count == 0) Hint(stringResource(if (n.on) R.string.net_empty else R.string.net_disabled))
+        OutlinedTextField(address, { address = it }, label = { Text(stringResource(R.string.net_address)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        val invalidAddress = stringResource(R.string.net_address)
+        AppButton(stringResource(R.string.net_add_ip), {
+            val input = address.trim()
+            val normalized = normalizeNetworkAddress(input)
+            if (normalized == null) error = invalidAddress else if (n.on) { error = null; request("pair_addr", normalized) }
+        })
+    }
+    Section(stringResource(R.string.net_peers)) {
+        if (n.peers.isEmpty()) Hint(stringResource(R.string.net_no_peers))
+        for (peer in n.peers) {
+            Text(peer.name, fontWeight = FontWeight.SemiBold)
+            val peers = status.optJSONArray("peers")
+            val online = n.on && status.optBoolean("running") && (0 until (peers?.length() ?: 0)).any {
+                val p = peers!!.getJSONObject(it)
+                p.optString("id") == peer.id && p.optBoolean("connected")
+            }
+            Hint(stringResource(if (online) R.string.net_connected else R.string.net_offline))
+            Hint(stringResource(R.string.net_position))
+            val sides = listOf("off", "left", "right", "top", "bottom")
+            val labels = listOf(R.string.off, R.string.net_left, R.string.net_right, R.string.net_top, R.string.net_bottom)
+            SegmentRow(Modifier.fillMaxWidth()) {
+                sides.forEachIndexed { i, side ->
+                    SegmentedButton(peer.side == side, {
+                        update { copy(network = network.copy(peers = network.peers.map { if (it.id == peer.id) it.copy(side = side) else it })) }
+                    }, shape = SegmentedButtonDefaults.itemShape(i, sides.size), icon = {}, contentPadding = SegmentPadding,
+                        colors = if (i == 0) SegmentedButtonDefaults.colors(activeContainerColor = OffGray, activeContentColor = Color.White, activeBorderColor = OffGray) else SegmentedButtonDefaults.colors()) {
+                        SegmentLabel(stringResource(labels[i]))
+                    }
+                }
+            }
+            Hint(stringResource(R.string.net_position_info))
+            Hint(stringResource(R.string.net_channel))
+            ChannelPicker(peer.logitech_channel, null, false) { ch ->
+                update { copy(network = network.copy(peers = network.peers.map { if (it.id == peer.id) it.copy(logitech_channel = ch) else it })) }
+            }
+            AppButton(stringResource(R.string.net_unpair), { request("unpair", peer.id) })
+            SectionDivider()
+        }
+    }
+    Section(stringResource(R.string.net_options)) {
+        SwitchRow(stringResource(R.string.net_swap), n.swap_cmd_ctrl) { value -> update { copy(network = network.copy(swap_cmd_ctrl = value)) } }
+        Text(stringResource(R.string.net_delay))
+        OutlinedTextField(n.cross_delay_ms.toString(), { value -> value.toLongOrNull()?.takeIf { it in 0..60000 }?.let { delay ->
+            update { copy(network = network.copy(cross_delay_ms = delay)) }
+        } }, singleLine = true)
+    }
+}
+
+internal fun normalizeNetworkAddress(input: String): String? {
+    val v4 = Regex("""(\d{1,3}\.){3}\d{1,3}""")
+    fun validV4(ip: String) = v4.matches(ip) && ip.split('.').all { it.toInt() in 0..255 }
+    if (validV4(input)) return "$input:47160"
+    if (input.startsWith("[")) {
+        val end = input.indexOf(']')
+        if (end < 0) return null
+        val host = input.substring(1, end)
+        if (!host.contains(':') || !host.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' || it == ':' || it == '.' }) return null
+        if (runCatching { java.net.InetAddress.getByName(host) }.isFailure) return null
+        val suffix = input.substring(end + 1)
+        if (suffix.isNotEmpty() && !suffix.startsWith(':')) return null
+        val port = if (suffix.isEmpty()) 47160 else suffix.substring(1).toIntOrNull() ?: return null
+        return if (port in 1..65535) "[$host]:$port" else null
+    }
+    if (input.count { it == ':' } > 1) return normalizeNetworkAddress("[$input]")
+    val host = input.substringBefore(':')
+    val port = input.substringAfter(':', "").toIntOrNull() ?: return null
+    return if (validV4(host) && port in 1..65535) "$host:$port" else null
 }

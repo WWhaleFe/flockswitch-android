@@ -12,9 +12,11 @@
     <!-- Logitech devices on Bluetooth (off until turned on in the settings). -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
-    <!-- GitHub build only: to ask GitHub whether a newer version exists and download it.
-         The Google Play build takes it out (src/play/AndroidManifest.xml). -->
+    <!-- LAN input sharing (receiver) in every build, plus the update check in the GitHub build. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <!-- Switching at the screen edge: thin invisible strips along the edges notice the
          mouse pointer, and the countdown is drawn over the screen. Asked for only when an
          edge is given a channel. -->
