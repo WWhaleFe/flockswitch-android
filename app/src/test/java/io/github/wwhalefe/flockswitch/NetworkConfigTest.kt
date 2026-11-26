@@ -20,6 +20,9 @@ class NetworkConfigTest {
         assertFalse(root.containsKey("swapCmdCtrl"))
         val header = SettingsFile.header("2.0.0", "phone", LocalDateTime.of(2026, 11, 24, 1, 0))
         assertEquals(ImportResult.Ok(c, header), SettingsFile.read(SettingsFile.write(c, header)))
+        assertTrue(root.keys.contains("share_clipboard"))
+        assertTrue(n.share_clipboard)
+        assertFalse(Config.fromJson(Config(network = n.copy(share_clipboard = false)).toJson()).network.share_clipboard)
         assertTrue(n.copy(port = 0).problems().isNotEmpty())
         assertTrue(n.copy(peers = listOf(NetworkPeer(id = "abc", side = "invalid"))).problems().isNotEmpty())
     }

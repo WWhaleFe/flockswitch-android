@@ -12,4 +12,6 @@ object NetBridge {
     external fun nextAction(timeoutMs: Int): String?
     external fun status(): String
     external fun request(json: String)
+    external fun reconnect()
+    external fun sendKeyRules(json: String)
 }

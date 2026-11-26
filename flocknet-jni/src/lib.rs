@@ -103,6 +103,9 @@ impl Platform for Android {
     fn inject(&self, ev: &InputEvent) {
         push(self.model.lock().unwrap().action(ev));
     }
+    fn set_clipboard_text(&self, text: &str) {
+        push(json!({"clipboard": {"text": text}}));
+    }
     fn ready(&self) -> Result<(), String> {
         let r = self.ready.lock().unwrap();
         if r.0 {
@@ -227,6 +230,30 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_request
     let r = runtime().lock().unwrap();
     if let (Ok(req), Some(s)) = (serde_json::from_str(&text), &r.service) {
         let _ = s.request(req);
+    }
+}
+/// Redials the master now (after unlock, screen on or a network change).
+#[no_mangle]
+pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_reconnect(
+    _: JNIEnv,
+    _: JObject,
+) {
+    let r = runtime().lock().unwrap();
+    if let Some(s) = &r.service {
+        let _ = s.reconnect();
+    }
+}
+/// Sends edited key rules (a JSON object "<src>><dst>" -> rules) to the master.
+#[no_mangle]
+pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_sendKeyRules(
+    mut env: JNIEnv,
+    _: JObject,
+    c: JString,
+) {
+    let text = string(&mut env, c);
+    let r = runtime().lock().unwrap();
+    if let (Ok(keys), Some(s)) = (serde_json::from_str(&text), &r.service) {
+        let _ = s.send_key_rules(keys);
     }
 }
 #[no_mangle]

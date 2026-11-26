@@ -1,5 +1,7 @@
 # Google Play 출시 안내 (flockswitch Android 0.9.0)
 
+> **2.1.0부터는 [PLAY_2_1.md](PLAY_2_1.md)가 우선합니다.** Play 빌드에 네트워크 받기가 들어가 `INTERNET` 권한이 다시 생겼고, 접근성 서비스가 짝 맺은 컴퓨터의 입력도 실행합니다. 이 문서의 "인터넷 권한 없음", 데이터 보안 "수집 없음의 근거", 접근성 선언과 공개 창 문구는 0.x 기준이므로 2.1.0 이후에는 PLAY_2_1.md의 내용으로 바꿔 제출하세요.
+
 작성: 2026-11-10 · 대상: 새로 만들 Google Play Console 개인 개발자 계정 · 패키지 `io.github.wwhalefe.flockswitch`
 
 이 문서는 Play Console에서 앱을 만들고, 선언을 채우고, 테스트를 거쳐 프로덕션에 올리기까지의 순서입니다. 붙여 넣을 문구는 그대로 복사해 쓰면 됩니다. Play Console 화면 이름은 한국어 화면 기준이고 괄호 안에 영어 이름을 적었습니다.
@@ -129,7 +131,7 @@ Play 앱 서명(Play App Signing)을 쓰면 사용자 기기에 설치되는 APK
 ### 5-4. 콘텐츠 등급 (Content rating)
 
 1. 이메일: 개발자 연락 이메일 (예: feedback.wwhale@gmail.com)
-2. 카테고리: **기타 모든 앱 유형 / 유틸리티·생산성 (All Other App Types / Utility, Productivity, Communication, or Other)** — 게임·소셜·뉴스·교육·엔터테인먼트가 아닌 항목
+2. 카테고리: **기타 모든 앱 유형 / 유틸리티·생산성 (All Other App Types / Utility, Productivity, Communication, or Other)** - 게임·소셜·뉴스·교육·엔터테인먼트가 아닌 항목
 3. 질문은 모두 **아니요**:
    - 폭력, 공포, 성적 콘텐츠, 비속어, 약물·술·담배, 도박·모의 도박: 아니요
    - 사용자 간 상호작용·채팅, 사용자 제작 콘텐츠 공유: 아니요
@@ -141,7 +143,7 @@ Play 앱 서명(Play App Signing)을 쓰면 사용자 기기에 설치되는 APK
 
 ### 5-5. 타겟층 (Target audience and content)
 
-- 연령: **18세 이상** 권장 (16~17세를 함께 골라도 됨). **13세 미만은 고르지 마세요** — 고르면 가족 정책(Families)이 적용되어 추가 요구가 생깁니다.
+- 연령: **18세 이상** 권장 (16~17세를 함께 골라도 됨). **13세 미만은 고르지 마세요** - 고르면 가족 정책(Families)이 적용되어 추가 요구가 생깁니다.
 - “앱이 어린이의 관심을 끌 수 있나요?”: **아니요**
 - 스토어 등록정보에 어린이를 대상으로 한 표현이 없습니다.
 
@@ -150,7 +152,7 @@ Play 앱 서명(Play App Signing)을 쓰면 사용자 기기에 설치되는 APK
 | 질문 | 답 |
 |---|---|
 | 앱에서 필수 사용자 데이터 유형을 수집하거나 공유하나요? (Does your app collect or share any of the required user data types?) | **아니요** |
-| (위에서 아니요를 고르면 데이터 유형·암호화·삭제 요청 질문은 건너뜀) | — |
+| (위에서 아니요를 고르면 데이터 유형·암호화·삭제 요청 질문은 건너뜀) | - |
 | 계정 생성 (Account creation) 항목이 나오면 | **앱에서 계정을 만들 수 없음 (My app does not allow users to create an account)** |
 | 독립적인 보안 검토 (Independent security review) | 선택 안 함 |
 | 결과 미리보기 | “수집된 데이터 없음 / 공유된 데이터 없음 (No data collected / No data shared)” |
@@ -178,7 +180,7 @@ Play 앱 서명(Play App Signing)을 쓰면 사용자 기기에 설치되는 APK
 
 AAB를 어느 트랙(내부 테스트도 됨)에 처음 올리면 Play Console이 아래 선언을 요구합니다. 선언을 끝내야 검토에 보낼 수 있습니다.
 
-### 6-1. 접근성 API (AccessibilityService) — 가장 중요, 거절 위험 있음
+### 6-1. 접근성 API (AccessibilityService) - 가장 중요, 거절 위험 있음
 
 위치: **앱 콘텐츠 → 접근성 API (Accessibility API)** (또는 “민감한 앱 권한”)
 
@@ -200,7 +202,7 @@ AAB를 어느 트랙(내부 테스트도 됨)에 처음 올리면 Play Console�
 
 > Optional. Used only for (1) invisible strips over the status/navigation bars to detect the mouse pointer at the top and bottom screen edges, (2) reading only the Control key and Ctrl+Alt+L from a hardware keyboard (other keys pass through), (3) reading the pointer position once for "Find the cursor". No window content, no automation, nothing stored or sent; the app has no internet permission. An in-app disclosure with Agree / No thanks comes first.
 
-**심사용 영상 (필수)** — YouTube “일부 공개(unlisted)” 또는 Google Drive 공유 링크. Play가 요구하는 장면을 끊지 말고 한 번에 찍으세요(화면 녹화 + 가능하면 손과 마우스가 보이는 카메라 영상):
+**심사용 영상 (필수)** - YouTube “일부 공개(unlisted)” 또는 Google Drive 공유 링크. Play가 요구하는 장면을 끊지 말고 한 번에 찍으세요(화면 녹화 + 가능하면 손과 마우스가 보이는 카메라 영상):
 
 1. 앱 아이콘을 눌러 flockswitch를 엽니다.
 2. 일반 탭 → 권한 → 접근성 서비스 **설정**을 누릅니다 → “접근성 서비스 사용 안내” 창 전체를 천천히 스크롤해 보여 줍니다.
@@ -221,7 +223,7 @@ AAB를 어느 트랙(내부 테스트도 됨)에 처음 올리면 Play Console�
 
 위치: **앱 콘텐츠 → 포그라운드 서비스 권한 (Foreground service permissions)**
 
-- 선언할 유형: **연결된 기기 (Connected device)** — `FOREGROUND_SERVICE_CONNECTED_DEVICE`, 서비스 `SwitchService`
+- 선언할 유형: **연결된 기기 (Connected device)** - `FOREGROUND_SERVICE_CONNECTED_DEVICE`, 서비스 `SwitchService`
 - Play가 허용하는 용도 “Bluetooth, NFC, IR, USB 또는 네트워크 연결이 필요한 외부 기기와의 상호작용”에 정확히 해당합니다. Android 14 이상의 필수 조건(블루투스 권한 또는 USB 권한 요청)도 앱이 지킵니다.
 
 **붙여 넣을 설명 (영어)**
@@ -309,7 +311,7 @@ AAB를 어느 트랙(내부 테스트도 됨)에 처음 올리면 Play Console�
 
 2023-11-13 이후에 만든 **개인** 개발자 계정은 프로덕션에 바로 출시할 수 없습니다. 먼저 **비공개 테스트(Closed testing)에 테스터 12명 이상이 14일 연속 참여(옵트인)**해야 하고, 그다음 **프로덕션 액세스 신청(Apply for production)** 설문을 내고 승인을 받아야 합니다.
 
-### 8-1. 내부 테스트 (Internal testing) — 먼저 확인용
+### 8-1. 내부 테스트 (Internal testing) - 먼저 확인용
 
 1. **테스트 및 출시 → 테스트 → 내부 테스트 → 테스터** 탭에서 이메일 목록 만들기(본인 Google 계정 포함, 최대 100명).
 2. **새 버전 만들기** → 앱 서명 키 선택(3장) → AAB 업로드 → 출시 노트 → 저장 → 검토 → 출시.
@@ -319,7 +321,7 @@ AAB를 어느 트랙(내부 테스트도 됨)에 처음 올리면 Play Console�
    - 일반 탭에 업데이트·개발자에게 칸이 없는지, 접근성 “설정”을 누르면 공개·동의 창이 먼저 나오는지, ‘제한된 설정’ 없이 접근성 서비스를 켤 수 있는지 확인.
    - 이 설치본으로 6장의 심사용 영상을 찍습니다.
 
-### 8-2. 비공개 테스트 (Closed testing) — 14일
+### 8-2. 비공개 테스트 (Closed testing) - 14일
 
 1. **비공개 테스트 → 트랙 만들기(또는 기본 “Closed testing - Alpha”) → 테스터**: 이메일 목록이나 **Google 그룹**(관리하기 편함)을 추가합니다. 탈락에 대비해 **15명 이상** 모으세요.
 2. 내부 테스트의 같은 버전을 **비공개 테스트로 승격**(또는 같은 AAB로 새 버전) → 검토에 보냄. 첫 검토는 며칠 걸릴 수 있습니다.

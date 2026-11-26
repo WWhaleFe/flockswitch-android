@@ -12,8 +12,8 @@ private const val MAX_RETRY = 60_000L
 
 /** Bluetooth devices that did not answer (off, out of range, on another computer), by
  *  key. A device that is away is left out until Android reports it connected again. A
- *  device that is connected but still failed — usual right after the mouse comes back,
- *  while Android is bringing its own link up — is tried again after a growing pause.
+ *  device that is connected but still failed - usual right after the mouse comes back,
+ *  while Android is bringing its own link up - is tried again after a growing pause.
  *  Either way the endpoint keys change once, so the engine rescans then and not on a
  *  timer. Reports from Android arrive on the main thread, the engine asks on its own. */
 class BluetoothRetries(private val clock: () -> Long = { System.nanoTime() / 1_000_000 }) {

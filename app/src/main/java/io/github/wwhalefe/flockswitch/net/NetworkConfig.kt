@@ -14,7 +14,10 @@ data class NetworkPeer(
 data class NetworkConfig(
     val on: Boolean = false, val name: String = "", val port: Int = 47160,
     val swap_cmd_ctrl: Boolean = true, val lang1_on_mac: String = "capslock",
-    val cross_delay_ms: Long = 0, val peers: List<NetworkPeer> = emptyList(),
+    val cross_delay_ms: Long = 0,
+    /** Put text copied on the master on this device's clipboard (Android receives only). */
+    val share_clipboard: Boolean = true,
+    val peers: List<NetworkPeer> = emptyList(),
 ) {
     fun toCoreJson(deviceName: String = ""): String = Config.json.encodeToString(serializer(),
         if (name.isBlank()) copy(name = deviceName) else this)

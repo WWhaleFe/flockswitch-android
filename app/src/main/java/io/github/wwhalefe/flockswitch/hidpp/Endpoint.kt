@@ -67,7 +67,7 @@ sealed class Reply {
      *  e.g. because the device is not linked to this receiver right now. */
     data object Error : Reply()
 
-    /** No answer within the timeout — usually the device is asleep or on another host. */
+    /** No answer within the timeout - usually the device is asleep or on another host. */
     data object Timeout : Reply()
 }
 

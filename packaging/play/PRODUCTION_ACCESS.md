@@ -18,7 +18,7 @@
 ## 2. 앱에 대해 (About your app or game)
 
 **Who is the intended audience of your app?**
-> People who use one Logitech mouse and keyboard with several devices — for example a desktop computer and an Android tablet or phone — and want to move both to another device with one mouse button or a screen edge, without pairing again and without a network between the devices.
+> People who use one Logitech mouse and keyboard with several devices - for example a desktop computer and an Android tablet or phone - and want to move both to another device with one mouse button or a screen edge, without pairing again and without a network between the devices.
 
 **Describe how your app or game provides value to users.**
 > Logitech mice and keyboards can remember several devices (Easy-Switch channels), but each device has its own channel button, so the keyboard and mouse must be switched one by one. flockswitch switches both at once from a mouse button, a gesture, a screen edge, the notification or a Quick Settings tile. It works without any network between the devices, needs no account, collects no data and has no internet permission on Google Play.

@@ -141,6 +141,16 @@ import io.github.wwhalefe.flockswitch.formatColor
 import io.github.wwhalefe.flockswitch.parseColor
 import io.github.wwhalefe.flockswitch.pick
 import io.github.wwhalefe.flockswitch.pointerReadable
+import androidx.compose.material3.FilterChip
+import androidx.compose.runtime.LaunchedEffect
+import io.github.wwhalefe.flockswitch.SwitchService
+import io.github.wwhalefe.flockswitch.net.DirRules
+import io.github.wwhalefe.flockswitch.net.KeyRules
+import io.github.wwhalefe.flockswitch.net.NetBridge
+import io.github.wwhalefe.flockswitch.net.NetStatus
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
@@ -154,6 +164,7 @@ class Actions(
     val previewLocate: (Locate, Float, Float) -> Unit,
     val openAccessibility: () -> Unit,
     val openAppInfo: () -> Unit,
+    val nearbyOn: () -> Boolean,
     val overlayOn: () -> Boolean,
     val notificationsOn: () -> Boolean,
     val switchTo: (Int) -> Unit,
@@ -185,9 +196,9 @@ class Actions(
 
 private enum class Tab(@StringRes val title: Int, val glyph: String) {
     Home(R.string.tab_home, "⇄"),
-    Buttons(R.string.tab_buttons, "◉"),
-    Devices(R.string.tab_devices, "⌨"),
-    Network(R.string.net_title, "◎"),
+    Network(R.string.tab_network, "◎"),
+    Logitech(R.string.tab_logitech, "◉"),
+    Effects(R.string.tab_effects, "✦"),
     General(R.string.tab_general, "⚙"),
 }
 
@@ -268,9 +279,9 @@ fun FlockswitchApp(shared: Shared, actions: Actions) = theme {
                     ) {
                         when (Tab.entries[tab]) {
                             Tab.Home -> HomeTab(cfg, status, actions)
-                            Tab.Buttons -> ButtonsTab(cfg, status, update, actions)
-                            Tab.Devices -> DevicesTab(cfg, status, update, shared)
                             Tab.Network -> NetworkTab(cfg, status, update, actions)
+                            Tab.Logitech -> LogitechTab(cfg, status, update, actions, shared)
+                            Tab.Effects -> EffectsTab(cfg, status, update, actions)
                             Tab.General -> GeneralTab(cfg, status, shared.update, shared.backup, shared.saved, shared::setBackup, update, actions)
                         }
                     }
@@ -325,17 +336,22 @@ private fun Section(
     title: String? = null,
     /** A small button at the end of the title, e.g. [InfoIcon]. */
     info: (@Composable () -> Unit)? = null,
+    /** A button at the right end of the header, e.g. "Find the connection again". */
+    end: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(ItemGap)) {
-            if (title != null && info != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            // Every section header is as tall as a button, with or without a button at its end.
+            if (title != null) {
+                Row(Modifier.fillMaxWidth().heightIn(min = ControlHeight), verticalAlignment = Alignment.CenterVertically) {
                     Text(title, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleMedium)
-                    info()
+                    if (info != null) info()
+                    if (end != null) {
+                        Spacer(Modifier.weight(1f))
+                        end()
+                    }
                 }
-            } else if (title != null) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
             }
             content()
         }
@@ -645,6 +661,14 @@ private fun deviceSubtitle(d: DeviceInfo): String {
 
 // Tabs.
 
+/** The one place the accent shows: the mouse is on this device. */
+private val HereDot = Color(0xFFC3E62A)
+private val NeutralDot = Color(0xFFB8BCC3)
+
+@Composable
+private fun StatusDot(color: Color) =
+    Box(Modifier.size(8.dp).background(color, CircleShape))
+
 @Composable
 private fun HomeTab(cfg: Config, s: Status, actions: Actions) {
     Section {
@@ -654,14 +678,29 @@ private fun HomeTab(cfg: Config, s: Status, actions: Actions) {
             s.receivers == 0 && s.usbNeedsPermission == 0 -> stringResource(R.string.status_no_receiver)
             else -> stringResource(R.string.status_searching)
         }
-        Text(headline, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (cfg.enabled && s.trigger != null) StatusDot(HereDot)
+            Text(headline, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        }
         Hint(
             if (s.channel != null) stringResource(R.string.this_device_channel, s.channel)
             else stringResource(R.string.channel_unknown),
         )
         s.lastSwitch?.let { Hint(stringResource(R.string.last_switch, it)) }
-        SectionDivider()
+    }
+
+    Section {
         SwitchRow(stringResource(R.string.enabled), cfg.enabled) { actions.setEnabled(it) }
+        if (cfg.enabled && s.trigger != null) {
+            SectionDivider()
+            RowLabel(stringResource(R.string.switch_now))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (c in 1..3) {
+                    AppButton("$c", { actions.switchTo(c) }, Modifier.weight(1f).widthIn(min = 0.dp), enabled = c != s.channel)
+                }
+            }
+            Hint(stringResource(R.string.switch_now_hint))
+        }
     }
 
     if (s.usbNeedsPermission > 0) {
@@ -679,21 +718,11 @@ private fun HomeTab(cfg: Config, s: Status, actions: Actions) {
     if (s.receivers == 0 && s.usbNeedsPermission == 0 && s.trigger == null) {
         Section { Hint(stringResource(R.string.no_receiver_hint)) }
     }
-
-    if (cfg.enabled && s.trigger != null) {
-        Section(stringResource(R.string.switch_now)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (c in 1..3) {
-                    AppButton("$c", { actions.switchTo(c) }, Modifier.weight(1f).widthIn(min = 0.dp), enabled = c != s.channel)
-                }
-            }
-            Hint(stringResource(R.string.switch_now_hint))
-        }
-    }
 }
 
+/** Everything about the Logitech mouse and keyboard: the buttons, the screen edges, the devices. */
 @Composable
-private fun ButtonsTab(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions) {
+private fun LogitechTab(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions, shared: Shared) {
     Hint(stringResource(R.string.buttons_hint))
     for (cid in BUTTONS) {
         val b = cfg.button(cid)
@@ -751,6 +780,24 @@ private fun ButtonsTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
         }
     }
     EdgesSection(cfg, s, update, actions)
+    DevicesSections(cfg, s, update, actions, shared)
+}
+
+/** The effects: what is drawn at an edge, finding the cursor, and haptics. */
+@Composable
+private fun EffectsTab(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions) {
+    Section(stringResource(R.string.section_edge_anim)) { EdgeAnimRows(cfg, update, actions) }
+    LocateSection(cfg, s, update, actions)
+    var hapticsOpen by rememberSaveable { mutableStateOf(false) }
+    Section(stringResource(R.string.section_haptics)) {
+        val state = stringResource(if (cfg.haptics.anyOn()) R.string.haptics_state_on else R.string.haptics_state_off)
+        val strength = if (cfg.haptics.intensity == 0) stringResource(R.string.haptics_follow) else "${cfg.haptics.intensity}%"
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            RowLabel("$state · ${stringResource(R.string.haptics_intensity)} $strength", Modifier.weight(1f))
+            AppButton(stringResource(R.string.haptics_open), { hapticsOpen = true })
+        }
+    }
+    if (hapticsOpen) HapticsDialog(cfg, update, actions) { hapticsOpen = false }
 }
 
 /** Switching at the screen edge: the channel of each side and the time at the edge. */
@@ -804,8 +851,6 @@ private fun EdgesSection(cfg: Config, s: Status, update: (Config.() -> Config) -
             Notice(stringResource(R.string.edge_control_service), stringResource(R.string.guide_open)) { guide = true }
             if (guide) AccessibilityGuide(s, actions) { guide = false }
         }
-        SectionDivider()
-        EdgeAnimRows(cfg, update, actions)
     }
 }
 
@@ -1092,7 +1137,7 @@ private fun SituationRow(
 private val SituationRowHeight = 52.dp
 
 @Composable
-private fun DevicesTab(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, shared: Shared) {
+private fun DevicesSections(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions, shared: Shared) {
     Section(stringResource(R.string.master)) {
         val auto = cfg.triggerDevice.equals("auto", ignoreCase = true)
         ChoiceRow(
@@ -1121,6 +1166,11 @@ private fun DevicesTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
         }
         if (s.devices.any { !it.online }) {
             AppButton(stringResource(R.string.forget_devices), { shared.forgetDevices() })
+        }
+        SectionDivider()
+        SwitchRow(stringResource(R.string.bluetooth_title), cfg.bluetooth, subtitle = stringResource(R.string.bluetooth_hint)) { on ->
+            update { copy(bluetooth = on) }
+            if (on) actions.allowNearby()
         }
     }
 }
@@ -1214,12 +1264,16 @@ private fun PermissionRow(title: String, hint: String, on: Boolean, onSet: () ->
 private fun PermissionsSection(s: Status, actions: Actions) {
     // Changed in the system's own screens: read again on coming back.
     var overlay by remember { mutableStateOf(actions.overlayOn()) }
+    var nearby by remember { mutableStateOf(actions.nearbyOn()) }
     LifecycleResumeEffect(Unit) {
         overlay = actions.overlayOn()
+        nearby = actions.nearbyOn()
         onPauseOrDispose {}
     }
     var guide by rememberSaveable { mutableStateOf(false) }
     Section(stringResource(R.string.section_permissions)) {
+        PermissionRow(stringResource(R.string.perm_nearby), stringResource(R.string.perm_nearby_hint), nearby, actions.allowNearby)
+        SectionDivider()
         PermissionRow(stringResource(R.string.perm_overlay), stringResource(R.string.perm_overlay_hint), overlay, actions.allowOverlay)
         SectionDivider()
         PermissionRow(stringResource(R.string.perm_accessibility), stringResource(R.string.perm_accessibility_hint), s.pointerService) { guide = true }
@@ -1232,23 +1286,12 @@ private fun PermissionsSection(s: Status, actions: Actions) {
 private fun UpdateSection(cfg: Config, updates: StateFlow<UpdateState>, update: (Config.() -> Config) -> Unit, actions: Actions) {
     val state by updates.collectAsStateWithLifecycle()
     Section(stringResource(R.string.section_update)) {
-        RowLabel(stringResource(R.string.version, BuildConfig.VERSION_NAME))
-        SwitchRow(stringResource(R.string.update_auto), cfg.checkUpdates) { on -> update { copy(checkUpdates = on) } }
-        SectionDivider()
-        // Installing on its own needs the checks made on its own.
-        SwitchRow(
-            stringResource(R.string.update_install_auto),
-            cfg.autoUpdate,
-            subtitle = stringResource(R.string.update_install_auto_hint),
-            enabled = cfg.checkUpdates,
-        ) { on -> update { copy(autoUpdate = on) } }
-        SectionDivider()
         val text = when (val u = state) {
             UpdateState.Unknown -> null
             UpdateState.Checking -> stringResource(R.string.update_checking)
             UpdateState.UpToDate -> stringResource(R.string.update_up_to_date)
             UpdateState.Failed -> stringResource(R.string.update_failed)
-            is UpdateState.Available -> stringResource(R.string.update_available, u.version)
+            is UpdateState.Available -> stringResource(R.string.update_now_hint)
             is UpdateState.Downloading ->
                 if (u.percent == null) stringResource(R.string.update_downloading) else stringResource(R.string.update_downloading_percent, u.percent)
             is UpdateState.Installing -> stringResource(R.string.update_installing)
@@ -1263,18 +1306,41 @@ private fun UpdateSection(cfg: Config, updates: StateFlow<UpdateState>, update: 
                 u.version,
             )
         }
-        text?.let { Hint(it) }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            AppButton(stringResource(R.string.update_check), actions.checkUpdate, enabled = !state.busy())
-            // A newer version is known: install it (again, after a failure or a "no").
-            if (state is UpdateState.Available || state is UpdateState.Confirming || state is UpdateState.InstallFailed) {
-                AppButton(stringResource(R.string.update_now), actions.updateNow, kind = ButtonKind.Filled)
+        // A newer version is known: "Update now" installs it at once (also again, after a
+        // failure or a "no"). Otherwise the row shows this version and "Check now".
+        val newer = when (val u = state) {
+            is UpdateState.Available -> u.version
+            is UpdateState.Confirming -> u.version
+            is UpdateState.InstallFailed -> u.version
+            is UpdateState.Downloading -> u.version
+            is UpdateState.Installing -> u.version
+            else -> null
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f)) {
+                RowLabel(if (newer != null) stringResource(R.string.update_new_version, newer) else stringResource(R.string.version, BuildConfig.VERSION_NAME))
+                text?.let { Hint(it) }
             }
-            // When installing here does not work, the APK can still be fetched by hand.
-            if (state is UpdateState.InstallFailed && (state as UpdateState.InstallFailed).why != UpdateFailure.Cancelled) {
-                AppButton(stringResource(R.string.update_page), { actions.open(RELEASES_PAGE) })
+            if (newer != null) {
+                AppButton(stringResource(R.string.update_now), actions.updateNow, kind = ButtonKind.Filled, enabled = !state.busy())
+            } else {
+                AppButton(stringResource(R.string.update_check), actions.checkUpdate, enabled = !state.busy())
             }
         }
+        // When installing here does not work, the APK can still be fetched by hand.
+        if (state is UpdateState.InstallFailed && (state as UpdateState.InstallFailed).why != UpdateFailure.Cancelled) {
+            AppButton(stringResource(R.string.update_page), { actions.open(RELEASES_PAGE) })
+        }
+        SectionDivider()
+        SwitchRow(stringResource(R.string.update_auto), cfg.checkUpdates) { on -> update { copy(checkUpdates = on) } }
+        SectionDivider()
+        // Installing on its own needs the checks made on its own.
+        SwitchRow(
+            stringResource(R.string.update_install_auto),
+            cfg.autoUpdate,
+            subtitle = stringResource(R.string.update_install_auto_hint),
+            enabled = cfg.checkUpdates,
+        ) { on -> update { copy(autoUpdate = on) } }
     }
 }
 
@@ -1539,33 +1605,14 @@ private fun GeneralTab(
 
     Section {
         SwitchRow(stringResource(R.string.start_at_boot), cfg.startAtBoot) { on -> update { copy(startAtBoot = on) } }
-        SectionDivider()
-        SwitchRow(stringResource(R.string.bluetooth_title), cfg.bluetooth, subtitle = stringResource(R.string.bluetooth_hint)) { on ->
-            update { copy(bluetooth = on) }
-            if (on) actions.allowNearby()
-        }
     }
-
-    LocateSection(cfg, s, update, actions)
-
-    var hapticsOpen by rememberSaveable { mutableStateOf(false) }
-    Section(stringResource(R.string.section_haptics)) {
-        val state = stringResource(if (cfg.haptics.anyOn()) R.string.haptics_state_on else R.string.haptics_state_off)
-        val strength = if (cfg.haptics.intensity == 0) stringResource(R.string.haptics_follow) else "${cfg.haptics.intensity}%"
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            RowLabel("$state · ${stringResource(R.string.haptics_intensity)} $strength", Modifier.weight(1f))
-            AppButton(stringResource(R.string.haptics_open), { hapticsOpen = true })
-        }
-    }
-    if (hapticsOpen) HapticsDialog(cfg, update, actions) { hapticsOpen = false }
 
     // Google Play keeps the app up to date itself, and its listing has the contact details.
-    if (!BuildConfig.PLAY_STORE) {
-        UpdateSection(cfg, updates, update, actions)
-        ReportSection(actions)
-    }
+    if (!BuildConfig.PLAY_STORE) UpdateSection(cfg, updates, update, actions)
 
     BackupSection(backup, saved, setBackup, actions)
+
+    if (!BuildConfig.PLAY_STORE) ReportSection(actions)
 
     var confirmReset by rememberSaveable { mutableStateOf(false) }
     Section {
@@ -1590,59 +1637,177 @@ private fun GeneralTab(
     Spacer(Modifier.height(8.dp))
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** A short label in a rounded box, e.g. the role of this device. */
+@Composable
+private fun Tag(text: String) = Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceVariant) {
+    Text(text, Modifier.padding(horizontal = 10.dp, vertical = 6.dp), style = MaterialTheme.typography.labelLarge)
+}
+
+/** Sends one request (pair, accept, unpair, ...) to the network service. */
+private fun netRequest(key: String, value: Any): String? {
+    if (!NetBridge.available) return null
+    return runCatching { NetBridge.request(org.json.JSONObject().put(key, value).toString()) }.exceptionOrNull()?.message
+}
+
 @Composable
 private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val n = cfg.network
-    var status by remember { mutableStateOf(org.json.JSONObject()) }
+    var net by remember { mutableStateOf(NetStatus()) }
     var error by remember { mutableStateOf<String?>(null) }
     var address by rememberSaveable { mutableStateOf("") }
-    androidx.compose.runtime.LaunchedEffect(n.on) {
+    var guide by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(n.on) {
         while (true) {
-            if (io.github.wwhalefe.flockswitch.net.NetBridge.available) {
-                status = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    runCatching { org.json.JSONObject(io.github.wwhalefe.flockswitch.net.NetBridge.status()) }.getOrDefault(org.json.JSONObject())
-                }
+            if (NetBridge.available) {
+                net = withContext(Dispatchers.IO) { NetStatus.parse(runCatching { NetBridge.status() }.getOrDefault("")) }
             }
-            kotlinx.coroutines.delay(500)
+            delay(500)
         }
     }
-    fun request(key: String, value: Any) {
-        if (io.github.wwhalefe.flockswitch.net.NetBridge.available)
-            runCatching { io.github.wwhalefe.flockswitch.net.NetBridge.request(org.json.JSONObject().put(key, value).toString()) }
-                .onFailure { error = it.message }
-        if (key == "unpair") update { copy(network = network.copy(peers = network.peers.filterNot { it.id == value })) }
+    val live = n.on && net.running
+    val unpair: (String) -> Unit = { id ->
+        error = netRequest("unpair", id)
+        update { copy(network = network.copy(peers = network.peers.filterNot { it.id == id })) }
     }
-    Section(stringResource(R.string.net_title)) {
-        SwitchRow(stringResource(R.string.net_receive), n.on) { on ->
+
+    Section {
+        SwitchRow(stringResource(R.string.net_receive), n.on, subtitle = stringResource(R.string.net_receive_help)) { on ->
             update { copy(network = network.copy(on = on)) }
-            if (on) io.github.wwhalefe.flockswitch.SwitchService.start(context)
+            if (on) SwitchService.start(context)
         }
-        Hint(stringResource(R.string.net_explain))
-        Hint(stringResource(R.string.net_receive_only))
-        if (!io.github.wwhalefe.flockswitch.net.NetBridge.available) Hint(stringResource(R.string.net_missing_library))
-        if (!s.pointerService) AppButton(stringResource(R.string.net_accessibility), actions.openAccessibility)
-        status.optJSONObject("me")?.optString("error")?.takeIf { it.isNotBlank() && it != "null" }?.let { Hint(it) }
-        if (n.on) io.github.wwhalefe.flockswitch.net.NetBridge.startError?.let { Hint(it) }
+        SectionDivider()
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(LabelGap)) {
+                RowLabel(stringResource(R.string.net_role))
+                Hint(stringResource(R.string.net_role_note))
+            }
+            Tag(stringResource(R.string.net_role_value))
+        }
+        if (!NetBridge.available) Hint(stringResource(R.string.net_missing_library))
+        net.me.error?.takeIf { it.isNotBlank() }?.let { Hint(it) }
+        if (n.on) NetBridge.startError?.let { Hint(it) }
         error?.let { Hint(it) }
     }
-    val pairing = status.optJSONObject("pairing")
+
+    Section(
+        stringResource(R.string.master),
+        end = {
+            AppButton(
+                stringResource(if (net.reconnecting) R.string.net_reconnecting else R.string.net_reconnect),
+                { scope.launch(Dispatchers.IO) { runCatching { NetBridge.reconnect() } } },
+                enabled = live && !net.reconnecting,
+            )
+        },
+    ) {
+        if (n.peers.isEmpty()) Hint(stringResource(R.string.net_no_master))
+        n.peers.forEachIndexed { i, peer ->
+            if (i > 0) SectionDivider()
+            val state = net.peer(peer.id)
+            val up = live && state?.connected == true
+            val rtt = state?.rtt_ms
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(LabelGap)) {
+                    RowLabel(peer.name)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        StatusDot(if (up) Color(0xFF2F9E44) else NeutralDot)
+                        Hint(
+                            if (up) stringResource(R.string.net_master_up, rtt?.let { "%.1f".format(it) } ?: "-")
+                            else stringResource(R.string.net_master_down),
+                        )
+                    }
+                }
+                AppButton(stringResource(R.string.net_unpair), { unpair(peer.id) })
+            }
+            val side = net.masterSide(peer.id)
+            Hint(
+                if (side == null) stringResource(R.string.net_master_side_unknown)
+                else stringResource(
+                    R.string.net_master_side,
+                    stringResource(when (side) { "left" -> R.string.net_left; "right" -> R.string.net_right; "top" -> R.string.net_top; else -> R.string.net_bottom }),
+                ),
+            )
+            LabeledControl(stringResource(R.string.net_channel), hint = stringResource(R.string.net_channel_hint)) {
+                ChannelPicker(peer.logitech_channel, null, false) { ch ->
+                    update { copy(network = network.copy(peers = network.peers.map { if (it.id == peer.id) it.copy(logitech_channel = ch) else it })) }
+                }
+            }
+        }
+        Hint(stringResource(R.string.net_auto_reconnect))
+    }
+
+    val pairing = net.pairing
     if (n.on && pairing != null) Section(stringResource(R.string.net_pairing)) {
-        Text(pairing.optString("peer_name"))
-        Text(pairing.optString("code"), style = MaterialTheme.typography.displayMedium)
-        val stage = pairing.optString("stage")
-        Hint(stringResource(when (stage) {
+        RowLabel(pairing.peer_name)
+        // The six digits both computers show: the user compares them before confirming.
+        Text(pairing.code, style = MaterialTheme.typography.displayMedium)
+        Hint(stringResource(when (pairing.stage) {
             "done" -> R.string.net_done
-            "failed" -> R.string.net_failed
+            "failed" -> when (pairing.reason) {
+                "both_sub" -> R.string.net_reason_both_sub
+                "has_master" -> R.string.net_reason_has_master
+                "full" -> R.string.net_reason_full
+                else -> R.string.net_failed
+            }
             "peer_accepted" -> R.string.net_peer_accepted
             else -> R.string.net_compare
         }))
-        if (stage != "done" && stage != "failed") Row {
-            AppButton(stringResource(R.string.net_confirm), { request("accept", true) })
-            AppButton(stringResource(R.string.net_cancel), { request("accept", false) })
+        if (pairing.stage != "done" && pairing.stage != "failed") Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AppButton(stringResource(R.string.net_confirm), { error = netRequest("accept", true) }, kind = ButtonKind.Filled)
+            AppButton(stringResource(R.string.net_cancel), { error = netRequest("accept", false) })
         }
     }
+
+    Section(stringResource(R.string.net_nearby)) {
+        val found = if (live) net.discovered.filter { f -> !f.paired && n.peers.none { it.id == f.id } } else emptyList()
+        found.forEachIndexed { i, peer ->
+            if (i > 0) SectionDivider()
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(LabelGap)) {
+                    RowLabel(peer.name)
+                    Hint(osName(peer.os) + " · " + peer.addr)
+                }
+                AppButton(stringResource(R.string.net_pair), { error = netRequest("pair", peer.id) }, kind = ButtonKind.Filled)
+            }
+        }
+        if (found.isEmpty()) Hint(stringResource(if (n.on) R.string.net_empty else R.string.net_disabled))
+        SectionDivider()
+        val invalidAddress = stringResource(R.string.net_address_invalid)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                address, { address = it },
+                label = { Text(stringResource(R.string.net_address)) },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+            AppButton(stringResource(R.string.net_add_ip), {
+                val normalized = normalizeNetworkAddress(address.trim())
+                if (normalized == null) error = invalidAddress else if (n.on) error = netRequest("pair_addr", normalized)
+            })
+        }
+    }
+
+    KeysSection(net, live && net.peers.any { p -> p.connected && n.peers.any { it.id == p.id } }, scope)
+
+    Section(stringResource(R.string.net_clipboard)) {
+        SwitchRow(stringResource(R.string.net_clipboard_receive), n.share_clipboard, subtitle = stringResource(R.string.net_clipboard_help)) { on ->
+            update { copy(network = network.copy(share_clipboard = on)) }
+        }
+    }
+
+    // The input is reproduced by the accessibility service.
+    Card(Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Hint(stringResource(R.string.net_accessibility_need))
+            if (!s.pointerService) {
+                Spacer(Modifier.weight(1f))
+                AppButton(stringResource(R.string.perm_set), { guide = true })
+            }
+        }
+    }
+    if (guide) AccessibilityGuide(s, actions) { guide = false }
+
     Section(stringResource(R.string.net_me)) {
         OutlinedTextField(n.name, { value -> update { copy(network = network.copy(name = value)) } },
             label = { Text(stringResource(R.string.net_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -1651,68 +1816,129 @@ private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
             port = value
             value.toIntOrNull()?.takeIf { it in 1..65535 }?.let { p -> update { copy(network = network.copy(port = p)) } }
         }, label = { Text(stringResource(R.string.net_port)) }, singleLine = true, isError = port.toIntOrNull() !in 1..65535)
-        status.optJSONObject("me")?.optString("id")?.let { Hint("ID: $it") }
+        if (net.me.id.isNotBlank()) Hint("ID: ${net.me.id}")
     }
-    Section(stringResource(R.string.net_nearby)) {
-        val found = status.optJSONArray("discovered")
-        var count = 0
-        if (n.on && status.optBoolean("running")) for (i in 0 until (found?.length() ?: 0)) {
-            val peer = found!!.getJSONObject(i)
-            if (peer.optBoolean("paired") || n.peers.any { it.id == peer.optString("id") }) continue
-            count++
-            Text(peer.optString("name"))
-            Hint(peer.optString("os") + " · " + peer.optString("addr"))
-            AppButton(stringResource(R.string.net_pair), { request("pair", peer.getString("id")) })
-        }
-        if (count == 0) Hint(stringResource(if (n.on) R.string.net_empty else R.string.net_disabled))
-        OutlinedTextField(address, { address = it }, label = { Text(stringResource(R.string.net_address)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        val invalidAddress = stringResource(R.string.net_address)
-        AppButton(stringResource(R.string.net_add_ip), {
-            val input = address.trim()
-            val normalized = normalizeNetworkAddress(input)
-            if (normalized == null) error = invalidAddress else if (n.on) { error = null; request("pair_addr", normalized) }
-        })
+}
+
+/** "When switching OS": what a key becomes on its way from a computer to this device. The
+ *  rules are the master's: an edit goes to the master, which saves it and hands it to every
+ *  computer, and the screen follows when the status brings it back. */
+@Composable
+private fun KeysSection(net: NetStatus, connected: Boolean, scope: kotlinx.coroutines.CoroutineScope) {
+    var src by rememberSaveable { mutableStateOf("mac") }
+    // Edits show at once; the status catches up a moment later and takes over.
+    var local by remember { mutableStateOf<Map<String, DirRules>>(emptyMap()) }
+    LaunchedEffect(net.keys) { local = emptyMap() }
+    val known = net.keys + local
+    val rules = KeyRules.forAndroid(known)[KeyRules.key(src)] ?: KeyRules.defaultFor(src)
+    val edit: (DirRules) -> Unit = { next ->
+        local = local + (KeyRules.key(src) to next)
+        val json = KeyRules.toJson(KeyRules.merged(net.keys, local))
+        scope.launch(Dispatchers.IO) { runCatching { NetBridge.sendKeyRules(json) } }
     }
-    Section(stringResource(R.string.net_peers)) {
-        if (n.peers.isEmpty()) Hint(stringResource(R.string.net_no_peers))
-        for (peer in n.peers) {
-            Text(peer.name, fontWeight = FontWeight.SemiBold)
-            val peers = status.optJSONArray("peers")
-            val online = n.on && status.optBoolean("running") && (0 until (peers?.length() ?: 0)).any {
-                val p = peers!!.getJSONObject(it)
-                p.optString("id") == peer.id && p.optBoolean("connected")
+    val sourceNames = mapOf("mac" to "Mac", "windows" to "Windows", "linux" to "Linux")
+    Section(stringResource(R.string.net_keys_title)) {
+        ValuePicker(
+            KeyRules.SOURCES.map { it to stringResource(R.string.net_keys_from, sourceNames.getValue(it)) },
+            src,
+        ) { src = it }
+        if (!connected) Hint(stringResource(R.string.net_keys_offline))
+        // Modifier keys.
+        KeysHeading(stringResource(R.string.net_keys_mods))
+        val cross = src == "mac"
+        if (cross) {
+            val modes = listOf(
+                "function" to stringResource(R.string.net_keys_mode_function),
+                "position" to stringResource(R.string.net_keys_mode_position),
+                "off" to stringResource(R.string.net_keys_mode_off),
+            )
+            LabeledControl(
+                stringResource(R.string.net_keys_mode),
+                hint = stringResource(if (rules.mod_mode == "position") R.string.net_keys_mode_position_help else R.string.net_keys_mode_function_help),
+            ) {
+                ValuePicker(modes, rules.mod_mode, enabled = connected) { edit(KeyRules.withModMode(rules, it)) }
             }
-            Hint(stringResource(if (online) R.string.net_connected else R.string.net_offline))
-            Hint(stringResource(R.string.net_position))
-            val sides = listOf("off", "left", "right", "top", "bottom")
-            val labels = listOf(R.string.off, R.string.net_left, R.string.net_right, R.string.net_top, R.string.net_bottom)
-            SegmentRow(Modifier.fillMaxWidth()) {
-                sides.forEachIndexed { i, side ->
-                    SegmentedButton(peer.side == side, {
-                        update { copy(network = network.copy(peers = network.peers.map { if (it.id == peer.id) it.copy(side = side) else it })) }
-                    }, shape = SegmentedButtonDefaults.itemShape(i, sides.size), icon = {}, contentPadding = SegmentPadding,
-                        colors = if (i == 0) SegmentedButtonDefaults.colors(activeContainerColor = OffGray, activeContentColor = Color.White, activeBorderColor = OffGray) else SegmentedButtonDefaults.colors()) {
-                        SegmentLabel(stringResource(labels[i]))
+        }
+        LabeledControl(stringResource(R.string.net_keys_table), hint = stringResource(R.string.net_keys_table_help, sourceNames.getValue(src))) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (kind in KeyRules.modifiers(src)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(modifierName(src, kind), Modifier.width(88.dp), style = MaterialTheme.typography.bodyMedium)
+                        Text("→", style = MaterialTheme.typography.bodyMedium)
+                        val target = KeyRules.modTarget(src, "android", rules, kind)
+                        if (cross && rules.mod_mode == "off") {
+                            Text(modifierName("android", target), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        } else {
+                            ValueMenu(
+                                KeyRules.modifiers("android").map { it to modifierName("android", it) },
+                                target,
+                                Modifier.weight(1f),
+                                enabled = connected,
+                            ) { edit(KeyRules.withModTarget(src, "android", rules, kind, it)) }
+                        }
                     }
                 }
             }
-            Hint(stringResource(R.string.net_position_info))
-            Hint(stringResource(R.string.net_channel))
-            ChannelPicker(peer.logitech_channel, null, false) { ch ->
-                update { copy(network = network.copy(peers = network.peers.map { if (it.id == peer.id) it.copy(logitech_channel = ch) else it })) }
-            }
-            AppButton(stringResource(R.string.net_unpair), { request("unpair", peer.id) })
-            SectionDivider()
         }
-    }
-    Section(stringResource(R.string.net_options)) {
-        SwitchRow(stringResource(R.string.net_swap), n.swap_cmd_ctrl) { value -> update { copy(network = network.copy(swap_cmd_ctrl = value)) } }
-        Text(stringResource(R.string.net_delay))
-        OutlinedTextField(n.cross_delay_ms.toString(), { value -> value.toLongOrNull()?.takeIf { it in 0..60000 }?.let { delay ->
-            update { copy(network = network.copy(cross_delay_ms = delay)) }
-        } }, singleLine = true)
+        // Korean / English.
+        KeysHeading(stringResource(R.string.net_keys_hangul))
+        LabeledControl(
+            stringResource(R.string.net_keys_hangul_src, sourceNames.getValue(src)),
+            hint = stringResource(R.string.net_keys_hangul_src_help),
+        ) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (key in KeyRules.hangulSources(src)) {
+                    val on = key in rules.hangul_src
+                    FilterChip(
+                        selected = on,
+                        onClick = { edit(KeyRules.withHangulSource(src, rules, key, !on)) },
+                        enabled = connected,
+                        label = { Text(hangulName(key)) },
+                    )
+                }
+            }
+        }
+        LabeledControl(stringResource(R.string.net_keys_hangul_dst), hint = stringResource(R.string.net_keys_hangul_dst_help)) {
+            ValuePicker(KeyRules.ANDROID_HANGUL.map { it to hangulName(it) }, rules.hangul_dst, enabled = connected) {
+                edit(KeyRules.withHangulTarget(rules, it))
+            }
+        }
+        if (src == "mac" && "caps_lock" in rules.hangul_src) {
+            SwitchRow(
+                stringResource(R.string.net_keys_caps_long),
+                rules.caps_long_press,
+                subtitle = stringResource(R.string.net_keys_caps_long_help),
+                enabled = connected,
+            ) { edit(rules.copy(caps_long_press = it)) }
+        }
+        Hint(stringResource(R.string.net_keys_android_note, sourceNames.getValue(src)))
+        Hint(stringResource(R.string.net_keys_note))
     }
 }
+
+/** A small heading inside a section, above a group of rows. */
+@Composable
+private fun KeysHeading(text: String) = Text(text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+
+/** A modifier key as the keyboard of [os] names it. */
+private fun modifierName(os: String, kind: Int) = when (os) {
+    "mac" -> when (kind) { KeyRules.CTRL -> "Control"; KeyRules.ALT -> "Option"; else -> "Command" }
+    "windows" -> when (kind) { KeyRules.CTRL -> "Ctrl"; KeyRules.ALT -> "Alt"; else -> "Windows" }
+    "linux" -> when (kind) { KeyRules.CTRL -> "Ctrl"; KeyRules.ALT -> "Alt"; else -> "Super" }
+    else -> when (kind) { KeyRules.CTRL -> "Ctrl"; KeyRules.ALT -> "Alt"; else -> "Meta" }
+}
+
+@Composable
+private fun hangulName(key: String) = stringResource(
+    when (key) {
+        "caps_lock" -> R.string.hangul_caps_lock
+        "control_space" -> R.string.hangul_control_space
+        "shift_space" -> R.string.hangul_shift_space
+        "super_space" -> R.string.hangul_super_space
+        "right_alt" -> R.string.hangul_right_alt
+        else -> R.string.hangul_lang1
+    },
+)
 
 internal fun normalizeNetworkAddress(input: String): String? {
     val v4 = Regex("""(\d{1,3}\.){3}\d{1,3}""")

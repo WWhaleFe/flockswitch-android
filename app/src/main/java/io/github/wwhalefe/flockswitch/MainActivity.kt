@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
             previewLocate = ::previewLocate,
             openAccessibility = ::openAccessibility,
             openAppInfo = { runCatching { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) } },
+            nearbyOn = { Build.VERSION.SDK_INT < 31 || granted(Manifest.permission.BLUETOOTH_CONNECT) },
             overlayOn = { Settings.canDrawOverlays(this) },
             notificationsOn = { NotificationManagerCompat.from(this).areNotificationsEnabled() },
             switchTo = { channel -> shared.requestSwitch(channel) },

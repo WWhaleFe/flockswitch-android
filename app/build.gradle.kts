@@ -9,7 +9,7 @@ plugins {
 val keystore: String? = System.getenv("FLOCKSWITCH_KEYSTORE")
 
 // `-PplayStore` builds what goes to Google Play: no update check, no contact section, and
-// no self-update — neither its code (src/github) nor the install permission.
+// no self-update: neither its code (src/github) nor the install permission.
 val playStore = hasProperty("playStore")
 
 android {
@@ -21,16 +21,16 @@ android {
         minSdk = 26
         // Target 37 requires the ACCESS_LOCAL_NETWORK runtime permission.
         targetSdk = 36
-        versionCode = 15
-        versionName = "0.11.0"
+        versionCode = 16
+        versionName = "2.1.0"
         buildConfigField("boolean", "PLAY_STORE", playStore.toString())
     }
 
     sourceSets {
         // The GitHub build updates itself (src/github: code, plus a manifest that adds
         // REQUEST_INSTALL_PACKAGES and the installer's receiver); the Play build gets an
-        // empty stand-in (src/play) and a manifest that only takes INTERNET out, since
-        // nothing in it goes online.
+        // empty stand-in (src/play) and an empty manifest: INTERNET stays (src/main) for the
+        // local-network receiver, but nothing in it goes to the internet.
         getByName("main").kotlin.directories.add(if (playStore) "src/play/java" else "src/github/java")
         val buildManifest = if (playStore) "src/play/AndroidManifest.xml" else "src/github/AndroidManifest.xml"
         getByName("debug").manifest.srcFile(buildManifest)
@@ -95,7 +95,7 @@ val buildRustLibs by tasks.registering(Exec::class) {
     workingDir(rootProject.file("flocknet-jni"))
     environment("PATH", rustPath)
     environment("ANDROID_NDK_HOME", System.getenv("ANDROID_NDK_HOME") ?: "/opt/homebrew/share/android-commandlinetools/ndk/28.2.13676358")
-    commandLine("sh", "-c", "cargo ndk -t arm64-v8a -t x86_64 -o ../app/src/main/jniLibs build --release")
+    commandLine("sh", "-c", "cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o ../app/src/main/jniLibs build --release")
     onlyIf {
         rustPath.split(":").any { File(it, "cargo-ndk").canExecute() }.also {
             if (!it) logger.warn("cargo-ndk unavailable; using existing jniLibs")

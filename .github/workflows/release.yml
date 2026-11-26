@@ -57,7 +57,7 @@ jobs:
       - name: Release notes from CHANGELOG.ko.md and CHANGELOG.md
         run: |
           version="${GITHUB_REF_NAME#v}"
-          # The lines under "## <version> — <date>", up to the next "## ".
+          # The lines under "## <version> - <date>", up to the next "## ".
           section() {
             awk -v v="$version" '
               /^## / { if (found) exit; if (index($0, "## " v " ") == 1) { found = 1; next } }

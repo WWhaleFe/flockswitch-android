@@ -1,5 +1,7 @@
 package io.github.wwhalefe.flockswitch.net
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.net.wifi.WifiManager
 import android.os.Build
@@ -16,7 +18,8 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
     private var multicast: WifiManager.MulticastLock? = null
     private var worker: Thread? = null
     private var active = AtomicBoolean(false)
-    private var current: NetworkConfig? = null
+    @Volatile private var current: NetworkConfig? = null
+    private val gate = ReconnectGate()
     private val deviceName: String get() = Settings.Global.getString(context.contentResolver, "device_name") ?: Build.MODEL
     fun sync(config: NetworkConfig) {
         if (!NetBridge.available) return
@@ -59,9 +62,22 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
             }
             a.has("unpaired") -> shared.updateConfig { it.copy(network = it.network.copy(peers = it.network.peers.filterNot { p -> p.id == a.getString("unpaired") })) }
             a.has("switch") -> shared.requestSwitch(a.getInt("switch"))
+            a.has("clipboard") -> if (shared.config.value.network.share_clipboard) setClipboard(a.getJSONObject("clipboard").optString("text"))
             else -> PointerService.instance?.networkAction(a)
         }
     }.onFailure { Log.w("network action: ${it.message}") }
+    /** Writing the clipboard is allowed from the background; only reading is not. */
+    private fun setClipboard(text: String) {
+        if (text.isEmpty() || text.length > MAX_CLIPBOARD_CHARS) return
+        val manager = context.getSystemService(ClipboardManager::class.java)
+        manager.setPrimaryClip(ClipData.newPlainText("flockswitch", text))
+    }
+    /** Redials the master now: after unlock, screen on and network changes. Not on the main
+     *  thread: it takes the native lock. */
+    fun reconnect() {
+        if (current == null || !NetBridge.available || !gate.allow(System.currentTimeMillis())) return
+        Thread({ runCatching { NetBridge.reconnect() } }, "flockswitch-reconnect").start()
+    }
     fun stop() {
         active.set(false)
         if (NetBridge.available) NetBridge.stop()
@@ -75,7 +91,20 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
     }
 }
 
+/** A longer text is not put on the clipboard (Android's binder limit is about 1 MB). */
+private const val MAX_CLIPBOARD_CHARS = 200_000
+
 @Suppress("DEPRECATION")
 internal fun screenMetrics(context: Context): android.util.DisplayMetrics = android.util.DisplayMetrics().also {
     context.getSystemService(android.view.WindowManager::class.java).defaultDisplay.getRealMetrics(it)
+}
+
+/** Unlock, screen on and a network change often come together: one redial is enough. */
+class ReconnectGate(private val minGapMs: Long = 1500) {
+    private var last = Long.MIN_VALUE
+    @Synchronized fun allow(now: Long): Boolean {
+        if (last != Long.MIN_VALUE && now - last in 0 until minGapMs) return false
+        last = now
+        return true
+    }
 }
