@@ -64,13 +64,15 @@ class KeyRuleEdits {
         wake()
     }
 
+    /** Only the pairs the user changed (successive edits of a pair merged): the master merges
+     *  them per pair into its own table. */
     fun next(now: Long = nowMs()): Map<String, DirRules>? {
         if (!ready || sent != null) return null
         pending = pending.filterNot { (key, value) -> known[key] == value }
         if (pending.isEmpty()) return null
         sent = pending.toMap()
         sentAt = now
-        return known + pending
+        return sent
     }
 
     fun disconnected() { sent = null }
@@ -97,7 +99,7 @@ internal fun keyRulesPollMs(connected: Boolean, pending: Boolean): Long =
 
 /** Key rules of one direction ("mac>android"), in the shape netcore's `DirRules` has in
  *  JSON. Android only edits the directions that end here; the master saves them and hands
- *  them to every computer, so the whole map is always sent back. */
+ *  them to every computer; only the pairs changed here are sent back. */
 @Serializable
 data class DirRules(
     /** "function", "position" or "off". */
@@ -209,8 +211,7 @@ object KeyRules {
     fun forAndroid(known: Map<String, DirRules>): Map<String, DirRules> =
         SOURCES.associate { key(it) to (known[key(it)] ?: defaultFor(it)) }
 
-    /** The whole map as netcore takes it: the directions Android does not edit stay as the
-     *  master has them. */
+    /** The map as netcore takes it: the master merges it per pair. */
     fun toJson(all: Map<String, DirRules>): String =
         Config.json.encodeToString(MapSerializer(String.serializer(), DirRules.serializer()), all)
 

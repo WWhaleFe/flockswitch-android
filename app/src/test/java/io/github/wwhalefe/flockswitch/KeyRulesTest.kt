@@ -73,9 +73,12 @@ class KeyRulesTest {
         val next = queue.next()!!
         assertEquals(second, next["mac>android"])
         assertEquals(base, next["linux>android"])
-        assertEquals(other.copy(hanja = false), next["windows>mac"])
-        queue.observe(next)
+        // Pairs the user did not change are not sent.
+        assertEquals(setOf("mac>android", "linux>android"), next.keys)
+        // The master echoes its whole table; only the sent pairs are compared.
+        queue.observe(mapOf("mac>android" to second, "linux>android" to base, "windows>mac" to other.copy(hanja = false, capture = true)))
         assertNull(queue.next())
+        assertFalse(queue.hasPending)
     }
 
     @Test fun reconnectRetainsUnconfirmedEdits() {
@@ -96,8 +99,7 @@ class KeyRulesTest {
         assertNull(queue.next())
         queue.observe(mapOf("windows>mac" to DirRules(capture = false)), following = true)
         val sent = queue.next()!!
-        assertEquals(desired, sent["mac>android"])
-        assertEquals(DirRules(capture = false), sent["windows>mac"])
+        assertEquals(mapOf("mac>android" to desired), sent)
     }
 
     @Test fun anEchoThatNeverMatchesIsGivenUpSoLaterEditsGoOut() {
