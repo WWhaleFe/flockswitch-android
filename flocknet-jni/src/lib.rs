@@ -18,6 +18,7 @@ struct Model {
     y: f64,
     w: i32,
     h: i32,
+    controlled: bool,
 }
 impl Model {
     fn position(&mut self, x: f64, y: f64) -> Value {
@@ -32,6 +33,18 @@ impl Model {
             self.y
         };
         json!({"cursor":{"x":self.x,"y":self.y,"visible":true}})
+    }
+    fn control_warp(&mut self, x: f64, y: f64) -> Value {
+        // Android cannot capture, so netcore only warps on an accepted Enter and
+        // on the matching local() return. Record both boundaries before publish(),
+        // including sessions that begin and end between status snapshots.
+        self.controlled = !self.controlled;
+        let position = self.position(x, y);
+        if self.controlled {
+            position
+        } else {
+            json!({"cursor":{"visible":false}})
+        }
     }
     fn action(&mut self, event: &InputEvent) -> Value {
         match event {
@@ -49,7 +62,6 @@ struct Runtime {
     service: Option<Service>,
     platform: Arc<Android>,
     base: String,
-    controlled: bool,
 }
 static RUNTIME: OnceLock<Mutex<Runtime>> = OnceLock::new();
 static ACTIONS: OnceLock<Actions> = OnceLock::new();
@@ -59,12 +71,6 @@ const RETAINED_ACTIONS: usize = 32;
 struct Actions {
     pending: Mutex<VecDeque<String>>,
     ready: Condvar,
-}
-
-// Input wakes the consumer immediately. Only a visible remote cursor needs frequent
-// checks for a loss of control, since netcore has no control-state callback.
-fn action_wait(controlled: bool, remaining: Duration) -> Duration {
-    remaining.min(Duration::from_millis(if controlled { 20 } else { 500 }))
 }
 
 impl Actions {
@@ -79,10 +85,9 @@ impl Actions {
         self.ready.notify_one();
     }
 
-    fn next(&self, timeout: Duration, mut observe: impl FnMut() -> bool) -> Option<String> {
+    fn next(&self, timeout: Duration) -> Option<String> {
         let deadline = Instant::now() + timeout;
         loop {
-            let controlled = observe();
             let mut pending = self.pending.lock().unwrap();
             if let Some(action) = pending.pop_front() {
                 if pending.is_empty() && pending.capacity() > RETAINED_ACTIONS {
@@ -94,11 +99,7 @@ impl Actions {
             if left.is_zero() {
                 return None;
             }
-            pending = self
-                .ready
-                .wait_timeout(pending, action_wait(controlled, left))
-                .unwrap()
-                .0;
+            pending = self.ready.wait_timeout(pending, left).unwrap().0;
             drop(pending);
         }
     }
@@ -109,7 +110,6 @@ fn runtime() -> &'static Mutex<Runtime> {
             service: None,
             platform: Arc::new(Android::default()),
             base: String::new(),
-            controlled: false,
         })
     })
 }
@@ -118,16 +118,6 @@ fn queue() -> &'static Actions {
 }
 fn push(v: Value) {
     queue().push(v);
-}
-fn observe(r: &mut Runtime) {
-    let controlled = r
-        .service
-        .as_ref()
-        .is_some_and(|s| s.status().state.mode == "controlled");
-    if r.controlled && !controlled {
-        push(json!({"cursor":{"visible":false}}));
-    }
-    r.controlled = controlled;
 }
 impl Platform for Android {
     fn os(&self) -> Os {
@@ -142,7 +132,7 @@ impl Platform for Android {
         Some((m.x, m.y))
     }
     fn warp(&self, x: f64, y: f64) {
-        push(self.model.lock().unwrap().position(x, y));
+        push(self.model.lock().unwrap().control_warp(x, y));
     }
     fn start_capture(&self, _: std::sync::mpsc::Sender<InputEvent>) -> anyhow::Result<()> {
         anyhow::bail!("Android receives only")
@@ -217,7 +207,6 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_start(
         };
         r.base = base;
         r.service = Some(Service::start(c, r.platform.clone(), android_hooks())?);
-        r.controlled = false;
         Ok(())
     })();
     java(&env, result.err().map(|e| e.to_string()))
@@ -231,7 +220,6 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_stop(
     if let Some(s) = r.service.take() {
         s.stop();
     }
-    r.controlled = false;
     queue().reset(Some(json!({"cursor":{"visible":false}})));
 }
 #[no_mangle]
@@ -315,8 +303,7 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_status(
     env: JNIEnv,
     _: JObject,
 ) -> jstring {
-    let mut r = runtime().lock().unwrap();
-    observe(&mut r);
+    let r = runtime().lock().unwrap();
     java(
         &env,
         Some(
@@ -333,27 +320,91 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_nextAct
     _: JObject,
     ms: jint,
 ) -> jstring {
-    let action = queue().next(Duration::from_millis(ms.clamp(0, 5000) as u64), || {
-        let mut r = runtime().lock().unwrap();
-        observe(&mut r);
-        r.controlled
-    });
+    let action = queue().next(Duration::from_millis(ms.clamp(0, 5000) as u64));
     java(&env, action)
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    static GLOBAL_ACTIONS: Mutex<()> = Mutex::new(());
+
     #[test]
-    fn idle_wait_backs_off_but_control_and_deadline_keep_their_latency() {
-        let second = Duration::from_secs(1);
-        assert_eq!(action_wait(false, second), Duration::from_millis(500));
-        assert_eq!(action_wait(true, second), Duration::from_millis(20));
-        for controlled in [false, true] {
-            assert_eq!(action_wait(controlled, Duration::ZERO), Duration::ZERO);
+    fn return_warp_hides_cursor_even_when_status_misses_the_session() {
+        let _guard = GLOBAL_ACTIONS.lock().unwrap();
+        let platform = Android::default();
+        for consume_enter_first in [true, false] {
+            queue().reset(None);
+            platform.warp(0., 0.);
+            if consume_enter_first {
+                let enter = queue().next(Duration::ZERO).unwrap();
+                assert_eq!(
+                    serde_json::from_str::<Value>(&enter).unwrap()["cursor"]["visible"],
+                    true
+                );
+            }
+
+            // netcore calls warp again from local(), even if neither JNI consumer
+            // observed the intervening controlled status.
+            platform.warp(0., 0.);
+            if !consume_enter_first {
+                let enter = queue().next(Duration::ZERO).unwrap();
+                assert_eq!(
+                    serde_json::from_str::<Value>(&enter).unwrap()["cursor"]["visible"],
+                    true
+                );
+            }
+            let leave = queue().next(Duration::ZERO).unwrap();
             assert_eq!(
-                action_wait(controlled, Duration::from_millis(3)),
-                Duration::from_millis(3)
+                serde_json::from_str::<Value>(&leave).unwrap()["cursor"]["visible"],
+                false
             );
+            assert_eq!(queue().next(Duration::ZERO), None);
+        }
+    }
+
+    #[test]
+    fn motion_and_key_release_preserve_control_boundary_order() {
+        let _guard = GLOBAL_ACTIONS.lock().unwrap();
+        queue().reset(None);
+        let platform = Android {
+            model: Mutex::new(Model {
+                w: 100,
+                h: 50,
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let key = |down| InputEvent::Key { usage: 4, down };
+        platform.warp(0., 10.);
+        platform.inject(&key(true));
+        platform.inject(&InputEvent::Motion { dx: 20., dy: 5. });
+        platform.warp(0., 15.);
+        platform.inject(&key(false));
+        platform.warp(99., 25.);
+        platform.warp(99., 25.);
+
+        for expected in [
+            json!({"cursor":{"x":0.,"y":10.,"visible":true}}),
+            json!({"type":"Key","usage":4,"down":true}),
+            json!({"cursor":{"x":20.,"y":15.,"visible":true}}),
+            json!({"cursor":{"visible":false}}),
+            json!({"type":"Key","usage":4,"down":false}),
+            json!({"cursor":{"x":99.,"y":25.,"visible":true}}),
+            json!({"cursor":{"visible":false}}),
+        ] {
+            let action = queue().next(Duration::ZERO).unwrap();
+            assert_eq!(serde_json::from_str::<Value>(&action).unwrap(), expected);
+        }
+        assert_eq!(queue().next(Duration::ZERO), None);
+    }
+
+    #[test]
+    fn empty_actions_respect_the_deadline() {
+        let actions = Actions::default();
+        for timeout in [Duration::ZERO, Duration::from_millis(5)] {
+            let start = Instant::now();
+            assert_eq!(actions.next(timeout), None);
+            assert!(start.elapsed() >= timeout);
         }
     }
 
@@ -364,7 +415,7 @@ mod tests {
             actions.push(json!({"clipboard":{"text":format!("payload-{i}")}}));
         }
         for i in 0..2 {
-            let action = actions.next(Duration::ZERO, || false).unwrap();
+            let action = actions.next(Duration::ZERO).unwrap();
             assert_eq!(
                 serde_json::from_str::<Value>(&action).unwrap()["clipboard"]["text"],
                 format!("payload-{i}")
@@ -374,13 +425,10 @@ mod tests {
         actions.reset(Some(hide.clone()));
         assert_eq!(actions.pending.lock().unwrap().len(), 1);
         assert!(actions.pending.lock().unwrap().capacity() < 1024);
-        assert_eq!(
-            actions.next(Duration::ZERO, || false),
-            Some(hide.to_string())
-        );
+        assert_eq!(actions.next(Duration::ZERO), Some(hide.to_string()));
         actions.reset(None);
         assert_eq!(actions.pending.lock().unwrap().capacity(), 0);
-        assert_eq!(actions.next(Duration::ZERO, || false), None);
+        assert_eq!(actions.next(Duration::ZERO), None);
     }
 
     #[test]
@@ -391,7 +439,7 @@ mod tests {
         }
         assert!(actions.pending.lock().unwrap().capacity() >= 1024);
         for i in 0..1024 {
-            let action = actions.next(Duration::ZERO, || true).unwrap();
+            let action = actions.next(Duration::ZERO).unwrap();
             assert_eq!(serde_json::from_str::<Value>(&action).unwrap()["usage"], i);
         }
         let pending = actions.pending.lock().unwrap();
@@ -406,10 +454,8 @@ mod tests {
             let (tx, rx) = std::sync::mpsc::channel();
             std::thread::scope(|scope| {
                 let waiter = scope.spawn(|| {
-                    actions.next(Duration::from_secs(5), || {
-                        let _ = tx.send(());
-                        false
-                    })
+                    let _ = tx.send(());
+                    actions.next(Duration::from_secs(5))
                 });
                 rx.recv_timeout(Duration::from_secs(1)).unwrap();
                 let value = json!({"cursor":{"visible":!stop}});
@@ -441,6 +487,7 @@ mod tests {
 
     #[test]
     fn peer_change_hook_queues_the_updated_peer() {
+        let _guard = GLOBAL_ACTIONS.lock().unwrap();
         let p = flock_net::PeerConfig {
             id: "master".into(),
             fingerprint: "trusted".into(),
