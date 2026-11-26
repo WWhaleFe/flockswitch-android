@@ -123,6 +123,22 @@ fn java(env: &JNIEnv, s: Option<String>) -> jstring {
         .map(|s| s.into_raw())
         .unwrap_or(null_mut())
 }
+// Both JNI entry points use the same receive-only config boundary.
+fn android_config(text: &str, base: &str) -> serde_json::Result<NetConfig> {
+    let mut c: NetConfig = serde_json::from_str(text)?;
+    c.role = flock_net::Role::Sub;
+    c.config_dir = base.into();
+    Ok(c)
+}
+fn android_hooks() -> Hooks {
+    Hooks {
+        switch_logitech: Box::new(|ch| push(json!({"switch":ch}))),
+        on_paired: Box::new(|p| push(json!({"paired":p}))),
+        on_unpaired: Box::new(|id| push(json!({"unpaired":id}))),
+        on_peer_changed: Box::new(|p| push(json!({"peer_changed":p}))),
+        ..Hooks::default()
+    }
+}
 #[no_mangle]
 pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_start(
     mut env: JNIEnv,
@@ -137,8 +153,7 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_start(
     let base = string(&mut env, base);
     let name = string(&mut env, name);
     let result = (|| -> anyhow::Result<()> {
-        let mut c: NetConfig = serde_json::from_str(&config)?;
-        c.config_dir = base.clone().into();
+        let mut c = android_config(&config, &base)?;
         if c.name.is_empty() {
             c.name = name;
         }
@@ -152,16 +167,8 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_start(
             h,
             ..Default::default()
         };
-        let hooks = Hooks {
-            switch_logitech: Box::new(|ch| push(json!({"switch":ch}))),
-            on_paired: Box::new(|p| push(json!({"paired":p}))),
-            on_unpaired: Box::new(|id| push(json!({"unpaired":id}))),
-            ..Hooks::default()
-        };
-        // Android cannot capture input, so it only ever receives: always a sub.
-        c.role = flock_net::Role::Sub;
         r.base = base;
-        r.service = Some(Service::start(c, r.platform.clone(), hooks)?);
+        r.service = Some(Service::start(c, r.platform.clone(), android_hooks())?);
         r.controlled = false;
         Ok(())
     })();
@@ -215,8 +222,7 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_updateC
 ) {
     let text = string(&mut env, c);
     let r = runtime().lock().unwrap();
-    if let (Ok(mut c), Some(s)) = (serde_json::from_str::<NetConfig>(&text), &r.service) {
-        c.config_dir = r.base.clone().into();
+    if let (Ok(c), Some(s)) = (android_config(&text, &r.base), &r.service) {
         let _ = s.update_config(c);
     }
 }
@@ -302,6 +308,36 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_nextAct
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn android_config_always_receives_and_preserves_consent() {
+        for role in ["master", "sub"] {
+            let c = android_config(
+                &format!(r#"{{"on":true,"notice_accepted":true,"role":"{role}"}}"#),
+                "/tmp/android",
+            )
+            .unwrap();
+            assert_eq!(c.role, flock_net::Role::Sub);
+            assert!(c.on && c.notice_accepted);
+            assert_eq!(c.config_dir, std::path::PathBuf::from("/tmp/android"));
+        }
+        let legacy = android_config(r#"{"on":true}"#, "/tmp/android").unwrap();
+        assert_eq!(legacy.role, flock_net::Role::Sub);
+        assert!(!legacy.notice_accepted);
+    }
+
+    #[test]
+    fn peer_change_hook_queues_the_updated_peer() {
+        let p = flock_net::PeerConfig {
+            id: "master".into(),
+            fingerprint: "trusted".into(),
+            last_addr: "10.0.0.2:47160".into(),
+            ..Default::default()
+        };
+        (android_hooks().on_peer_changed)(p.clone());
+        let mut q = queue().0.lock().unwrap();
+        let action: Value = serde_json::from_str(&q.pop_front().unwrap()).unwrap();
+        assert_eq!(action, json!({"peer_changed":p}));
+    }
     #[test]
     fn clamp_and_motion() {
         let mut m = Model {

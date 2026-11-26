@@ -4,6 +4,43 @@ import io.github.wwhalefe.flockswitch.Config
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+/** Main-thread queue. Only one snapshot may be awaiting the master's status echo. */
+class KeyRuleEdits {
+    private var known = emptyMap<String, DirRules>()
+    private var pending = emptyMap<String, DirRules>()
+    private var sent: Map<String, DirRules>? = null
+    private val display = MutableStateFlow(emptyMap<String, DirRules>())
+    val rules = display.asStateFlow()
+
+    fun observe(keys: Map<String, DirRules>) {
+        known = keys
+        sent?.let { batch ->
+            if (batch.all { (key, value) -> keys[key] == value }) {
+                pending = pending.filterNot { (key, value) -> batch[key] == value }
+                sent = null
+            }
+        }
+        display.value = known + pending
+    }
+
+    fun edit(key: String, rules: DirRules) {
+        pending = pending + (key to rules)
+        display.value = known + pending
+    }
+
+    fun next(): Map<String, DirRules>? {
+        if (sent != null) return null
+        pending = pending.filterNot { (key, value) -> known[key] == value }
+        if (pending.isEmpty()) return null
+        sent = pending.toMap()
+        return known + pending
+    }
+
+    fun disconnected() { sent = null }
+}
 
 /** Key rules of one direction ("mac>android"), in the shape netcore's `DirRules` has in
  *  JSON. Android only edits the directions that end here; the master saves them and hands

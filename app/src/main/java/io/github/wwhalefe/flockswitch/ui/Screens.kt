@@ -141,6 +141,7 @@ import io.github.wwhalefe.flockswitch.formatColor
 import io.github.wwhalefe.flockswitch.parseColor
 import io.github.wwhalefe.flockswitch.pick
 import io.github.wwhalefe.flockswitch.pointerReadable
+import io.github.wwhalefe.flockswitch.shared
 import androidx.compose.material3.FilterChip
 import androidx.compose.runtime.LaunchedEffect
 import io.github.wwhalefe.flockswitch.SwitchService
@@ -1658,6 +1659,7 @@ private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
     var error by remember { mutableStateOf<String?>(null) }
     var address by rememberSaveable { mutableStateOf("") }
     var guide by rememberSaveable { mutableStateOf(false) }
+    var networkNotice by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(n.on) {
         while (true) {
             if (NetBridge.available) {
@@ -1674,8 +1676,11 @@ private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
 
     Section {
         SwitchRow(stringResource(R.string.net_receive), n.on, subtitle = stringResource(R.string.net_receive_help)) { on ->
-            update { copy(network = network.copy(on = on)) }
-            if (on) SwitchService.start(context)
+            if (on && !n.notice_accepted) networkNotice = true
+            else {
+                update { copy(network = network.copy(on = on)) }
+                if (on) SwitchService.start(context)
+            }
         }
         SectionDivider()
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1689,6 +1694,24 @@ private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
         net.me.error?.takeIf { it.isNotBlank() }?.let { Hint(it) }
         if (n.on) NetBridge.startError?.let { Hint(it) }
         error?.let { Hint(it) }
+    }
+
+    if (networkNotice || (n.on && !n.notice_accepted)) {
+        val decline = {
+            networkNotice = false
+            update { copy(network = network.copy(on = false)) }
+        }
+        AppDialog(
+            stringResource(R.string.net_notice_title), decline,
+            listOf(
+                Triple(stringResource(R.string.a11y_decline), ButtonKind.Outlined, decline),
+                Triple(stringResource(R.string.a11y_agree), ButtonKind.Filled) {
+                    networkNotice = false
+                    update { copy(network = network.copy(on = true, notice_accepted = true)) }
+                    SwitchService.start(context)
+                },
+            ),
+        ) { Text(stringResource(R.string.net_notice_text)) }
     }
 
     Section(
@@ -1788,7 +1811,7 @@ private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
         }
     }
 
-    KeysSection(net, live && net.peers.any { p -> p.connected && n.peers.any { it.id == p.id } }, scope)
+    KeysSection(live && net.peers.any { p -> p.connected && n.peers.any { it.id == p.id } })
 
     Section(stringResource(R.string.net_clipboard)) {
         SwitchRow(stringResource(R.string.net_clipboard_receive), n.share_clipboard, subtitle = stringResource(R.string.net_clipboard_help)) { on ->
@@ -1824,17 +1847,14 @@ private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
  *  rules are the master's: an edit goes to the master, which saves it and hands it to every
  *  computer, and the screen follows when the status brings it back. */
 @Composable
-private fun KeysSection(net: NetStatus, connected: Boolean, scope: kotlinx.coroutines.CoroutineScope) {
+private fun KeysSection(connected: Boolean) {
     var src by rememberSaveable { mutableStateOf("mac") }
-    // Edits show at once; the status catches up a moment later and takes over.
-    var local by remember { mutableStateOf<Map<String, DirRules>>(emptyMap()) }
-    LaunchedEffect(net.keys) { local = emptyMap() }
-    val known = net.keys + local
+    val edits = LocalContext.current.shared.keyRuleEdits
+    val known by edits.rules.collectAsStateWithLifecycle()
     val rules = KeyRules.forAndroid(known)[KeyRules.key(src)] ?: KeyRules.defaultFor(src)
-    val edit: (DirRules) -> Unit = { next ->
-        local = local + (KeyRules.key(src) to next)
-        val json = KeyRules.toJson(KeyRules.merged(net.keys, local))
-        scope.launch(Dispatchers.IO) { runCatching { NetBridge.sendKeyRules(json) } }
+    val edit: ((DirRules) -> DirRules) -> Unit = { change ->
+        val current = KeyRules.forAndroid(edits.rules.value).getValue(KeyRules.key(src))
+        edits.edit(KeyRules.key(src), change(current))
     }
     val sourceNames = mapOf("mac" to "Mac", "windows" to "Windows", "linux" to "Linux")
     Section(stringResource(R.string.net_keys_title)) {
@@ -1843,6 +1863,7 @@ private fun KeysSection(net: NetStatus, connected: Boolean, scope: kotlinx.corou
             src,
         ) { src = it }
         if (!connected) Hint(stringResource(R.string.net_keys_offline))
+        if (Build.VERSION.SDK_INT < 33) Hint(stringResource(R.string.net_keyboard_legacy))
         // Modifier keys.
         KeysHeading(stringResource(R.string.net_keys_mods))
         val cross = src == "mac"
@@ -1856,7 +1877,7 @@ private fun KeysSection(net: NetStatus, connected: Boolean, scope: kotlinx.corou
                 stringResource(R.string.net_keys_mode),
                 hint = stringResource(if (rules.mod_mode == "position") R.string.net_keys_mode_position_help else R.string.net_keys_mode_function_help),
             ) {
-                ValuePicker(modes, rules.mod_mode, enabled = connected) { edit(KeyRules.withModMode(rules, it)) }
+                ValuePicker(modes, rules.mod_mode, enabled = connected) { edit { current -> KeyRules.withModMode(current, it) } }
             }
         }
         LabeledControl(stringResource(R.string.net_keys_table), hint = stringResource(R.string.net_keys_table_help, sourceNames.getValue(src))) {
@@ -1874,7 +1895,7 @@ private fun KeysSection(net: NetStatus, connected: Boolean, scope: kotlinx.corou
                                 target,
                                 Modifier.weight(1f),
                                 enabled = connected,
-                            ) { edit(KeyRules.withModTarget(src, "android", rules, kind, it)) }
+                            ) { edit { current -> KeyRules.withModTarget(src, "android", current, kind, it) } }
                         }
                     }
                 }
@@ -1891,7 +1912,7 @@ private fun KeysSection(net: NetStatus, connected: Boolean, scope: kotlinx.corou
                     val on = key in rules.hangul_src
                     FilterChip(
                         selected = on,
-                        onClick = { edit(KeyRules.withHangulSource(src, rules, key, !on)) },
+                        onClick = { edit { current -> KeyRules.withHangulSource(src, current, key, key !in current.hangul_src) } },
                         enabled = connected,
                         label = { Text(hangulName(key)) },
                     )
@@ -1900,7 +1921,7 @@ private fun KeysSection(net: NetStatus, connected: Boolean, scope: kotlinx.corou
         }
         LabeledControl(stringResource(R.string.net_keys_hangul_dst), hint = stringResource(R.string.net_keys_hangul_dst_help)) {
             ValuePicker(KeyRules.ANDROID_HANGUL.map { it to hangulName(it) }, rules.hangul_dst, enabled = connected) {
-                edit(KeyRules.withHangulTarget(rules, it))
+                edit { current -> KeyRules.withHangulTarget(current, it) }
             }
         }
         if (src == "mac" && "caps_lock" in rules.hangul_src) {
@@ -1909,7 +1930,7 @@ private fun KeysSection(net: NetStatus, connected: Boolean, scope: kotlinx.corou
                 rules.caps_long_press,
                 subtitle = stringResource(R.string.net_keys_caps_long_help),
                 enabled = connected,
-            ) { edit(rules.copy(caps_long_press = it)) }
+            ) { edit { current -> current.copy(caps_long_press = it) } }
         }
         Hint(stringResource(R.string.net_keys_android_note, sourceNames.getValue(src)))
         Hint(stringResource(R.string.net_keys_note))

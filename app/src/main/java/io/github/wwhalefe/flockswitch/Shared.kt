@@ -128,6 +128,8 @@ class PointerState {
 }
 
 class Shared(private val dir: File) {
+    /** Unconfirmed key edits survive navigation and network service restarts. Main thread. */
+    val keyRuleEdits = io.github.wwhalefe.flockswitch.net.KeyRuleEdits()
     private val configFile = File(dir, "config.json")
     private val catalogFile = File(dir, "devices.json")
     private val buttonStateFile = File(dir, "button-state.json")

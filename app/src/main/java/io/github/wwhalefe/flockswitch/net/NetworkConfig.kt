@@ -13,12 +13,18 @@ data class NetworkPeer(
 @Serializable
 data class NetworkConfig(
     val on: Boolean = false, val name: String = "", val port: Int = 47160,
+    val notice_accepted: Boolean = false,
     val swap_cmd_ctrl: Boolean = true, val lang1_on_mac: String = "capslock",
     val cross_delay_ms: Long = 0,
     /** Put text copied on the master on this device's clipboard (Android receives only). */
     val share_clipboard: Boolean = true,
     val peers: List<NetworkPeer> = emptyList(),
 ) {
+    /** A late change must not restore an unpaired peer or replace its trusted identity. */
+    fun withChangedPeer(peer: NetworkPeer): NetworkConfig = copy(peers = peers.map {
+        if (it.id == peer.id && it.fingerprint == peer.fingerprint) peer else it
+    })
+
     fun toCoreJson(deviceName: String = ""): String = Config.json.encodeToString(serializer(),
         if (name.isBlank()) copy(name = deviceName) else this)
     fun problems(): List<String> = buildList {

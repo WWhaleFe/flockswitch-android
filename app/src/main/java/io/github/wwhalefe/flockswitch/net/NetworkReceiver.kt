@@ -10,6 +10,7 @@ import android.os.Looper
 import android.provider.Settings
 import io.github.wwhalefe.flockswitch.*
 import org.json.JSONObject
+import kotlinx.coroutines.*
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Owned by SwitchService. JNI waits never run on the main thread. */
@@ -20,10 +21,11 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
     private var active = AtomicBoolean(false)
     @Volatile private var current: NetworkConfig? = null
     private val gate = ReconnectGate()
+    private var keyRulesJob: Job? = null
     private val deviceName: String get() = Settings.Global.getString(context.contentResolver, "device_name") ?: Build.MODEL
     fun sync(config: NetworkConfig) {
         if (!NetBridge.available) return
-        if (!config.on) { stop(); return }
+        if (!config.on || !config.notice_accepted) { stop(); return }
         if (current != null) {
             NetBridge.updateConfig(config.toCoreJson(deviceName))
             current = config
@@ -46,6 +48,27 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
                     main.post { if (running.get()) consume(action) }
                 }
             }, "flockswitch-actions").also { it.start() }
+            keyRulesJob = CoroutineScope(Dispatchers.Main).launch {
+                try {
+                    while (isActive) {
+                        try {
+                            val status = withContext(Dispatchers.IO) { NetStatus.parse(NetBridge.status()) }
+                            val edits = shared.keyRuleEdits
+                            edits.observe(status.keys)
+                            if (status.running && status.peers.any { p -> p.connected && current?.peers?.any { it.id == p.id } == true }) {
+                                edits.next()?.let { keys ->
+                                    withContext(Dispatchers.IO) { NetBridge.sendKeyRules(KeyRules.toJson(keys)) }
+                                }
+                            } else edits.disconnected()
+                        } catch (e: CancellationException) { throw e }
+                        catch (e: Exception) {
+                            shared.keyRuleEdits.disconnected()
+                            Log.w("network key rules: ${e.message}")
+                        }
+                        delay(200)
+                    }
+                } finally { shared.keyRuleEdits.disconnected() }
+            }
         } catch (e: Exception) { NetBridge.startError = e.message; Log.w("network: ${e.message}"); stop() }
     }
     fun screenChanged() {
@@ -56,6 +79,10 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
     private fun consume(text: String) = runCatching {
         val a = JSONObject(text)
         when {
+            a.has("peer_changed") -> {
+                val p = Config.json.decodeFromString(NetworkPeer.serializer(), a.getJSONObject("peer_changed").toString())
+                shared.updateConfig { it.copy(network = it.network.withChangedPeer(p)) }
+            }
             a.has("paired") -> {
                 val p = Config.json.decodeFromString(NetworkPeer.serializer(), a.getJSONObject("paired").toString())
                 shared.updateConfig { it.copy(network = it.network.copy(peers = it.network.peers.filterNot { peer -> peer.id == p.id } + p)) }
@@ -79,6 +106,8 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
         Thread({ runCatching { NetBridge.reconnect() } }, "flockswitch-reconnect").start()
     }
     fun stop() {
+        keyRulesJob?.cancel()
+        keyRulesJob = null
         active.set(false)
         if (NetBridge.available) NetBridge.stop()
         // Finish the old consumer before a new run can read the shared native queue.

@@ -4,6 +4,7 @@ import io.github.wwhalefe.flockswitch.net.DirRules
 import io.github.wwhalefe.flockswitch.net.KeyRules
 import io.github.wwhalefe.flockswitch.net.NetStatus
 import io.github.wwhalefe.flockswitch.net.ReconnectGate
+import io.github.wwhalefe.flockswitch.net.KeyRuleEdits
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.int
@@ -14,6 +15,37 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class KeyRulesTest {
+    @Test fun rapidEditsWaitForAcknowledgementAndPreserveOtherDirections() {
+        val base = KeyRules.defaultFor("mac")
+        val first = base.copy(mod_mode = "position")
+        val second = first.copy(hangul_dst = "control_space")
+        val other = DirRules(capture = false)
+        val queue = KeyRuleEdits()
+        queue.observe(mapOf("mac>android" to base, "windows>mac" to other))
+        queue.edit("mac>android", first)
+        assertEquals(first, queue.next()!!["mac>android"])
+        queue.edit("mac>android", second)
+        queue.edit("linux>android", base)
+        assertNull(queue.next())
+        queue.observe(mapOf("mac>android" to first, "windows>mac" to other.copy(hanja = false)))
+        assertEquals(second, queue.rules.value["mac>android"])
+        val next = queue.next()!!
+        assertEquals(second, next["mac>android"])
+        assertEquals(base, next["linux>android"])
+        assertEquals(other.copy(hanja = false), next["windows>mac"])
+        queue.observe(next)
+        assertNull(queue.next())
+    }
+
+    @Test fun reconnectRetainsUnconfirmedEdits() {
+        val queue = KeyRuleEdits()
+        val desired = KeyRules.defaultFor("mac").copy(capture = false)
+        queue.edit("mac>android", desired)
+        queue.next()
+        queue.disconnected()
+        queue.observe(mapOf("windows>linux" to DirRules()))
+        assertEquals(desired, queue.next()!!["mac>android"])
+    }
     private val mac = "mac"
 
     @Test fun modeTablesMatchNetcore() {

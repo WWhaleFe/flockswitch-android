@@ -5,11 +5,33 @@ import io.github.wwhalefe.flockswitch.net.NetworkPeer
 import io.github.wwhalefe.flockswitch.net.hidKeyCode
 import io.github.wwhalefe.flockswitch.ui.normalizeNetworkAddress
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.boolean
 import org.junit.Assert.*
 import org.junit.Test
 import java.time.LocalDateTime
 
 class NetworkConfigTest {
+    @Test fun networkConsentIsExplicitAndPersistsInCoreJson() {
+        val old = Config.fromJson("""{"network":{"on":true}}""").network
+        assertFalse(old.notice_accepted)
+        val accepted = old.copy(notice_accepted = true)
+        assertTrue(Config.fromJson(Config(network = accepted).toJson()).network.notice_accepted)
+        assertTrue(Config.json.parseToJsonElement(accepted.toCoreJson("phone")).jsonObject
+            .getValue("notice_accepted").jsonPrimitive.boolean)
+        assertFalse(Config.json.parseToJsonElement(old.toCoreJson()).jsonObject
+            .getValue("notice_accepted").jsonPrimitive.boolean)
+    }
+
+    @Test fun changedPeerUpdatesOnlyAnExistingTrustedIdentity() {
+        val peer = NetworkPeer(id = "master", fingerprint = "trusted", last_addr = "10.0.0.1:47160")
+        val config = NetworkConfig(peers = listOf(peer))
+        val changed = peer.copy(last_addr = "10.0.0.2:47160", side = "right")
+        assertEquals(changed, config.withChangedPeer(changed).peers.single())
+        assertEquals(config, config.withChangedPeer(changed.copy(fingerprint = "other")))
+        assertEquals(config, config.withChangedPeer(changed.copy(id = "unpaired")))
+        assertEquals(changed, Config.fromJson(Config(network = config.withChangedPeer(changed)).toJson()).network.peers.single())
+    }
     @Test fun legacyAndCoreSchema() {
         assertFalse(Config.fromJson("{}").network.on)
         val n = NetworkConfig(on = true, peers = listOf(NetworkPeer(id = "abc", side = "left", os = "windows", logitech_channel = 2)))

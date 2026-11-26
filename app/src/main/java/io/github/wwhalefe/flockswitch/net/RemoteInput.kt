@@ -16,6 +16,9 @@ import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.Toast
+import io.github.wwhalefe.flockswitch.R
 import org.json.JSONObject
 import kotlin.math.abs
 
@@ -55,6 +58,8 @@ class RemoteInput(private val service: AccessibilityService) {
     private var scrollY = 0.0
     private val modifiers = mutableSetOf<Int>()
     private val sentKeys = mutableSetOf<Int>()
+    private var capsLock = false
+    private var lastKeyboardHint = Long.MIN_VALUE
     private val characters = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD)
     private val pump = Runnable { gesture() }
 
@@ -122,17 +127,23 @@ class RemoteInput(private val service: AccessibilityService) {
             0xe3, 0xe7 -> KeyEvent.META_META_ON
             else -> 0
         }
-        return state
+        return if (capsLock) state or KeyEvent.META_CAPS_LOCK_ON else state
     }
     private fun key(usage: Int, down: Boolean) {
         if (usage in 0xe0..0xe7) { if (down) modifiers.add(usage) else modifiers.remove(usage) }
         val code = hidKeyCode(usage) ?: return
+        if (down && code == KeyEvent.KEYCODE_CAPS_LOCK) capsLock = !capsLock
         if (Build.VERSION.SDK_INT < 33) { fallback(code, down); return }
         val connection = service.inputMethod?.currentInputConnection
         if (connection == null) { fallback(code, down); return }
         val state = meta()
         if (!down) {
             if (sentKeys.remove(code)) connection.sendKeyEvent(event(code, false, state))
+            return
+        }
+        // Modifier events have already been sent. Send both Space edges as keys too.
+        if (remoteImeChord(code, state)) {
+            connection.sendKeyEvent(event(code, true, state)); sentKeys.add(code)
             return
         }
         if (state and KeyEvent.META_CTRL_ON != 0) {
@@ -158,12 +169,36 @@ class RemoteInput(private val service: AccessibilityService) {
         return KeyEvent(now, now, if (down) KeyEvent.ACTION_DOWN else KeyEvent.ACTION_UP, code, 0, meta,
             KeyCharacterMap.VIRTUAL_KEYBOARD, 0, KeyEvent.FLAG_FROM_SYSTEM, android.view.InputDevice.SOURCE_KEYBOARD)
     }
+    @Suppress("DEPRECATION")
     private fun fallback(code: Int, down: Boolean) {
         if (!down) return
         when (code) {
             KeyEvent.KEYCODE_ESCAPE -> service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
             KeyEvent.KEYCODE_META_LEFT, KeyEvent.KEYCODE_META_RIGHT -> service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+            KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_CTRL_RIGHT,
+            KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_SHIFT_RIGHT,
+            KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.KEYCODE_ALT_RIGHT, KeyEvent.KEYCODE_CAPS_LOCK -> Unit
+            else -> {
+                if (Build.VERSION.SDK_INT >= 33) { keyboardHint(); return }
+                val node = service.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                val ok = try {
+                    if (node == null || !node.isEditable || !node.isFocused) false
+                    else {
+                        val char = characters.get(code, meta())
+                        val text = if (char > 0 && char and KeyCharacterMap.COMBINING_ACCENT == 0)
+                            String(Character.toChars(char)) else null
+                        editRemoteKey(AccessibilityEditor(node), code, meta(), text)
+                    }
+                } finally { node?.recycle() }
+                if (!ok) keyboardHint()
+            }
         }
+    }
+    private fun keyboardHint() {
+        val now = SystemClock.uptimeMillis()
+        if (lastKeyboardHint != Long.MIN_VALUE && now - lastKeyboardHint < 5000) return
+        lastKeyboardHint = now
+        Toast.makeText(service, R.string.net_keyboard_unavailable, Toast.LENGTH_SHORT).show()
     }
     fun reset() {
         left = false
@@ -179,7 +214,7 @@ class RemoteInput(private val service: AccessibilityService) {
             val c = service.inputMethod?.currentInputConnection
             for (code in sentKeys) c?.sendKeyEvent(event(code, false, 0))
         }
-        sentKeys.clear(); modifiers.clear()
+        sentKeys.clear(); modifiers.clear(); capsLock = false
         if (shown) windows.removeView(cursor)
         shown = false
     }

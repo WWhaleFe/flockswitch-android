@@ -182,7 +182,7 @@
     <string name="locate_service_needed">마우스 찾기를 쓰려면 접근성 서비스를 켜 주세요.</string>
     <string name="locate_needs_android14">안드로이드 14부터 앱에 마우스 포인터 위치를 알려 줍니다. 이 버전에서는 미리 보기만 표시할 수 있습니다.</string>
     <string name="pointer_service_label">flockswitch 키보드와 포인터</string>
-    <string name="pointer_service_description">짝 맺은 컴퓨터의 커서, 터치 제스처와 탐색 동작을 받습니다. Android 13 이상에서 현재 입력칸에 키 입력을 전달합니다. 입력을 기록하지 않습니다. 로컬 Control 키 확인과 커서 찾기 설정도 지원합니다.</string>
+    <string name="pointer_service_description">짝 맺은 컴퓨터의 커서, 터치 제스처와 탐색 동작을 받습니다. 현재 입력칸에 키 입력을 전달합니다. Android 8~12L에서는 편집할 입력칸의 글과 선택 범위만 읽으며 비밀번호·IME 한/영 전환은 지원하지 않습니다. 입력을 기록하지 않습니다. 로컬 Control 키 확인과 커서 찾기 설정도 지원합니다.</string>
 
     <string name="reset_button">설정 초기화…</string>
     <string name="reset_explain">모든 설정을 처음 상태로 되돌립니다.</string>
@@ -191,7 +191,7 @@
     <string name="guide_open">설정 방법 보기</string>
     <string name="guide_title">접근성 서비스 켜기</string>
     <string name="guide_why">Android는 연결된 키보드의 키 상태와 마우스 포인터 위치를 접근성 서비스로만 앱에 알려 주고, 다른 컴퓨터에서 온 입력도 접근성 서비스로만 실행할 수 있습니다. 위쪽·아래쪽 모서리 전환, Control 키 조건, 마우스 찾기, 네트워크로 받기를 쓰려면 이 서비스를 켜야 합니다.</string>
-    <string name="guide_privacy">화면 내용은 읽지 않습니다. 이 기기 키보드에서는 Control 상태와 Ctrl+Alt+L만 확인하고, 짝 맺은 컴퓨터의 입력을 실행하며, 저장하거나 외부로 보내지 않습니다. 언제든 같은 화면에서 끌 수 있습니다.</string>
+    <string name="guide_privacy">Android 8~12L에서 네트워크 키 입력을 실행할 때 현재 편집 가능한 입력칸의 글과 선택 범위만 읽습니다. 이 기기 키보드에서는 Control 상태와 Ctrl+Alt+L만 확인하고, 짝 맺은 컴퓨터의 입력을 실행하며, 저장하거나 외부로 보내지 않습니다. 언제든 같은 화면에서 끌 수 있습니다.</string>
     <string name="guide_step1">1. 아래 버튼으로 접근성 설정을 열고 flockswitch를 켠 뒤 허용을 누르세요. 삼성 휴대폰은 \'설치된 앱\' 안에 있습니다.</string>
     <string name="guide_step2">2. \'제한된 설정\' 창이 뜨면 확인을 누르고, 아래 버튼으로 앱 정보를 연 뒤 오른쪽 위 ⋮ 메뉴에서 \'제한된 설정 허용\'을 누르세요. 그다음 1번을 다시 하세요.</string>
     <string name="guide_step3">3. 이 화면으로 돌아오면 켜졌는지 아래에 표시됩니다.</string>
@@ -201,7 +201,7 @@
     <!-- Google Play 버전에서만: 단계 안내 전에 보여 주는 안내와 동의. -->
     <string name="guide_step2_play">2. 이 화면으로 돌아오면 켜졌는지 아래에 표시됩니다.</string>
     <string name="a11y_disclosure_title">접근성 서비스 사용 안내</string>
-    <string name="a11y_disclosure_text">flockswitch는 Android 접근성 서비스(AccessibilityService API)를 다음 네 가지 선택 기능에만 씁니다: 위쪽·아래쪽 화면 모서리 전환, ‘Control 키를 누른 동안에만 전환’, 마우스 찾기, 내 컴퓨터의 마우스·키보드로 이 기기 쓰기(네트워크 탭).\n\n접근하는 정보\n• 하드웨어 키보드의 키 입력: ‘Control 키를 누른 동안에만 전환’이나 Ctrl+Alt+L 단축키가 켜져 있는 동안 키 입력이 flockswitch를 거쳐 갑니다. Control을 누르고 있는지만 확인하고 Ctrl+Alt+L만 받으며, 다른 키는 앞에 있는 앱으로 그대로 전달합니다.\n• 마우스 포인터 위치: 마우스 찾기를 요청한 뒤 다음 마우스 움직임에서 한 번 읽습니다.\n• 화면 위 표시: 위쪽·아래쪽 모서리에서 포인터를 감지하도록 상태 표시줄과 내비게이션 바 위에 보이지 않는 얇은 띠를 두고, 마우스 찾기 효과와 내 컴퓨터 마우스의 커서를 화면 위에 그립니다.\n• 내 컴퓨터에서 오는 입력: 네트워크 받기가 켜져 있고 컴퓨터를 짝 맺은 동안에만, 그 컴퓨터의 마우스 움직임·클릭·스크롤·키 입력이 암호화되어 네트워크로 이 기기에 오고, 서비스가 이 기기에서 실행합니다. 커서를 움직이고, 제스처로 탭하거나 쓸어 넘기고, 뒤로·홈·최근 앱 동작을 하며, 쓰고 있는 입력칸에 키를 입력합니다(Android 13 이상).\n화면 내용은 읽지 않으며, 입력한 키를 기록하거나 보관하지 않습니다.\n\n사용 방식\n이 기기 안에서 위 기능에만 씁니다. 어떤 정보도 저장하거나 공유하지 않습니다. 이 버전의 flockswitch는 네트워크 권한을 짝 맺은 컴퓨터(같은 네트워크에서 찾았거나 IP로 추가한 컴퓨터)와 통신하는 데만 쓰며, 인터넷으로는 아무것도 보내지 않고 본 내용을 누구에게도 보내지 않습니다.\n\nAndroid 접근성 설정에서 언제든 끌 수 있습니다. ‘동의 안 함’을 고르면 다른 기능은 그대로 동작하고 이 네 기능만 꺼진 채로 남습니다. 이 안내는 ‘설정 방법 보기’나 일반 탭의 권한에서 다시 열 수 있습니다.</string>
+    <string name="a11y_disclosure_text">flockswitch는 Android 접근성 서비스(AccessibilityService API)를 다음 네 가지 선택 기능에만 씁니다: 위쪽·아래쪽 화면 모서리 전환, ‘Control 키를 누른 동안에만 전환’, 마우스 찾기, 내 컴퓨터의 마우스·키보드로 이 기기 쓰기(네트워크 탭).\n\n접근하는 정보\n• 하드웨어 키보드의 키 입력: ‘Control 키를 누른 동안에만 전환’이나 Ctrl+Alt+L 단축키가 켜져 있는 동안 키 입력이 flockswitch를 거쳐 갑니다. Control을 누르고 있는지만 확인하고 Ctrl+Alt+L만 받으며, 다른 키는 앞에 있는 앱으로 그대로 전달합니다.\n• 마우스 포인터 위치: 마우스 찾기를 요청한 뒤 다음 마우스 움직임에서 한 번 읽습니다.\n• 화면 위 표시: 위쪽·아래쪽 모서리에서 포인터를 감지하도록 상태 표시줄과 내비게이션 바 위에 보이지 않는 얇은 띠를 두고, 마우스 찾기 효과와 내 컴퓨터 마우스의 커서를 화면 위에 그립니다.\n• 내 컴퓨터에서 오는 입력: 네트워크 받기가 켜져 있고 컴퓨터를 짝 맺은 동안에만, 그 컴퓨터의 마우스 움직임·클릭·스크롤·키 입력이 암호화되어 네트워크로 이 기기에 오고, 서비스가 이 기기에서 실행합니다. 커서를 움직이고, 제스처로 탭하거나 쓸어 넘기고, 뒤로·홈·최근 앱 동작을 하며, 쓰고 있는 입력칸에 키를 입력합니다. Android 8~12L에서는 그 입력칸의 글과 선택 범위만 읽어 글을 편집하고 커서를 움직입니다. 비밀번호 입력·일반 앱 단축키·IME 한/영 전환은 지원하지 않습니다.\n다른 화면 내용은 읽지 않으며, 입력칸의 글이나 입력한 키를 기록하거나 보관하지 않습니다.\n\n사용 방식\n이 기기 안에서 위 기능에만 씁니다. 어떤 정보도 저장하거나 공유하지 않습니다. 이 버전의 flockswitch는 네트워크 권한을 짝 맺은 컴퓨터(같은 네트워크에서 찾았거나 IP로 추가한 컴퓨터)와 통신하는 데만 쓰며, 인터넷으로는 아무것도 보내지 않고 본 내용을 누구에게도 보내지 않습니다.\n\nAndroid 접근성 설정에서 언제든 끌 수 있습니다. ‘동의 안 함’을 고르면 다른 기능은 그대로 동작하고 이 네 기능만 꺼진 채로 남습니다. 이 안내는 ‘설정 방법 보기’나 일반 탭의 권한에서 다시 열 수 있습니다.</string>
     <string name="a11y_agree">동의</string>
     <string name="a11y_decline">동의 안 함</string>
     <string name="section_permissions">권한</string>
@@ -329,7 +329,7 @@
     <string name="net_keys_hangul_src">%s에서 한/영을 바꾸는 키</string>
     <string name="net_keys_hangul_src_help">이 키를 누르면 Android의 한/영 전환으로 바꿔 보냅니다. 여러 개를 고를 수 있습니다</string>
     <string name="net_keys_hangul_dst">Android에서 한/영을 바꾸는 키</string>
-    <string name="net_keys_hangul_dst_help">Gboard·삼성 키보드는 Shift+Space가 기본입니다</string>
+    <string name="net_keys_hangul_dst_help">Android 13 이상에서 조합을 키 이벤트로 전달합니다. 앱·IME에 따라 전환이 안 되면 화면 키보드를 이용하세요.</string>
     <string name="net_keys_caps_long">Caps Lock을 길게 누르면 대문자 고정으로</string>
     <string name="net_keys_caps_long_help">macOS처럼 짧게 누르면 한/영, 길게 누르면 대문자 고정</string>
     <string name="net_keys_android_note">Android는 받기만 해서 Android → %s 설정은 없습니다</string>
@@ -344,4 +344,8 @@
     <string name="net_clipboard_receive">클립보드 받기</string>
     <string name="net_clipboard_help">컴퓨터에서 복사한 글을 이 기기에서 붙여 넣습니다. 이미지와 파일은 받지 않습니다</string>
     <string name="net_accessibility_need">입력을 재현하려면 접근성 서비스가 필요합니다</string>
+    <string name="net_notice_title">내 컴퓨터의 입력 받기</string>
+    <string name="net_notice_text">짝 맺은 컴퓨터가 이 기기를 조작하고 클립보드의 글을 바꿀 수 있습니다. 신뢰하는 컴퓨터만 연결하고 두 화면의 코드를 확인하세요. Android나 사용하는 앱에 따라 입력이 제한될 수 있습니다. 동의하고 받기를 켤까요?</string>
+    <string name="net_keyboard_legacy">Android 8~12L: 지원하는 입력칸에서 영문·숫자·편집·커서 이동을 쓸 수 있습니다. 비밀번호 입력, 일반 앱 단축키, IME 한/영 전환은 지원하지 않습니다. 화면 키보드를 이용하세요.</string>
+    <string name="net_keyboard_unavailable">이 입력칸이나 키는 지원하지 않습니다. 비밀번호·한/영 전환은 화면 키보드를 이용하세요.</string>
 </resources>
