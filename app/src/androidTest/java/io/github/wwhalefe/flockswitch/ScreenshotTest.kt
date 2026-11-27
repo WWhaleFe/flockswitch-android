@@ -10,6 +10,9 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isSelected
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -96,16 +99,39 @@ class ScreenshotTest {
             ) { FlockswitchApp(shared, actions, net) }
         }
 
+        // Both runs must see the same display; a different density or font scale is a failure.
+        val metrics = target.resources.displayMetrics
+        check(metrics.densityDpi == 420 && target.resources.configuration.fontScale == 1f) {
+            "unexpected display: ${metrics.densityDpi} dpi, font scale ${target.resources.configuration.fontScale}"
+        }
+
         val lang = locale.language
+        gotoTab(0)
         snap(lang, 1, "home")
-        rule.onNodeWithTag("tab1").performClick()
+        gotoTab(1)
+        rule.waitUntil(10_000) {
+            rule.onAllNodesWithText(localizedString(R.string.net_keys_title)).fetchSemanticsNodes().isNotEmpty()
+        }
         snap(lang, 2, "network")
         scrollNear(R.string.net_keys_title)
         snap(lang, 3, "keys")
         scrollNear(R.string.net_clipboard_receive)
         snap(lang, 4, "clipboard")
-        rule.onNodeWithTag("tab3").performClick()
+        gotoTab(3)
         snap(lang, 5, "effects")
+    }
+
+    /** Clicks the bottom-bar tab and fails unless it really became the selected one. */
+    private fun gotoTab(index: Int) {
+        val tag = "tab$index"
+        repeat(3) {
+            if (rule.onAllNodes(hasTestTag(tag) and isSelected()).fetchSemanticsNodes().isNotEmpty()) return
+            dismissSystemDialogs()
+            rule.onNodeWithTag(tag).performClick()
+            rule.waitForIdle()
+            runCatching { rule.waitUntil(3_000) { rule.onAllNodes(hasTestTag(tag) and isSelected()).fetchSemanticsNodes().isNotEmpty() } }
+        }
+        rule.onNode(hasTestTag(tag) and isSelected()).assertExists("tab $index was not selected")
     }
 
     /** Brings the text to the upper part of the page (the page cannot scroll past its end). */
