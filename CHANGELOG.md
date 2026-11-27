@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.0 - 2026-11-27
+
+- Crossing: while this device is controlled, any edge that touches another computer on the layout leads there (the controlling computer passes the input on). The controlling computer needs this version too.
+- Version 2.4.0 (versionCode 19)
+
 ## 2.3.0 - 2026-11-27
 
 - Fixed: unpairing the master on this device (a sub) left the master paired, so it would not pair with it again.
