@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.0 - 2026-11-27
+
+- Fixed: unpairing the master on this device (a sub) left the master paired, so it would not pair with it again.
+- Fixed: this device never forgot a peer that had forgotten it (unpaired while this one was off). Two refusals ten seconds apart now make it forget the peer, and the two can pair again.
+- Fixed: pairing again while the other side redialled automatically could show no code or be cancelled silently. The pairing carries on over the new link and is dialled again when there is none.
+- Switching networking on or resuming a paused computer reconnects at once.
+- Version 2.3.0 (versionCode 18)
+
 ## 2.2.0 - 2026-11-27
 
 - **Mouse as touch**: a click is one short tap where the pointer was when the button went down, with no drift; pressing and moving is one continuous drag; holding the button still puts the finger down (a long press), but a normal click never does; the wheel scrolls at the pointer, in proportion to the notches and without jumps; a double click is two quick taps on the same spot. The right button is **Back** (or a long press, your choice on the Network tab), the middle button **Home** (or nothing), Forward opens recent apps. The pointer arrow never takes a tap
