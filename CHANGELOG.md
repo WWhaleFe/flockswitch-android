@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.0 - 2026-11-27
+
+- **Mouse as touch**: a click is one short tap where the pointer was when the button went down, with no drift; pressing and moving is one continuous drag; holding the button still puts the finger down (a long press), but a normal click never does; the wheel scrolls at the pointer, in proportion to the notches and without jumps; a double click is two quick taps on the same spot. The right button is **Back** (or a long press, your choice on the Network tab), the middle button **Home** (or nothing), Forward opens recent apps. The pointer arrow never takes a tap
+- **Korean/English**: the Korean/English key a computer sends (Shift+Space by default on every Mac, Windows and Linux master, or Control+Space if you pick it) now switches a Korean mode of flockswitch's own, because an accessibility service cannot switch the on-screen keyboard. In Korean mode letters are composed as syllables (2-set layout; Shift gives ㅃ ㅉ ㄸ ㄲ ㅆ ㅒ ㅖ; Backspace edits the syllable being typed; any other key ends it). The notification shows the mode (한 or A). Android 13+ writes and rewrites the syllable through the service's input connection (it has no composing text); Android 8-12L replaces text through accessibility actions; password fields work on neither
+- **Pause connection** (*잠시 연결 안 함*) per paired computer on the Network tab: it stays paired but is not connected until you turn it off; paused computers show *Paused* and are dimmed
+- **Keyboard guide** on the Network tab: a short note and *Details* on what works between which systems (Korean/English, modifiers and shortcuts, and what is not carried to Android)
+- Works with computers running 2.2: Shift+Space is a Korean/English key on every sender, and the one-time migration marker (`hangul_defaults`) is kept; the layout of a master with several monitors is understood (one tile per monitor; this device is always one)
+- Version 2.2.0 (versionCode 17)
+
 ## 2.1.0 - 2026-11-27
 
 - **Network receiving (Android is always a sub)**: use this device with the mouse and keyboard of a computer running flockswitch 2.x. Turn on *Receive mouse and keyboard over the network* on the new **Network** tab, pair the computer (compare the 6-digit code, or add it by IP address), and its pointer, clicks, scrolling, key presses and copied text reach this device. Android does not let an app capture the whole system's mouse and keyboard input, so this device's own input cannot be sent to a computer; keep a computer as the master. The pointer and keys are carried out by the accessibility service (keys need Android 13 or later); the clipboard receives text and images (not files)

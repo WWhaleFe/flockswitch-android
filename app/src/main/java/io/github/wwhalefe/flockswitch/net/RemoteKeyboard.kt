@@ -95,3 +95,97 @@ internal fun editRemoteKey(editor: RemoteEditor, code: Int, meta: Int, character
     }
     return editor.replace(text.replaceRange(low, high, insert), low + insert.length)
 }
+
+private const val USAGE_SPACE = 0x2c
+
+/** Whether Space, pressed with [modifiers] held (HID usages 0xE0..0xE7), is the Korean/English
+ *  switch the sender's rules aim at this device: [key] is "shift_space" (Left or Right Shift
+ *  alone with Space, the default) or "control_space". */
+internal fun isHangulToggle(key: String, usage: Int, modifiers: Set<Int>): Boolean {
+    if (usage != USAGE_SPACE) return false
+    fun held(left: Int) = left in modifiers || left + 4 in modifiers
+    val ctrl = held(0xe0)
+    val shift = held(0xe1)
+    val other = held(0xe2) || held(0xe3)
+    if (other) return false
+    return if (key == "control_space") ctrl && !shift else shift && !ctrl
+}
+
+/** Android 12L and older: composed text goes into the focused field by replacing text
+ *  through accessibility actions. The composition is the text just before the cursor that
+ *  this target wrote; if the field no longer shows it there, it is final already. */
+internal class LegacyComposingTarget : ComposingTarget {
+    var editor: RemoteEditor? = null
+    private var at = 0
+    private var open = ""
+
+    private fun replace(text: String, composing: String): Boolean {
+        val e = editor ?: return false
+        if (e.password) return false
+        val start = e.start
+        val end = e.end
+        val whole = e.text ?: if (start == 0 && end == 0) "" else return false
+        if (start !in 0..whole.length || end !in 0..whole.length) return false
+        var from = minOf(start, end)
+        var to = maxOf(start, end)
+        if (open.isNotEmpty()) {
+            // Still where we left it? Then the composition is what gets replaced.
+            if (start == end && start == at + open.length && whole.regionMatches(at, open, 0, open.length)) { from = at; to = start }
+            else open = ""
+        }
+        val ok = e.replace(whole.replaceRange(from, to, text), from + text.length)
+        if (!ok) return false
+        at = from + text.length - composing.length
+        open = composing
+        return true
+    }
+
+    override fun intact(): Boolean {
+        val e = editor ?: return true
+        if (open.isEmpty()) return true
+        val whole = e.text ?: return true
+        return e.start == e.end && e.start == at + open.length && whole.regionMatches(at, open, 0, open.length)
+    }
+
+    override fun commit(text: String) { replace(text, "") }
+
+    override fun setComposing(text: String) {
+        // The text just committed stays; only the open part is replaced.
+        replace(text, text)
+    }
+}
+
+/** What the accessibility input connection (Android 13+) can do for a composition: it has no
+ *  composing text, only these. */
+internal interface CursorText {
+    /** The [n] characters before the cursor, or null when the field does not tell. */
+    fun before(n: Int): String?
+    fun delete(n: Int)
+    fun insert(text: String)
+}
+
+/** Android 13+: the syllable being typed is real text in the field that is deleted and
+ *  written again with every key (the service's input connection has no composing text). It
+ *  is only replaced while the field still shows it right before the cursor; otherwise it
+ *  counts as final, so a moved cursor or another field never loses or doubles text. */
+internal class ReplacingComposingTarget(private val field: () -> CursorText?) : ComposingTarget {
+    private var open = ""
+
+    private fun replace(text: String, composing: String) {
+        val f = field() ?: return
+        if (open.isNotEmpty()) {
+            val seen = f.before(open.length)
+            if (seen == null || seen == open) f.delete(open.length)
+        }
+        if (text.isNotEmpty()) f.insert(text)
+        open = composing
+    }
+
+    override fun intact(): Boolean {
+        if (open.isEmpty()) return true
+        val seen = field()?.before(open.length)
+        return seen == null || seen == open
+    }
+    override fun commit(text: String) = replace(text, "")
+    override fun setComposing(text: String) = replace(text, text)
+}

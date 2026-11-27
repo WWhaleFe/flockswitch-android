@@ -91,6 +91,9 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
                             // Rules are only the master's once its settings arrived.
                             edits.observe(status.keys, status.following != null,
                                 masterTakes = status.masterTakesKeyRules(current?.peers?.map { it.id }?.toSet().orEmpty()))
+                            // The Korean/English key the connected master's rules send to this device.
+                            val masterOs = current?.peers?.firstOrNull { p -> status.peers.any { it.id == p.id && it.connected } }?.os
+                            HangulSettings.toggleKey = status.hangulToggleKey(masterOs)
                             connected = status.running && status.peers.any { p -> p.connected && current?.peers?.any { it.id == p.id } == true }
                             if (connected && status.following != null) {
                                 edits.next()?.let { keys ->
@@ -131,6 +134,10 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
             a.has("unpaired") -> {
                 shared.updateConfig { it.copy(network = it.network.copy(peers = it.network.peers.filterNot { p -> p.id == a.getString("unpaired") })) }
                 shared.keyRuleEdits.reset()
+            }
+            a.has("hangul_defaults") -> {
+                val n = a.getInt("hangul_defaults")
+                shared.updateConfig { it.copy(network = it.network.copy(hangul_defaults = n)) }
             }
             a.has("switch") -> shared.requestSwitch(a.getInt("switch"))
             a.has("clipboard") -> {

@@ -21,8 +21,8 @@ android {
         minSdk = 26
         // Target 37 requires the ACCESS_LOCAL_NETWORK runtime permission.
         targetSdk = 36
-        versionCode = 16
-        versionName = "2.1.0"
+        versionCode = 17
+        versionName = "2.2.0"
         buildConfigField("boolean", "PLAY_STORE", playStore.toString())
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

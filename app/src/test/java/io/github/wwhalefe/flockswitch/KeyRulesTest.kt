@@ -196,13 +196,14 @@ class KeyRulesTest {
         rules = KeyRules.withHangulSource(mac, rules, "caps_lock", false)
         assertEquals(listOf("control_space", "shift_space"), rules.hangul_src)
         // A key this system does not offer cannot be added.
-        assertEquals(listOf("lang1"), KeyRules.withHangulSource("windows", KeyRules.defaultFor("windows"), "caps_lock", true).hangul_src)
+        assertEquals(listOf("lang1", "shift_space"), KeyRules.withHangulSource("windows", KeyRules.defaultFor("windows"), "caps_lock", true).hangul_src)
         assertEquals("control_space", KeyRules.withHangulTarget(rules, "control_space").hangul_dst)
     }
 
-    @Test fun defaultsReproduceTwoPointZero() {
+    @Test fun defaultsFollowNetcore() {
         val windows = KeyRules.defaultFor("windows")
-        assertEquals(listOf("lang1"), windows.hangul_src)
+        // 2.2 adds Shift+Space as a Korean/English key on every sender.
+        assertEquals(listOf("lang1", "shift_space"), windows.hangul_src)
         assertEquals("shift_space", windows.hangul_dst)
         assertTrue(windows.hanja)
         assertFalse(KeyRules.defaultFor(mac).hanja)
