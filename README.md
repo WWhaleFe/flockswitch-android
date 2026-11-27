@@ -71,6 +71,10 @@ JDK 17 and the Android SDK (platform 37):
 
 A signed release build reads its key from `FLOCKSWITCH_KEYSTORE`, `FLOCKSWITCH_KEYSTORE_PASSWORD`, `FLOCKSWITCH_KEY_ALIAS` and `FLOCKSWITCH_KEY_PASSWORD`.
 
+## Before you push
+
+The pre-push hook (`.git/hooks/pre-push`, which calls `scripts/pre-push.sh`) runs what CI can run on a Mac: `cargo test` for flocknet-jni and netcore, and `./gradlew testDebugUnitTest` (JDK 17; the NDK build of `assembleDebug` is left to CI). Pushing tags runs nothing. In an emergency, `FLOCKSWITCH_SKIP_PREPUSH=1 git push`.
+
 ## License
 
 MIT
