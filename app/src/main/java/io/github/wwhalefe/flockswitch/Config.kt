@@ -420,6 +420,7 @@ data class Buttons(
 
 @Serializable
 data class Config(
+    val network: io.github.wwhalefe.flockswitch.net.NetworkConfig = io.github.wwhalefe.flockswitch.net.NetworkConfig(),
     /** Master switch. When false the buttons are left alone. */
     val enabled: Boolean = true,
     /** Which device carries the trigger buttons: "auto" (first mouse that has them),
@@ -464,6 +465,21 @@ data class Config(
         },
     )
 
+    /** Whether the background service has anything to do: the buttons, or receiving over the
+     *  network (which also needs the notice accepted). */
+    fun serviceNeeded(): Boolean = enabled || (network.on && network.notice_accepted)
+
+    /** Removes this install's network trust without changing any button settings. */
+    fun withoutNetworkTrust(): Config = copy(network = network.withoutTrust())
+
+    /** This (loaded from a settings file) with the switch, the accepted notice and the paired
+     *  computers, the name and the port of [current] kept: they belong to this install, the other
+     *  network values come from the file. */
+    fun keepingTrustOf(current: Config): Config = copy(network = network.copy(
+        on = current.network.on, notice_accepted = current.network.notice_accepted, peers = current.network.peers,
+        name = current.network.name, port = current.network.port,
+    ))
+
     /** Control IDs of the buttons that are switched on. */
     fun triggers(): List<Int> = BUTTONS.filter { button(it).on }
 
@@ -480,7 +496,6 @@ data class Config(
                 if (b.on && m.on && m.channels.isEmpty()) out += "$name: turn on at least one channel"
             }
         }
-        if (triggers().isEmpty()) out += "turn on at least one button"
         if (Edge.entries.any { edges.channel(it) !in 0..3 }) out += "edges: the channel must be 1, 2, 3 or 0"
         if (edges.dwellMs !in 100..5000) out += "edges: the time at the edge must be 100 to 5000 ms"
         if (parseColor(edges.animColor) == null) out += "edges: the colour must be like #FFCC00"
@@ -496,6 +511,7 @@ data class Config(
             out += "haptics: waveforms are numbered 0 to 31, or random"
         }
         if (haptics.intensity !in 0..100) out += "haptics: the strength must be 0 (as Options+ sets it) or 1-100 percent"
+        out += network.problems()
         return out
     }
 
@@ -544,7 +560,13 @@ data class Config(
         fun decode(root: JsonElement): Config = json.decodeFromJsonElement(serializer(), migrate(root)).let {
             // Before 0.9.0 every effect shared one colour, size, direction and shrink:
             // each effect starts from those, so older settings keep their look.
-            it.copy(edges = it.edges.filled())
+            // A port that cannot be listened on (saved by an earlier version while typing)
+            // would make the whole file unusable: take the default instead.
+            it.copy(
+                edges = it.edges.filled(),
+                network = if (io.github.wwhalefe.flockswitch.net.NetworkConfig.validPort(it.network.port)) it.network
+                else it.network.copy(port = io.github.wwhalefe.flockswitch.net.NetworkConfig.DEFAULT_PORT),
+            )
         }
 
         /** Settings from older versions, brought up to date. Before 0.6.0 one switch

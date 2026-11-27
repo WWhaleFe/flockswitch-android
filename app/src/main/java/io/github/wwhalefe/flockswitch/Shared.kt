@@ -127,7 +127,23 @@ class PointerState {
     }
 }
 
+/** The identity key netcore makes at the first start (under the folder given as base). */
+internal fun identityKeyFile(dir: File) = File(dir, "flockswitch/net/identity.key")
+
+/** The saved settings. A config.json that came back without its identity key (a backup
+ *  restored on a new install or phone, which does not carry the key) must not bring the
+ *  accepted notice, the switch or the paired computers with it: the master would be
+ *  trusted by a key that no longer exists and the pairing could not be redone. */
+internal fun loadConfig(dir: File): Config {
+    val saved = runCatching { Config.fromJson(File(dir, "config.json").readText()) }.getOrElse { Config() }
+    val n = saved.network
+    if (identityKeyFile(dir).exists() || (!n.on && !n.notice_accepted && n.peers.isEmpty())) return saved
+    return saved.withoutNetworkTrust()
+}
+
 class Shared(private val dir: File) {
+    /** Unconfirmed key edits survive navigation and network service restarts. Main thread. */
+    val keyRuleEdits = io.github.wwhalefe.flockswitch.net.KeyRuleEdits()
     private val configFile = File(dir, "config.json")
     private val catalogFile = File(dir, "devices.json")
     private val buttonStateFile = File(dir, "button-state.json")
@@ -176,7 +192,7 @@ class Shared(private val dir: File) {
     @Volatile
     private var stop = AtomicBoolean(false)
 
-    private fun load(): Config = runCatching { Config.fromJson(configFile.readText()) }.getOrElse { Config() }
+    private fun load(): Config = loadConfig(dir)
 
     /** Changes the settings; an unusable result, or one that cannot be saved, is refused
      *  and false returned. */
@@ -191,6 +207,7 @@ class Shared(private val dir: File) {
             Log.w("cannot save the settings: ${e.message}")
             return false
         }
+        if (next.network.peers.map { it.id }.toSet() != _config.value.network.peers.map { it.id }.toSet()) keyRuleEdits.reset()
         _config.value = next
         return true
     }

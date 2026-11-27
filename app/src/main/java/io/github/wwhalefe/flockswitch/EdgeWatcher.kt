@@ -182,6 +182,13 @@ class EdgeWatcher(private val context: Context, private val shared: Shared) {
         handler.postDelayed(again, SETTLE_MS)
     }
 
+    /** The service is gone: a pending screen-size check must not recreate its windows. */
+    fun close() {
+        settle?.let(handler::removeCallbacks)
+        settle = null
+        hide()
+    }
+
     fun hide() {
         delayedSwitch?.let(handler::removeCallbacks)
         delayedSwitch = null

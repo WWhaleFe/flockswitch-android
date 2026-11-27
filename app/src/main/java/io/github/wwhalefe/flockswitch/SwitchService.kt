@@ -30,12 +30,14 @@ import kotlinx.coroutines.launch
  *  a button for each other channel. */
 class SwitchService : Service() {
     private var thread: Thread? = null
+    private var network: io.github.wwhalefe.flockswitch.net.NetworkReceiver? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     /** The strips along the screen's edges, while the settings ask for them. */
     private var edges: EdgeWatcher? = null
     private val screenChanged = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             edges?.relayout(shared.config.value)
+            network?.screenChanged()
         }
     }
 
@@ -64,6 +66,10 @@ class SwitchService : Service() {
             return
         }
         shared.setStatus { it.copy(serviceBlocked = false) }
+        network = io.github.wwhalefe.flockswitch.net.NetworkReceiver(this, shared)
+        scope.launch { shared.config.map { it.network }.distinctUntilChanged().collect { network?.sync(it) } }
+        // Nothing left to do (buttons off, no network receiving): no notification and no engine loop.
+        scope.launch { shared.config.map { it.serviceNeeded() }.distinctUntilChanged().collect { if (!it) stopSelf() } }
         val stop = shared.newRun()
         val previous = engineThread
         thread = Thread({ loop(previous, stop) }, "flockswitch-engine").also {
@@ -116,7 +122,7 @@ class SwitchService : Service() {
             ACTION_SWITCH -> shared.requestSwitch(intent.getIntExtra(EXTRA_CHANNEL, 0))
             ACTION_LOCATE -> PointerService.instance?.locateOnNextMove()
             ACTION_STOP -> {
-                shared.updateConfig { it.copy(enabled = false) }
+                shared.updateConfig { it.copy(enabled = false, network = it.network.copy(on = false)) }
                 stopSelf()
             }
         }
@@ -155,8 +161,10 @@ class SwitchService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
+        network?.stop()
+        network = null
         if (edges != null) runCatching { unregisterReceiver(screenChanged) }
-        edges?.hide()
+        edges?.close()
         edges = null
         // The engine hands the buttons back on its way out, on its own thread; the next
         // run waits for it (see loop).
@@ -170,6 +178,7 @@ class SwitchService : Service() {
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
         )
         val text = when {
+            c.network.on -> getString(R.string.net_receive)
             !c.enabled -> getString(R.string.status_paused)
             s.trigger != null && s.channel != null -> getString(R.string.notification_here, s.trigger, s.channel)
             s.trigger != null -> s.trigger

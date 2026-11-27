@@ -9,7 +9,7 @@ plugins {
 val keystore: String? = System.getenv("FLOCKSWITCH_KEYSTORE")
 
 // `-PplayStore` builds what goes to Google Play: no update check, no contact section, and
-// no self-update — neither its code (src/github) nor the install permission.
+// no self-update: neither its code (src/github) nor the install permission.
 val playStore = hasProperty("playStore")
 
 android {
@@ -19,17 +19,19 @@ android {
     defaultConfig {
         applicationId = "io.github.wwhalefe.flockswitch"
         minSdk = 26
+        // Target 37 requires the ACCESS_LOCAL_NETWORK runtime permission.
         targetSdk = 36
-        versionCode = 15
-        versionName = "0.11.0"
+        versionCode = 16
+        versionName = "2.1.0"
         buildConfigField("boolean", "PLAY_STORE", playStore.toString())
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     sourceSets {
         // The GitHub build updates itself (src/github: code, plus a manifest that adds
         // REQUEST_INSTALL_PACKAGES and the installer's receiver); the Play build gets an
-        // empty stand-in (src/play) and a manifest that only takes INTERNET out, since
-        // nothing in it goes online.
+        // empty stand-in (src/play) and an empty manifest: INTERNET stays (src/main) for the
+        // local-network receiver, but nothing in it goes to the internet.
         getByName("main").kotlin.directories.add(if (playStore) "src/play/java" else "src/github/java")
         val buildManifest = if (playStore) "src/play/AndroidManifest.xml" else "src/github/AndroidManifest.xml"
         getByName("debug").manifest.srcFile(buildManifest)
@@ -80,4 +82,33 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
 
     testImplementation("junit:junit:4.13.2")
+
+    // The screenshot test for the store listing (src/androidTest).
+    androidTestImplementation(platform("androidx.compose:compose-bom:2026.09.00"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
+
+// Builds the shared Rust core (../netcore through flocknet-jni) into jniLibs with
+// cargo-ndk. Where cargo-ndk is missing, the jniLibs already there are used.
+val rustPath = listOf(
+    "${System.getProperty("user.home")}/.cargo/bin",
+    "${System.getProperty("user.home")}/.rustup/toolchains/stable-aarch64-apple-darwin/bin",
+    "/opt/homebrew/bin",
+    System.getenv("PATH") ?: "",
+).joinToString(":")
+val buildRustLibs by tasks.registering(Exec::class) {
+    workingDir(rootProject.file("flocknet-jni"))
+    environment("PATH", rustPath)
+    environment("ANDROID_NDK_HOME", System.getenv("ANDROID_NDK_HOME") ?: "/opt/homebrew/share/android-commandlinetools/ndk/28.2.13676358")
+    commandLine("sh", "-c", "cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o ../app/src/main/jniLibs build --release")
+    onlyIf {
+        rustPath.split(":").any { File(it, "cargo-ndk").canExecute() }.also {
+            if (!it) logger.warn("cargo-ndk unavailable; using existing jniLibs")
+        }
+    }
+}
+tasks.named("preBuild") { dependsOn(buildRustLibs) }

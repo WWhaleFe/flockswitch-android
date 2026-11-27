@@ -8,3 +8,7 @@ local.properties
 /release/
 *.jks
 *.keystore
+
+/app/src/main/jniLibs/**/*.so
+/flocknet-jni/target/
+/netcore/target/

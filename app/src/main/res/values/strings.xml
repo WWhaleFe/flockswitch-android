@@ -6,8 +6,9 @@
     <string name="go_to_channel">→ Channel %d</string>
 
     <string name="tab_home">Home</string>
-    <string name="tab_buttons">Buttons</string>
-    <string name="tab_devices">Devices</string>
+    <string name="tab_network">Network</string>
+    <string name="tab_logitech">Logitech</string>
+    <string name="tab_effects">Effects</string>
     <string name="tab_general">General</string>
 
     <string name="status_paused">Paused</string>
@@ -57,7 +58,7 @@
     <string name="notifications_off">Notifications are off: the background notification with the channel buttons cannot be shown.</string>
 
     <string name="start_at_boot">Start when this device starts</string>
-    <string name="bluetooth_title">Bluetooth devices</string>
+    <string name="bluetooth_title">Find Bluetooth devices too</string>
     <string name="bluetooth_hint">Also looks for Logitech devices connected to this device over Bluetooth, without a receiver.</string>
     <string name="bluetooth_permission">Allow “Nearby devices” to use Bluetooth devices.</string>
 
@@ -67,7 +68,6 @@
     <string name="update_check">Check now</string>
     <string name="update_checking">Checking…</string>
     <string name="update_up_to_date">This is the latest version</string>
-    <string name="update_available">Version %s is available</string>
     <string name="update_failed">Could not check</string>
     <string name="update_page">Release page</string>
     <string name="update_install_auto">Install updates automatically</string>
@@ -82,10 +82,10 @@
     <string name="update_failed_install">Could not install version %s</string>
     <string name="update_cancelled">Installing version %s was cancelled</string>
     <string name="update_channel">Updates</string>
-    <string name="update_ready">New version ready to install — tap to install</string>
+    <string name="update_ready">New version ready to install - tap to install</string>
 
     <string name="section_report">To the developer</string>
-    <string name="report_desc">Bugs, errors, ideas — anything. Your mail app opens with the app version, device and recent log filled in.</string>
+    <string name="report_desc">Bugs, errors, ideas - anything. Your mail app opens with the app version, device and recent log filled in.</string>
     <string name="report_mail">Open mail app</string>
     <string name="report_issue">Report on GitHub</string>
     <string name="report_subject">flockswitch for Android report</string>
@@ -183,7 +183,7 @@
     <string name="locate_service_needed">Find the cursor needs the accessibility service.</string>
     <string name="locate_needs_android14">Android gives apps the mouse pointer\'s position only from Android 14 on. On this version only the preview can be shown.</string>
     <string name="pointer_service_label">flockswitch keyboard and pointer</string>
-    <string name="pointer_service_description">Used only for flockswitch settings you turn on. Sees the keyboard to know whether Control is held and to catch Ctrl+Alt+L; every other key passes through untouched and nothing is stored or sent. Reads the mouse pointer\'s position once, at the next movement after you ask to find the cursor.</string>
+    <string name="pointer_service_description">Receive cursor, touch gestures and navigation from paired computers. Enter keyboard input into the focused editor. On Android 8–12L, read its text and selection only to edit it; password fields and IME language switching are unsupported. Input is not recorded. Also supports local Control key and find cursor settings.</string>
 
     <string name="reset_button">Reset settings…</string>
     <string name="reset_explain">Puts every setting back to how it started.</string>
@@ -191,8 +191,8 @@
     <string name="cancel">Cancel</string>
     <string name="guide_open">How to turn it on</string>
     <string name="guide_title">Turn on the accessibility service</string>
-    <string name="guide_why">Android tells an app about a keyboard\'s keys and the mouse pointer only through an accessibility service. The top and bottom edges, the Control option and Find the cursor need it.</string>
-    <string name="guide_privacy">It does not read the screen. It only looks at Control and Ctrl+Alt+L, and stores or sends nothing. You can turn it off on the same screen at any time.</string>
+    <string name="guide_why">Android tells an app about a keyboard\'s keys and the mouse pointer only through an accessibility service, and an app can carry out input from another computer only through it too. The top and bottom edges, the Control option, Find the cursor and receiving over the network need it.</string>
+    <string name="guide_privacy">On Android 8–12L, it reads only the focused editable field and selection while receiving keyboard input. It only looks at Control and Ctrl+Alt+L on this device\'s own keyboard, carries out the input of computers you paired, and stores or sends nothing. You can turn it off on the same screen at any time.</string>
     <string name="guide_step1">1. Open the accessibility settings below, turn on flockswitch and allow it. On Samsung phones it is under \'Installed apps\'.</string>
     <string name="guide_step2">2. If a \'Restricted setting\' message appears, tap OK, open App info below, and choose \'Allow restricted settings\' from the ⋮ menu at the top right. Then do step 1 again.</string>
     <string name="guide_step3">3. Come back here to see below whether it is on.</string>
@@ -202,14 +202,14 @@
     <!-- Google Play build only: the in-app disclosure and consent before the steps. -->
     <string name="guide_step2_play">2. Come back here to see below whether it is on.</string>
     <string name="a11y_disclosure_title">Use of the accessibility service</string>
-    <string name="a11y_disclosure_text">flockswitch uses Android\'s accessibility service (AccessibilityService API) only for three optional features: switching at the top and bottom screen edges, “Only while Control is held”, and Find the cursor.\n\nWhat it accesses\n• Keys of a hardware keyboard: while “Only while Control is held” or the Ctrl+Alt+L shortcut is on, key presses pass through flockswitch. It only checks whether Control is held and takes Ctrl+Alt+L; every other key goes on to the app in front unchanged.\n• The mouse pointer\'s position: read once, at your next mouse movement after you ask to find the cursor.\n• Drawing on screen: invisible thin strips over the status and navigation bars notice the pointer at the top and bottom edges, and the Find the cursor highlight is drawn on top.\nIt does not read what is on the screen, and it does not record or keep the keys you type.\n\nHow it is used\nOnly on this device and only for these features. Nothing is stored, sent or shared, and this version of flockswitch has no internet access.\n\nYou can turn the service off at any time in Android\'s accessibility settings. With No thanks everything else keeps working and only these three features stay off; this notice opens again from “How to turn it on” or from Permissions on the General tab.</string>
+    <string name="a11y_disclosure_text">flockswitch uses Android\'s accessibility service (AccessibilityService API) only for four optional features: switching at the top and bottom screen edges, “Only while Control is held”, Find the cursor, and using this device with the mouse and keyboard of your own computers (Network tab).\n\nWhat it accesses\n• Keys of a hardware keyboard: while “Only while Control is held” or the Ctrl+Alt+L shortcut is on, key presses pass through flockswitch. It only checks whether Control is held and takes Ctrl+Alt+L; every other key goes on to the app in front unchanged.\n• The mouse pointer\'s position: read once, at your next mouse movement after you ask to find the cursor.\n• Drawing on screen: invisible thin strips over the status and navigation bars notice the pointer at the top and bottom edges, and the Find the cursor highlight and the cursor of your computer\'s mouse are drawn on top.\n• Input from your own computers: only while receiving over the network is on and you have paired a computer, its mouse movements, clicks, scrolling and key presses reach this device over your network, encrypted, and the service carries them out here: it moves a cursor, taps and swipes with gestures, performs Back, Home and Recents, and enters the keys into the field you are using. On Android 8–12L, it reads only that editable field and its selection to enter text and move the cursor; password fields, general app shortcuts and IME language switching are unsupported.\nIt does not read other screen content or record or keep field text or the keys you type.\n\nHow it is used\nOnly on this device and only for these features. Nothing is stored or shared. This version of flockswitch uses its network permission only to talk to the computers you paired (found on your local network or added by IP address); it sends nothing to the internet and sends nothing it sees to anyone.\n\nYou can turn the service off at any time in Android\'s accessibility settings. With No thanks everything else keeps working and only these four features stay off; this notice opens again from “How to turn it on” or from Permissions on the General tab.</string>
     <string name="a11y_agree">Agree</string>
     <string name="a11y_decline">No thanks</string>
     <string name="section_permissions">Permissions</string>
     <string name="perm_overlay">Display over other apps</string>
     <string name="perm_overlay_hint">Needed to switch at the screen edge and to show effects.</string>
     <string name="perm_accessibility">Accessibility service</string>
-    <string name="perm_accessibility_hint">Needed for the top and bottom edges, the Control option and Find the cursor.</string>
+    <string name="perm_accessibility_hint">Needed for the top and bottom edges, the Control option, Find the cursor and reproducing input received over the network.</string>
     <string name="perm_on">On</string>
     <string name="perm_set">Set up</string>
     <string name="edge_bars_service">The status and navigation bars cover the top and bottom edges, so those two need the accessibility service.</string>
@@ -266,4 +266,93 @@
     <string name="backup_info">About settings backup</string>
     <string name="backup_info_title">Settings backup</string>
     <string name="backup_info_text">• flockswitch keeps a list of up to %1$d settings files it saved. When there are that many, delete some or tidy up in Manage before saving again.\n• Manage lists them newest first: rename a file (it stays a .json file) or delete it from the device. A file deleted elsewhere drops off the list.\n• A settings file can be copied to another Android phone or tablet (by cable, cloud storage, mail…) and loaded there with Load. Load opens any settings file, also one not on the list.\n• Channels are per device: after loading on another device, check the channels on the Buttons tab.\n• The computer versions keep their settings differently; their files cannot be loaded here.</string>
+
+    <string name="net_receive">Receive mouse and keyboard over the network</string>
+    <string name="net_accessibility">Enable accessibility service</string>
+    <string name="net_missing_library">Network support is unavailable in this installation. Please reinstall the app.</string>
+    <string name="net_pairing">Pairing</string>
+    <string name="net_done">Paired</string>
+    <string name="net_failed">Pairing failed. Try again.</string>
+    <string name="net_peer_accepted">The other computer confirmed. Confirm here too.</string>
+    <string name="net_compare">Confirm if both devices show the same code. Then wait for the other computer.</string>
+    <string name="net_confirm">Confirm</string>
+    <string name="net_cancel">Cancel</string>
+    <string name="net_me">This device</string>
+    <string name="net_name">Name (empty uses device name)</string>
+    <string name="net_port">Port</string>
+    <string name="net_port_range">Use 1024 to 65535, not 5353, 47851 or 47852</string>
+    <string name="net_nearby">Nearby computers</string>
+    <string name="net_pair">Pair</string>
+    <string name="net_empty">Computers running flockswitch on this network appear here.</string>
+    <string name="net_disabled">Enable network receiving to find nearby computers.</string>
+    <string name="net_address">IP address or IP:port</string>
+    <string name="net_add_ip">Add by IP</string>
+    <string name="net_left">Left</string>
+    <string name="net_right">Right</string>
+    <string name="net_top">Top</string>
+    <string name="net_bottom">Bottom</string>
+    <string name="net_side_left">to the left of</string>
+    <string name="net_side_right">to the right of</string>
+    <string name="net_side_top">above</string>
+    <string name="net_side_bottom">below</string>
+    <string name="net_channel">Logitech channel</string>
+    <string name="net_unpair">Unpair</string>
+    <string name="perm_nearby">Nearby devices</string>
+    <string name="perm_nearby_hint">Needed for background operation and Bluetooth devices.</string>
+    <string name="section_edge_anim">Countdown effect</string>
+    <string name="update_new_version">New version %s</string>
+    <string name="update_now_hint">Downloads it, checks its SHA256 and opens Android\'s install prompt</string>
+    <string name="net_receive_help">Use this device with the mouse and keyboard of a paired computer</string>
+    <string name="net_role">Role of this device</string>
+    <string name="net_role_value">Sub · receive only</string>
+    <string name="net_role_note">Android only receives. Android does not let an app capture the mouse and keyboard input of the whole system, so this device\'s input cannot be sent to another computer. Keep a computer as the master.</string>
+    <string name="net_reconnect">Reconnect</string>
+    <string name="net_reconnecting">Searching</string>
+    <string name="net_no_master">No master is paired yet. Pair a computer below</string>
+    <string name="net_master_up">Master · connected · %s ms</string>
+    <string name="net_master_down">Master · disconnected</string>
+    <string name="net_master_side">The master is %s this screen (set on the master)</string>
+    <string name="net_master_side_unknown">Where the master sits is set on the master</string>
+    <string name="net_channel_hint">The channel this mouse and keyboard use on that computer. They switch to it when control moves there</string>
+    <string name="net_auto_reconnect">It reconnects by itself when the screen turns on, the phone is unlocked or the network changes</string>
+    <string name="net_reason_both_sub">Both computers are subs. Make the other computer the master</string>
+    <string name="net_reason_has_master">This device already has a master. Unpair it first</string>
+    <string name="net_reason_full">That master already has three subs</string>
+    <string name="net_address_invalid">Not an IP address or IP:port</string>
+    <string name="net_keys_title">When switching OS (keyboard)</string>
+    <string name="net_keys_from">From %s</string>
+    <string name="net_keys_old_master">The master is an older version and cannot change these</string>
+    <string name="net_keys_offline">You can change these while connected to the master</string>
+    <string name="net_keys_mods">Modifier keys</string>
+    <string name="net_keys_mode">How modifier keys are matched</string>
+    <string name="net_keys_mode_function">By function</string>
+    <string name="net_keys_mode_position">By position</string>
+    <string name="net_keys_mode_off">Leave as is</string>
+    <string name="net_keys_mode_function_help">Shortcuts keep working as they are</string>
+    <string name="net_keys_mode_position_help">Keys in the same place on the keyboard are swapped</string>
+    <string name="net_keys_table">Mapping</string>
+    <string name="net_keys_table_help">The key Android gets when you press a %s key</string>
+    <string name="net_keys_hangul">Korean/English</string>
+    <string name="net_keys_hangul_src">Keys that switch Korean/English on %s</string>
+    <string name="net_keys_hangul_src_help">Pressing one sends Android\'s Korean/English switch instead. You can pick several</string>
+    <string name="net_keys_hangul_dst">Key that switches Korean/English on Android</string>
+    <string name="net_keys_hangul_dst_help">On Android 13+, the combination is sent as key events. Support depends on the app and IME; use the on-screen keyboard if it does not switch.</string>
+    <string name="net_keys_caps_long">A long Caps Lock press locks capitals</string>
+    <string name="net_keys_caps_long_help">As on macOS: a short press switches Korean/English, a long press locks capitals</string>
+    <string name="net_keys_android_note">Android only receives, so there are no Android → %s settings</string>
+    <string name="net_keys_note">The same as the values set on the master. Changing them here changes them on the master too</string>
+    <string name="hangul_caps_lock">Caps Lock</string>
+    <string name="hangul_control_space">Control+Space</string>
+    <string name="hangul_shift_space">Shift+Space</string>
+    <string name="hangul_super_space">Super+Space</string>
+    <string name="hangul_lang1">Han/Eng key</string>
+    <string name="hangul_right_alt">Right Alt</string>
+    <string name="net_clipboard">Clipboard</string>
+    <string name="net_clipboard_receive">Receive the clipboard</string>
+    <string name="net_clipboard_help">Text and images copied on the computer can be pasted on this device. Files are not received</string>
+    <string name="net_accessibility_need">The accessibility service is needed to reproduce input</string>
+    <string name="net_notice_title">Receive input from your computers</string>
+    <string name="net_notice_text">A paired computer can control this device and replace its clipboard text and images. Pair only computers you trust and compare the code on both screens. Input may be limited by Android or the app in use. Do you agree to enable receiving?</string>
+    <string name="net_keyboard_legacy">Android 8–12L: letters, numbers, editing and cursor movement work in supported text fields. Password fields, general app shortcuts and Korean/English IME switching are unavailable. Use the on-screen keyboard for those.</string>
+    <string name="net_keyboard_unavailable">This field or key is unsupported. Use the on-screen keyboard for passwords and language switching.</string>
 </resources>

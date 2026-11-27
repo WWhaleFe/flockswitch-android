@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Keys and the mouse are asked for at run time, only while a setting needs them. -->
+<!-- Keys and the mouse are asked for at run time, only while a setting needs them.
+     Window content is read only on Android 8 to 12L, to find the focused text field for
+     keys from a paired computer; Android 13 and later use res/xml-v33 (no window content). -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeAnnouncement"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:canRequestFilterKeyEvents="true"
-    android:canRetrieveWindowContent="false"
+    android:canRetrieveWindowContent="true"
     android:description="@string/pointer_service_description"
     android:notificationTimeout="1000"
-    android:packageNames="io.github.wwhalefe.flockswitch" />
+    android:canPerformGestures="true" />

@@ -238,7 +238,8 @@ class ConfigTest {
     fun unreadableOrUnusableSettingsGiveTheDefaults() {
         assertEquals(Config(), Config.fromJson("not json"))
         val noButton = Config().withButton(BUTTON_WHEEL_MODE, ButtonSetting(on = false))
-        assertEquals(Config(), Config.fromJson(noButton.toJson()))
+        assertEquals(noButton, Config.fromJson(noButton.toJson()))
+        assertEquals(Config(), Config.fromJson(Config(edges = Edges(left = 4)).toJson()))
         // Unknown keys (from a newer version) are ignored.
         assertEquals(Config(enabled = false), Config.fromJson("""{"enabled": false, "future": 1}"""))
     }
@@ -248,7 +249,7 @@ class ConfigTest {
         assertTrue(Config().problems().isEmpty())
         assertFalse(Config().withButton(BUTTON_WHEEL_MODE, button(4)).problems().isEmpty())
         assertFalse(Config().withButton(BUTTON_WHEEL_MODE, button()).problems().isEmpty())
-        assertFalse(Config().withButton(BUTTON_WHEEL_MODE, ButtonSetting(on = false)).problems().isEmpty())
+        assertTrue(Config().withButton(BUTTON_WHEEL_MODE, ButtonSetting(on = false)).problems().isEmpty())
     }
 
     @Test

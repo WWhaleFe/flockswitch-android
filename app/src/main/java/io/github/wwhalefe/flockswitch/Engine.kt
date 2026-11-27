@@ -554,7 +554,7 @@ class Engine(
     }
 
     /** Moves the followers, then the trigger device, to [channel] (1-based).
-     *  Followers go first so the mouse — the thing the user just pressed — leaves last.
+     *  Followers go first so the mouse - the thing the user just pressed - leaves last.
      *  Stale pairing slots answer with an error and are skipped on their own. */
     fun switchTo(channel: Int) {
         // The wheel mode as it leaves, to put back when it returns.
@@ -618,7 +618,7 @@ class Engine(
         onPress(BUTTON_WHEEL_MODE, Gesture.Press)
     }
 
-    /** Asks the master mouse, if it is here, which channel it is on — this device's
+    /** Asks the master mouse, if it is here, which channel it is on - this device's
      *  channel, which the screen keeps on. */
     private fun readChannel() {
         val d = trigger ?: return

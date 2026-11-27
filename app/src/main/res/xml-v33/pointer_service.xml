@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 13 and later: keys reach the focused field through the service's input method
+     connection, so the service never reads window content. (res/xml has the older
+     setting, which needs it to find the focused field.) -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeAnnouncement"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:canRequestFilterKeyEvents="true"
+    android:canRetrieveWindowContent="false"
+    android:description="@string/pointer_service_description"
+    android:notificationTimeout="1000"
+    android:canPerformGestures="true" />
