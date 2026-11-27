@@ -250,7 +250,14 @@ fn java(env: &JNIEnv, s: Option<String>) -> jstring {
         .unwrap_or(null_mut())
 }
 // Both JNI entry points use the same receive-only config boundary.
+#[cfg(test)]
 fn android_config(text: &str, base: &str) -> serde_json::Result<NetConfig> {
+    android_config_migrating(text, base).map(|(c, _)| c)
+}
+/// Like `android_config`; the flag says the one-time default-key migration (2.2) ran, so
+/// the app must save `hangul_defaults`. Android keeps no key rules of its own (the master's
+/// come with its settings): the migration only records the marker.
+fn android_config_migrating(text: &str, base: &str) -> serde_json::Result<(NetConfig, bool)> {
     let mut c: NetConfig = serde_json::from_str(text)?;
     c.role = flock_net::Role::Sub;
     c.config_dir = base.into();
@@ -258,7 +265,13 @@ fn android_config(text: &str, base: &str) -> serde_json::Result<NetConfig> {
     // sharing setting, which the master's settings overwrite.
     c.receive_clipboard = c.share_clipboard;
     c.share_clipboard = true;
-    Ok(c)
+    let migrated = c.apply_hangul_defaults();
+    Ok((c, migrated))
+}
+fn announce_migration(c: &NetConfig, migrated: bool) {
+    if migrated {
+        push(json!({"hangul_defaults": c.hangul_defaults}));
+    }
 }
 fn android_hooks() -> Hooks {
     Hooks {
@@ -285,7 +298,7 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_start(
     let stage = string(&mut env, stage);
     let name = string(&mut env, name);
     let result = (|| -> anyhow::Result<()> {
-        let mut c = android_config(&config, &base)?;
+        let (mut c, migrated) = android_config_migrating(&config, &base)?;
         if c.name.is_empty() {
             c.name = name;
         }
@@ -294,6 +307,7 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_start(
             s.stop();
         }
         queue().reset(None);
+        announce_migration(&c, migrated);
         // Leftovers of an earlier run (images nobody took, files netcore saved).
         clear_stage(&stage);
         clear_received(&base);
@@ -364,7 +378,8 @@ pub extern "system" fn Java_io_github_wwhalefe_flockswitch_net_NetBridge_updateC
 ) {
     let text = string(&mut env, c);
     let r = runtime().lock().unwrap();
-    if let (Ok(c), Some(s)) = (android_config(&text, &r.base), &r.service) {
+    if let (Ok((c, migrated)), Some(s)) = (android_config_migrating(&text, &r.base), &r.service) {
+        announce_migration(&c, migrated);
         let _ = s.update_config(c);
     }
 }
@@ -612,6 +627,40 @@ mod tests {
         let legacy = android_config(r#"{"on":true}"#, "/tmp/android").unwrap();
         assert_eq!(legacy.role, flock_net::Role::Sub);
         assert!(!legacy.notice_accepted);
+    }
+
+    #[test]
+    fn hangul_defaults_marker_is_handed_to_the_app_once() {
+        let _guard = GLOBAL_ACTIONS.lock().unwrap();
+        queue().reset(None);
+        let (c, migrated) = android_config_migrating(r#"{"on":true}"#, "/tmp/android").unwrap();
+        assert!(migrated);
+        announce_migration(&c, migrated);
+        assert_eq!(c.hangul_defaults, flock_net::HANGUL_DEFAULTS);
+        let action: Value = serde_json::from_str(&queue().next(Duration::ZERO).unwrap()).unwrap();
+        assert_eq!(action, json!({"hangul_defaults": flock_net::HANGUL_DEFAULTS}));
+        // Saved by the app, it is not announced again.
+        let (again, migrated) = android_config_migrating(&format!(r#"{{"hangul_defaults":{}}}"#, flock_net::HANGUL_DEFAULTS), "/tmp/android").unwrap();
+        announce_migration(&again, migrated);
+        assert!(!migrated);
+        assert_eq!(again.hangul_defaults, flock_net::HANGUL_DEFAULTS);
+        assert_eq!(queue().next(Duration::ZERO), None);
+    }
+
+    #[test]
+    fn paused_peer_change_reaches_the_app() {
+        let _guard = GLOBAL_ACTIONS.lock().unwrap();
+        queue().reset(None);
+        let p = flock_net::PeerConfig { id: "master".into(), paused: true, ..Default::default() };
+        (android_hooks().on_peer_changed)(p);
+        let action: Value = serde_json::from_str(&queue().next(Duration::ZERO).unwrap()).unwrap();
+        assert_eq!(action["peer_changed"]["paused"], true);
+    }
+
+    #[test]
+    fn reports_its_single_display() {
+        let platform = Android { model: Mutex::new(Model { w: 1080, h: 2400, ..Default::default() }), ..Default::default() };
+        assert_eq!(platform.displays(), vec![Rect::new(0., 0., 1080., 2400.)]);
     }
 
     #[test]

@@ -79,6 +79,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -1659,6 +1660,14 @@ private fun netRequest(key: String, value: Any): String? {
     return null
 }
 
+/** Pause or resume a paired computer: `{"pause":"<id>","paused":true}`. */
+private fun netPause(id: String, paused: Boolean): String? {
+    if (!NetBridge.available) return null
+    val json = org.json.JSONObject().put("pause", id).put("paused", paused).toString()
+    NetBridge.post { NetBridge.request(json) }
+    return null
+}
+
 @Composable
 private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> Unit, actions: Actions, demoNet: NetStatus? = null) {
     val context = LocalContext.current
@@ -1740,18 +1749,27 @@ private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
             val state = net.peer(peer.id)
             val up = live && state?.connected == true
             val rtt = state?.rtt_ms
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // The service knows at once; the saved flag follows a moment later.
+            val paused = if (live && state != null) state.paused else peer.paused
+            Row(Modifier.alpha(if (paused) 0.55f else 1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(LabelGap)) {
                     RowLabel(peer.name)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        StatusDot(if (up) Color(0xFF2F9E44) else NeutralDot)
+                        StatusDot(if (up && !paused) Color(0xFF2F9E44) else NeutralDot)
                         Hint(
-                            if (up) stringResource(R.string.net_master_up, rtt?.let { "%.1f".format(it) } ?: "-")
+                            if (paused) stringResource(R.string.net_paused)
+                            else if (up) stringResource(R.string.net_master_up, rtt?.let { "%.1f".format(it) } ?: "-")
                             else stringResource(R.string.net_master_down),
                         )
                     }
                 }
                 AppButton(stringResource(R.string.net_unpair), { unpair(peer.id) })
+            }
+            SwitchRow(stringResource(R.string.net_pause), paused, subtitle = stringResource(R.string.net_pause_help)) { on ->
+                // Both ways, so neither a late status nor a late config write undoes it: the
+                // service pauses now and the saved peer follows.
+                error = netPause(peer.id, on)
+                update { copy(network = network.copy(peers = network.peers.map { if (it.id == peer.id) it.copy(paused = on) else it })) }
             }
             val side = net.masterSide(peer.id)
             Hint(
@@ -1821,6 +1839,28 @@ private fun NetworkTab(cfg: Config, s: Status, update: (Config.() -> Config) -> 
         }
     }
 
+    Section(stringResource(R.string.net_touch_title)) {
+        LabeledControl(stringResource(R.string.net_touch_right)) {
+            ValuePicker(
+                listOf(
+                    NetworkConfig.RIGHT_BACK to stringResource(R.string.net_touch_right_back),
+                    NetworkConfig.RIGHT_LONG_PRESS to stringResource(R.string.net_touch_right_long),
+                ),
+                n.right_button,
+            ) { v -> update { copy(network = network.copy(right_button = v)) } }
+        }
+        LabeledControl(stringResource(R.string.net_touch_middle)) {
+            ValuePicker(
+                listOf(
+                    NetworkConfig.MIDDLE_HOME to stringResource(R.string.net_touch_middle_home),
+                    NetworkConfig.MIDDLE_NONE to stringResource(R.string.net_touch_middle_none),
+                ),
+                n.middle_button,
+            ) { v -> update { copy(network = network.copy(middle_button = v)) } }
+        }
+        Hint(stringResource(R.string.net_touch_note))
+    }
+
     // Rules are the master's only once its settings have arrived (before that they are defaults).
     KeysSection(live && net.following != null && net.peers.any { p -> p.connected && n.peers.any { it.id == p.id } })
 
@@ -1885,6 +1925,16 @@ private fun KeysSection(online: Boolean) {
         if (!editableNow) Hint(stringResource(R.string.net_keys_old_master))
         else if (!connected) Hint(stringResource(R.string.net_keys_offline))
         if (Build.VERSION.SDK_INT < 33) Hint(stringResource(R.string.net_keyboard_legacy))
+        // What works between which systems, as the code does it (not what would be nice).
+        var details by rememberSaveable { mutableStateOf(false) }
+        Hint(stringResource(R.string.net_kbd_note))
+        AppButton(stringResource(if (details) R.string.net_kbd_less else R.string.net_kbd_more), { details = !details }, kind = ButtonKind.Text)
+        if (details) {
+            Hint(stringResource(R.string.net_kbd_hangul))
+            Hint(stringResource(R.string.net_kbd_compose))
+            Hint(stringResource(R.string.net_kbd_mods))
+            Hint(stringResource(R.string.net_kbd_cannot))
+        }
         // Modifier keys.
         KeysHeading(stringResource(R.string.net_keys_mods))
         val cross = src == "mac"

@@ -178,6 +178,8 @@ class SwitchService : Service() {
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
         )
         val text = when {
+            // The Korean/English mode of the keyboard that is being shared (net/Hangul.kt).
+            c.network.on && s.pointerService -> getString(R.string.notification_mode, getString(R.string.net_receive), if (s.hangul) "한" else "A")
             c.network.on -> getString(R.string.net_receive)
             !c.enabled -> getString(R.string.status_paused)
             s.trigger != null && s.channel != null -> getString(R.string.notification_here, s.trigger, s.channel)

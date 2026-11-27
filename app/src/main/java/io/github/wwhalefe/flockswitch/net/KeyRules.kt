@@ -141,14 +141,23 @@ object KeyRules {
 
     fun key(src: String, dst: String = "android") = "$src>$dst"
 
+    /** The Korean/English key a master of [masterOs] makes arrive here, from [known] (the
+     *  status' rules, as the master has them) or the defaults: only Shift+Space and
+     *  Control+Space exist on Android, anything else counts as Shift+Space. */
+    fun toggleKeyFor(masterOs: String?, known: Map<String, DirRules>): String {
+        if (masterOs !in SOURCES) return ANDROID_HANGUL.first()
+        val dst = (known[key(masterOs!!)] ?: defaultFor(masterOs)).hangul_dst
+        return if (dst in ANDROID_HANGUL) dst else ANDROID_HANGUL.first()
+    }
+
     /** The rules of a direction when nothing was ever set: what netcore's `default_for` gives. */
     fun defaultFor(src: String, dst: String = "android"): DirRules {
         val (source, target) = when {
             src == "mac" && dst == "android" -> listOf("caps_lock", "shift_space") to "shift_space"
             src == "mac" -> listOf("caps_lock", "shift_space") to "lang1"
-            dst == "mac" -> listOf("lang1") to "caps_lock"
-            dst == "android" -> listOf("lang1") to "shift_space"
-            else -> listOf("lang1") to "lang1"
+            dst == "mac" -> listOf("lang1", "shift_space") to "caps_lock"
+            dst == "android" -> listOf("lang1", "shift_space") to "shift_space"
+            else -> listOf("lang1", "shift_space") to "lang1"
         }
         return DirRules(hangul_src = source, hangul_dst = target, hanja = src != "mac")
     }

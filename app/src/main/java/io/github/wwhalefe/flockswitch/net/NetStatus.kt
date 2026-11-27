@@ -6,7 +6,14 @@ import kotlinx.serialization.Serializable
 // What `NetBridge.status()` returns (netcore's `Status`), as far as the screen uses it.
 
 @Serializable
-data class NetMe(val id: String = "", val name: String = "", val port: Int = 0, val error: String? = null, val can_send: Boolean = true)
+data class NetMe(
+    val id: String = "", val name: String = "", val port: Int = 0, val error: String? = null, val can_send: Boolean = true,
+    /** This device's monitors (always one on Android). */
+    val displays: List<NetRect> = emptyList(),
+)
+
+@Serializable
+data class NetRect(val x: Double = 0.0, val y: Double = 0.0, val width: Double = 0.0, val height: Double = 0.0)
 
 @Serializable
 data class NetFound(val id: String = "", val name: String = "", val os: String = "", val addr: String = "", val paired: Boolean = false)
@@ -17,13 +24,17 @@ data class NetPeerState(
     val name: String = "", val os: String = "",
     /** The peer takes key rule edits (a 2.1 master); false for a 2.0 master. */
     val keyrules: Boolean = false,
+    /** This device pauses the connection to the computer. */
+    val paused: Boolean = false,
+    /** The computer's monitors as it told us (empty: not known, treat as one). */
+    val displays: List<NetRect> = emptyList(),
 )
 
 @Serializable
 data class NetPairing(val peer_name: String = "", val code: String = "", val stage: String = "", val reason: String? = null)
 
 @Serializable
-data class NetCell(val id: String = "", val col: Int = 0, val row: Int = 0)
+data class NetCell(val id: String = "", val col: Int = 0, val row: Int = 0, val display: Int = 0)
 
 @Serializable
 data class NetStatus(
@@ -49,18 +60,28 @@ data class NetStatus(
     /** The side of this screen the master is on, from the layout the master handed over
      *  ("left", "right", "top", "bottom"), or null when its cell is not next to ours. */
     fun masterSide(masterId: String): String? {
-        val mine = layout.firstOrNull { it.id == me.id } ?: return null
-        val master = layout.firstOrNull { it.id == masterId } ?: return null
-        val dx = master.col - mine.col
-        val dy = master.row - mine.row
-        return when {
-            dx == -1 && dy == 0 -> "left"
-            dx == 1 && dy == 0 -> "right"
-            dx == 0 && dy == -1 -> "top"
-            dx == 0 && dy == 1 -> "bottom"
-            else -> null
+        val mine = layout.filter { it.id == me.id }
+        val master = layout.filter { it.id == masterId }
+        // A computer has one cell per monitor: the first of the master's cells that touches ours.
+        for (m in master) for (c in mine) {
+            val dx = m.col - c.col
+            val dy = m.row - c.row
+            val side = when {
+                dx == -1 && dy == 0 -> "left"
+                dx == 1 && dy == 0 -> "right"
+                dx == 0 && dy == -1 -> "top"
+                dx == 0 && dy == 1 -> "bottom"
+                else -> null
+            }
+            if (side != null) return side
         }
+        return null
     }
+
+    /** The key the master's rules make arrive as the Korean/English toggle: "shift_space"
+     *  or "control_space". [masterOs] is the system of the connected master, null when none
+     *  is connected (Shift+Space, the default of every sender). */
+    fun hangulToggleKey(masterOs: String?): String = KeyRules.toggleKeyFor(masterOs, keys)
 
     companion object {
         /** An answer that cannot be read is the same as no service running. */

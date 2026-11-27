@@ -61,6 +61,8 @@ data class Status(
     val overlayNeeded: Boolean = false,
     /** The user has turned flockswitch's accessibility service on. */
     val pointerService: Boolean = false,
+    /** The network receiver is typing Korean (flockswitch's own mode, see net/Hangul.kt). */
+    val hangul: Boolean = false,
 )
 
 /** Where saving or loading a settings file is. */
