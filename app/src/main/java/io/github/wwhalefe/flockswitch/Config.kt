@@ -469,15 +469,8 @@ data class Config(
      *  network (which also needs the notice accepted). */
     fun serviceNeeded(): Boolean = enabled || (network.on && network.notice_accepted)
 
-    /** The copy that may travel to another install: see [io.github.wwhalefe.flockswitch.net.NetworkConfig.withoutTrust].
-     *  If receiving over the network was the only thing on, a button is turned on instead
-     *  (the settings need one when the network is off). */
-    fun withoutNetworkTrust(): Config {
-        val plain = copy(network = network.withoutTrust())
-        return if (network.on && plain.triggers().isEmpty()) plain.copy(buttons = plain.buttons.copy(wheelMode = plain.buttons.wheelMode.let {
-            it.copy(on = true, channels = it.channels.ifEmpty { ButtonSetting().channels })
-        })) else plain
-    }
+    /** Removes this install's network trust without changing any button settings. */
+    fun withoutNetworkTrust(): Config = copy(network = network.withoutTrust())
 
     /** This (loaded from a settings file) with the switch, the accepted notice and the paired
      *  computers, the name and the port of [current] kept: they belong to this install, the other
@@ -503,7 +496,6 @@ data class Config(
                 if (b.on && m.on && m.channels.isEmpty()) out += "$name: turn on at least one channel"
             }
         }
-        if (!network.on && triggers().isEmpty()) out += "turn on at least one button"
         if (Edge.entries.any { edges.channel(it) !in 0..3 }) out += "edges: the channel must be 1, 2, 3 or 0"
         if (edges.dwellMs !in 100..5000) out += "edges: the time at the edge must be 100 to 5000 ms"
         if (parseColor(edges.animColor) == null) out += "edges: the colour must be like #FFCC00"

@@ -79,7 +79,7 @@ class NetworkConfigTest {
         assertFalse(read.network.notice_accepted)
         assertTrue(read.network.peers.isEmpty())
         assertEquals(50000, read.network.port)
-        // Receiving over the network was the only thing on: a button is turned on instead.
+        // Existing button settings stay as they were.
         assertTrue(read.triggers().isNotEmpty())
     }
     @Test fun serviceRunsOnlyWhileSomethingNeedsIt() {
@@ -102,6 +102,24 @@ class NetworkConfigTest {
             val kept = loadConfig(dir)
             assertTrue(kept.network.on && kept.network.notice_accepted)
             assertEquals(listOf(peer), kept.network.peers)
+        } finally { dir.deleteRecursively() }
+    }
+    @Test fun restoringNetworkOnlyConfigNeverEnablesButtons() {
+        val dir = java.nio.file.Files.createTempDirectory("flockswitch-network-only").toFile()
+        try {
+            val config = Config(enabled = false,
+                buttons = Buttons(wheelMode = ButtonSetting(on = false, channels = emptyList())),
+                network = NetworkConfig(on = true, notice_accepted = true,
+                    peers = listOf(NetworkPeer(id = "master", fingerprint = "fp"))))
+            val file = java.io.File(dir, "config.json")
+            file.writeText(config.toJson())
+            val expected = config.copy(network = config.network.withoutTrust())
+            assertEquals(expected, loadConfig(dir))
+            file.writeText(loadConfig(dir).toJson())
+            assertEquals(expected, loadConfig(dir))
+            identityKeyFile(dir).apply { parentFile!!.mkdirs(); writeText("key") }
+            file.writeText(config.toJson())
+            assertEquals(config, loadConfig(dir))
         } finally { dir.deleteRecursively() }
     }
     @Test fun manualAddress() {

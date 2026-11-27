@@ -1,5 +1,7 @@
 package io.github.wwhalefe.flockswitch
 
+import io.github.wwhalefe.flockswitch.net.NetworkConfig
+import io.github.wwhalefe.flockswitch.net.NetworkPeer
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -40,6 +42,30 @@ class SettingsFileTest {
         for (cfg in listOf(Config(), custom)) {
             val r = SettingsFile.read(SettingsFile.write(cfg, header))
             assertEquals(ImportResult.Ok(cfg, header), r)
+        }
+    }
+
+    @Test
+    fun disabledButtonsSurviveExportAndImportWithoutNetworkTrust() {
+        val buttons = Buttons(
+            wheelMode = ButtonSetting(on = false, channels = emptyList()),
+            gesture = ButtonSetting(on = false, channels = listOf(3, 1)),
+            middle = ButtonSetting(on = false, channels = listOf(2)),
+        )
+        for (networkOn in listOf(false, true)) {
+            val config = custom.copy(buttons = buttons, network = NetworkConfig(
+                on = networkOn, notice_accepted = true, peers = listOf(NetworkPeer(id = "master", fingerprint = "fp")),
+            ))
+            val expected = config.copy(network = config.network.withoutTrust())
+            assertEquals(expected, config.withoutNetworkTrust())
+            val exported = SettingsFile.write(config, header)
+            assertEquals(expected, Config.fromJson(exported))
+            assertEquals(ImportResult.Ok(expected, header), SettingsFile.read(exported))
+            // Also sanitize an older or hand-written file without changing any buttons.
+            val dirty = Config.json.parseToJsonElement(config.toJson()).jsonObject
+            val raw = kotlinx.serialization.json.JsonObject(dirty + (SettingsFile.HEADER to
+                Config.json.encodeToJsonElement(ExportHeader.serializer(), header))).toString()
+            assertEquals(ImportResult.Ok(expected, header), SettingsFile.read(raw))
         }
     }
 
@@ -107,9 +133,6 @@ class SettingsFileTest {
         val badChannel = rejected(good.replace("\"right\": 3", "\"right\": 7"))
         assertEquals(ImportRejection.Unusable, badChannel.why)
         assertTrue(badChannel.detail!!.contains("edges"))
-        // Every button off.
-        val noButton = SettingsFile.write(custom.copy(buttons = Buttons(wheelMode = ButtonSetting(on = false))), header)
-        assertEquals(ImportRejection.Unusable, rejected(noButton).why)
         // A value of the wrong kind.
         assertEquals(ImportRejection.Unusable, rejected(good.replace("\"dwellMs\": 1000", "\"dwellMs\": \"long\"")).why)
     }

@@ -32,8 +32,9 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
     private var multicast: WifiManager.MulticastLock? = null
     private var worker: Thread? = null
     private var active = AtomicBoolean(false)
-    /** Received images are stored and put on the clipboard one at a time, in arrival order. */
+    /** Text and images share one worker so clipboard updates keep their arrival order. */
     private var clips: ExecutorService? = null
+    private var clipboard: ClipboardQueue? = null
     @Volatile private var current: NetworkConfig? = null
     private val gate = ReconnectGate()
     private var keyRulesJob: Job? = null
@@ -71,7 +72,9 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
             monitorNetwork()
             val running = AtomicBoolean(true)
             active = running
-            clips = Executors.newSingleThreadExecutor { r -> Thread(r, "flockswitch-clip-image") }
+            val clipWorker = Executors.newSingleThreadExecutor { r -> Thread(r, "flockswitch-clipboard") }
+            clips = clipWorker
+            clipboard = ClipboardQueue(clipWorker) { main.post(it) }
             worker = Thread({
                 while (running.get()) {
                     val action = NetBridge.nextAction(500) ?: continue
@@ -138,34 +141,43 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
             else -> PointerService.instance?.networkAction(a)
         }
     }.onFailure { Log.w("network action: ${it.message}") }
-    /** Writing the clipboard is allowed from the background; only reading is not. */
+    /** Text follows the same worker and main-thread path as received images. */
     private fun setClipboard(text: String) {
         if (text.isEmpty() || text.length > MAX_CLIPBOARD_CHARS) return
-        val manager = context.getSystemService(ClipboardManager::class.java)
-        manager.setPrimaryClip(ClipData.newPlainText("flockswitch", text))
+        val queue = clipboard ?: return
+        val flag = active
+        if (!flag.get()) return
+        try {
+            queue.text {
+                if (flag.get()) runCatching {
+                    val manager = context.getSystemService(ClipboardManager::class.java)
+                    manager.setPrimaryClip(ClipData.newPlainText("flockswitch", text))
+                }.onFailure { Log.w("clipboard text: ${it.message}") }
+            }
+        } catch (_: java.util.concurrent.RejectedExecutionException) { }
     }
     /** The staged PNG becomes a cache file behind a content:// URI. One worker takes the
      *  images in the order they came, so a small later image cannot land first and a
      *  later one never overwrites an earlier one's file. */
     private fun setClipboardImage(staged: File) {
-        val queue = clips
+        val queue = clipboard
         val flag = active
         if (!shared.config.value.network.share_clipboard || queue == null || !flag.get()) { staged.delete(); return }
         try {
-            queue.execute {
-                runCatching {
-                    if (!flag.get()) { staged.delete(); return@runCatching }
+            queue.image {
+                runCatching<(() -> Unit)?> {
+                    if (!flag.get()) { staged.delete(); return@runCatching null }
                     val dir = File(context.cacheDir, ClipboardImage.SUBDIR)
-                    val file = ClipboardImage.store(staged, dir, System.currentTimeMillis()) ?: return@runCatching
+                    val file = ClipboardImage.store(staged, dir, System.currentTimeMillis()) ?: return@runCatching null
                     val uri = FileProvider.getUriForFile(context, context.packageName + ".clipimages", file)
-                    main.post {
-                        if (!flag.get()) return@post
-                        runCatching {
+                    val apply: () -> Unit = {
+                        if (flag.get()) runCatching {
                             val clip = ClipData.newUri(context.contentResolver, "flockswitch", uri)
                             context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
                         }.onFailure { Log.w("clipboard image: ${it.message}") }
                     }
-                }.onFailure { Log.w("clipboard image: ${it.message}") }
+                    apply
+                }.onFailure { Log.w("clipboard image: ${it.message}") }.getOrNull()
             }
         } catch (_: java.util.concurrent.RejectedExecutionException) { staged.delete() }
     }
@@ -217,6 +229,7 @@ class NetworkReceiver(private val context: Context, private val shared: Shared) 
         // Images not stored yet are gone with the native queue (it removed their files).
         clips?.shutdownNow()
         clips = null
+        clipboard = null
         // Finish the old consumer before a new run can read the shared native queue.
         worker?.join(600)
         worker = null
