@@ -306,7 +306,7 @@
     <string name="net_role">Role of this device</string>
     <string name="net_role_value">Sub · receive only</string>
     <string name="net_role_note">Android only receives. Android does not let an app capture the mouse and keyboard input of the whole system, so this device\'s input cannot be sent to another computer. Keep a computer as the master.</string>
-    <string name="net_reconnect">Find connection again</string>
+    <string name="net_reconnect">Reconnect</string>
     <string name="net_reconnecting">Searching</string>
     <string name="net_no_master">No master is paired yet. Pair a computer below</string>
     <string name="net_master_up">Master · connected · %s ms</string>
