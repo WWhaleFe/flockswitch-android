@@ -61,15 +61,11 @@ jobs:
             adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4
             adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false
             # One run per language, each in its own process with the display reset first.
-            for t in korean english; do
-              adb shell wm size 1080x1920
-              adb shell wm density 420
-              adb shell settings put system font_scale 1.0
-              adb shell am force-stop io.github.wwhalefe.flockswitch
-              adb shell input keyevent 3
-              sleep 3
-              ./gradlew --no-daemon connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true "-Pandroid.testInstrumentationRunnerArguments.class=io.github.wwhalefe.flockswitch.ScreenshotTest#$t"
-            done
+            # (android-emulator-runner runs every line on its own, so no multi-line loops.)
+            adb shell wm size 1080x1920 && adb shell wm density 420 && adb shell settings put system font_scale 1.0 && adb shell am force-stop io.github.wwhalefe.flockswitch && adb shell input keyevent 3 && sleep 3
+            ./gradlew --no-daemon connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true "-Pandroid.testInstrumentationRunnerArguments.class=io.github.wwhalefe.flockswitch.ScreenshotTest#korean"
+            adb shell wm size 1080x1920 && adb shell wm density 420 && adb shell settings put system font_scale 1.0 && adb shell am force-stop io.github.wwhalefe.flockswitch && adb shell input keyevent 3 && sleep 3
+            ./gradlew --no-daemon connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true "-Pandroid.testInstrumentationRunnerArguments.class=io.github.wwhalefe.flockswitch.ScreenshotTest#english"
             mkdir -p shots
             adb pull /sdcard/Android/data/io.github.wwhalefe.flockswitch/files/shots/. shots/
             ls -l shots
