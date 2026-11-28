@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.5.0 - 2026-11-28
+
+- Shared network code brought in line with the desktop 2.5 apps. The key mapping check window (desktop Keyboard page) also shows what this device gets. Nothing changes on this device itself.
+- Version 2.5.0 (versionCode 20)
+
 ## 2.4.0 - 2026-11-27
 
 - Crossing: while this device is controlled, any edge that touches another computer on the layout leads there (the controlling computer passes the input on). The controlling computer needs this version too.
